@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title id="documentTitle">婷婷的零食屋｜Ting’s Snack House</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="婷婷的零食屋首页"><span id="brandName">婷婷</span><small id="brandEnglish">Ting’s Snack House</small></a>
+      <nav><a href="#snacks">逛零食</a><a href="#story">小店故事</a></nav>
+      <button class="bag-button" id="openCart" aria-label="打开购物篮">购物篮 <b id="cartCount">0</b></button>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">今日の小さなごほうび</p>
+          <h1>把喜欢的零食，<br /><em>装进日常里。</em></h1>
+          <p class="intro">从童年味道到新鲜人气款，挑一袋让心情变好的中国零食。下单即为您预留，无需在线付款。</p>
+          <a class="primary-button" href="#snacks">开始挑选 <span>→</span></a>
+        </div>
+        <div class="hero-art" aria-label="零食插画">
+          <div class="sun"></div><div class="cloud cloud-a"></div><div class="cloud cloud-b"></div>
+          <div class="mountain back"></div><div class="mountain front"></div>
+          <div class="snack-card rice"><span>米</span><small>锅巴</small></div>
+          <div class="snack-card peach"><span>桃</span><small>果干</small></div>
+          <div class="hero-label">おやつ<br /><i>TIME</i></div>
+        </div>
+      </section>
+
+      <section class="benefits" aria-label="服务特色">
+        <p><b>01</b> 精选好味道</p><p><b>02</b> 芝加哥可配送</p><p><b>03</b> 下单即留货</p>
+      </section>
+
+      <section class="shop" id="snacks">
+        <div class="section-heading"><div><p class="eyebrow">Snack Selection</p><h2>今日零食铺</h2></div><p>慢慢挑，喜欢的都可以带走。</p></div>
+        <div class="filters" id="filters">
+          <button class="active" data-filter="全部">全部</button><button data-filter="甜味">甜味</button><button data-filter="咸香">咸香</button><button data-filter="饮品">饮品</button><button data-filter="童年回忆">童年回忆</button>
+        </div>
+        <div class="product-grid" id="productGrid"></div>
+      </section>
+
+      <section class="delivery-info" aria-label="配送说明">
+        <span class="delivery-stamp">DELIVERY<br /><i>CHICAGO</i></span>
+        <div><p class="eyebrow">Local Delivery</p><h2>把零食送到你身边</h2><p id="deliveryDescription">芝加哥 Chinatown 附近可免费配送；10 英里以内订单满 <strong>$50</strong> 也可享免费配送。提交订单后，我们会通过电话确认配送范围、时间与费用。</p></div>
+      </section>
+
+      <section class="story" id="story">
+        <div class="story-mark">小<br />町</div>
+        <div><p class="eyebrow">About Komachi</p><h2>一间认真挑选<br />小快乐的零食屋</h2><p>我们相信，零食是平凡日子里的小仪式感。每一件上架的商品，都希望让你想起某个温暖的下午。</p><p class="signature">おいしい時間を、どうぞ。</p></div>
+      </section>
+    </main>
+
+    <footer><span><span id="footerName">婷婷的零食屋</span> © 2026</span><span>营业时间：每日 10:00 – 21:00</span><a href="admin.html">店主后台</a></footer>
+
+    <aside class="cart" id="cart" aria-label="购物篮" aria-hidden="true">
+      <div class="cart-header"><h2>购物篮</h2><button id="closeCart" aria-label="关闭购物篮">×</button></div>
+      <div class="cart-items" id="cartItems"></div>
+      <div class="cart-empty" id="emptyCart">篮子还是空的。<br />去挑一份小快乐吧。</div>
+      <div class="cart-footer">
+        <div class="cart-total"><span>已选商品</span><b id="totalCount">0 件</b></div>
+        <button class="primary-button checkout" id="checkout" disabled>填写订购信息 <span>→</span></button>
+      </div>
+    </aside>
+    <div class="overlay" id="overlay"></div>
+
+    <dialog id="orderDialog">
+      <button class="dialog-close" id="closeDialog" aria-label="关闭">×</button>
+      <div id="orderFormWrap"><p class="eyebrow">Reserve Your Snacks</p><h2>为您留好零食</h2><p class="dialog-note">提交后我们会根据您留下的信息联系您确认取货。无需在线付款。</p>
+        <form id="orderForm">
+          <label>您的姓名<input required name="name" placeholder="请输入姓名" autocomplete="name" /></label>
+          <label>手机号码<input required name="phone" type="tel" inputmode="tel" placeholder="请输入手机号码" autocomplete="tel" /></label>
+          <label>取货方式<select required name="fulfillment" id="fulfillment"><option value="delivery">配送到家</option><option value="pickup">到店自取</option></select></label>
+          <label id="addressField">配送地址<input name="address" id="address" required placeholder="请输入街道、门牌号和邮编" autocomplete="street-address" /></label>
+          <p class="delivery-note" id="deliveryNote">Chinatown 附近免费配送；10 英里以内满 $50 免费配送。我们会电话确认配送安排。</p>
+          <div class="order-summary" id="orderSummary"></div>
+          <button class="primary-button submit" type="submit">确认提交订单 <span>→</span></button>
+        </form>
+      </div>
+      <div class="success" id="successMessage" hidden><div>✓</div><p class="eyebrow">Arigatō</p><h2>已为您提交</h2><p>谢谢您的订购！我们会尽快通过电话与您确认。</p><button class="primary-button" id="done">继续逛逛 <span>→</span></button></div>
+    </dialog>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
