@@ -51,8 +51,8 @@
       </section>
 
       <section class="story" id="story">
-        <div class="story-mark">小<br />婷</div>
-        <div><p class="eyebrow">About our Snack House</p><h2>一间认真挑选<br />小快乐的零食屋</h2><p>我们相信，零食是平凡日子里的小仪式感。每一件上架的商品，都希望让你想起某个温暖的下午。</p><p class="signature">おいしい時間を、どうぞ。</p></div>
+        <div class="story-mark">小<br />町</div>
+        <div><p class="eyebrow">About Komachi</p><h2>一间认真挑选<br />小快乐的零食屋</h2><p>我们相信，零食是平凡日子里的小仪式感。每一件上架的商品，都希望让你想起某个温暖的下午。</p><p class="signature">おいしい時間を、どうぞ。</p></div>
       </section>
     </main>
 
@@ -74,7 +74,7 @@
       <div id="orderFormWrap"><p class="eyebrow">Reserve Your Snacks</p><h2>为您留好零食</h2><p class="dialog-note">提交后我们会根据您留下的信息联系您确认取货。无需在线付款。</p>
         <form id="orderForm">
           <label>您的姓名<input required name="name" placeholder="请输入姓名" autocomplete="name" /></label>
-          <label>手机号码<input required name="phone" type="tel" inputmode="tel" placeholder="请输入手机号码" autocomplete="tel" /></label>
+          <label>手机号码<input required name="phone" type="tel" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" title="请输入 10 位数字电话号码" placeholder="请输入10位电话号码" autocomplete="tel" /></label>
           <label>取货方式<select required name="fulfillment" id="fulfillment"><option value="delivery">配送到家</option><option value="pickup">到店自取</option></select></label>
           <label id="addressField">配送地址<input name="address" id="address" required placeholder="请输入街道、门牌号和邮编" autocomplete="street-address" /></label>
           <p class="delivery-note" id="deliveryNote">Chinatown 附近免费配送；10 英里以内满 $50 免费配送。我们会电话确认配送安排。</p>
