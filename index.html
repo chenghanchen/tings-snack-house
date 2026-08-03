@@ -12,7 +12,7 @@
   <body>
     <header class="site-header">
       <a class="brand" href="#top" aria-label="婷婷的零食屋首页"><span id="brandName">婷婷</span><small id="brandEnglish">Ting’s Snack House</small></a>
-      <nav><a href="#snacks">逛零食</a><a href="#story">小店故事</a></nav>
+      <nav><a href="#snacks">逛零食</a><a href="#story">小店故事</a><a href="#" id="openOrderLookup">查询订单</a></nav>
       <button class="bag-button" id="openCart" aria-label="打开购物篮">购物篮 <b id="cartCount">0</b></button>
     </header>
 
@@ -83,7 +83,14 @@
           <button class="primary-button submit" type="submit">确认提交订单 <span>→</span></button>
         </form>
       </div>
-      <div class="success" id="successMessage" hidden><div>✓</div><p class="eyebrow">Arigatō</p><h2>已为您提交</h2><p>谢谢您的订购！我们会尽快通过电话与您确认。</p><button class="primary-button" id="done">继续逛逛 <span>→</span></button></div>
+      <div class="success" id="successMessage" hidden><div>✓</div><p class="eyebrow">Arigatō</p><h2>已为您提交</h2><p>订单号：<b id="submittedOrderNumber"></b><br />请保存订单号；可用订单号和电话查询或取消订单。</p><button class="primary-button" id="done">继续逛逛 <span>→</span></button></div>
+    </dialog>
+    <dialog id="orderLookupDialog">
+      <button class="dialog-close" id="closeOrderLookup" aria-label="关闭">×</button>
+      <div id="orderLookupFormWrap"><p class="eyebrow">Order Lookup</p><h2>查询您的订单</h2><p class="dialog-note">请输入提交订单时获得的订单号和 10 位电话号码。</p>
+        <form id="orderLookupForm"><label>订单号<input id="lookupOrderNumber" required placeholder="例如 TSH-123456" autocomplete="off" /></label><label>手机号码<input id="lookupPhone" required inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" placeholder="请输入10位电话号码" autocomplete="tel" /></label><button class="primary-button submit" type="submit">查询订单 <span>→</span></button></form>
+      </div>
+      <div id="lookupResult" hidden></div>
     </dialog>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
