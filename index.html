@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
     <style>
-      #heroArt { background-image:url("hero-snack-illustration-v1.png"); background-size: cover; background-position: center; }
+      #heroArt { background-size: cover; background-position: center; }
       #heroArt.photo-hero > :not(#heroIllustration) { display:none; }
       #heroIllustration { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:3; pointer-events:none; }
       #heroIllustration[hidden] { display:none; }
@@ -31,7 +31,7 @@
           <p class="intro" id="heroIntro">从童年味道到新鲜人气款，挑一袋让心情变好的中国零食。下单即为您预留，无需在线付款。</p>
           <a class="primary-button" href="#snacks"><span id="heroButton">开始挑选</span> <span>→</span></a>
         </div>
-        <div class="hero-art photo-hero" id="heroArt" data-default-photo="true" aria-label="零食插画">
+        <div class="hero-art" id="heroArt" aria-label="零食插画">
           <div class="sun"></div><div class="cloud cloud-a"></div><div class="cloud cloud-b"></div>
           <div class="mountain back"></div><div class="mountain front"></div>
           <div class="snack-card rice"><span id="heroCardOneIcon">米</span><small id="heroCardOneText">锅巴</small></div>
