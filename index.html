@@ -16,6 +16,8 @@
       #heroIllustration { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:3; pointer-events:none; }
       #heroIllustration[hidden] { display:none; }
       #story { min-height:440px; background-color:#f5e8cd; background-image:url("footer-snack-illustration-v1.png"); background-size:cover; background-position:center; }
+      #story.footer-composite { min-height:0; aspect-ratio:8/3; padding:0; display:block; background-image:url("footer-composite-v1.png") !important; background-size:100% 100%; background-position:center; }
+      #story.footer-composite > * { display:none; }
       #story .story-mark { color:#ae4c38; border-color:#ae4c38aa; background:#fffdf899; }
       #story > div:last-child { max-width:470px; padding:18px; background:#fffdf874; }
       @media (max-width:780px) { .hero { min-height:560px; } .hero-copy { width:100%; min-height:560px; padding:60px 8vw; background:linear-gradient(90deg,#f8f3e8ee 0%,#f8f3e8b8 58%,#f8f3e800 100%); } #heroArt { min-height:100%; } }
@@ -63,7 +65,7 @@
         <div><p class="eyebrow">Local Delivery</p><h2>把零食送到你身边</h2><p id="deliveryDescription">芝加哥 Chinatown 附近可免费配送；10 英里以内订单满 <strong>$50</strong> 也可享免费配送。提交订单后，我们会通过电话确认配送范围、时间与费用。</p></div>
       </section>
 
-      <section class="story" id="story">
+      <section class="story footer-composite" id="story" role="img" aria-label="婷婷的零食屋故事、服务与联系方式">
         <div class="story-mark" id="storyMark">小<br />町</div>
         <div><p class="eyebrow" id="storyEyebrow">About Komachi</p><h2><span id="storyTitle">一间认真挑选</span><br /><span id="storySubtitle">小快乐的零食屋</span></h2><p id="storyText">我们相信，零食是平凡日子里的小仪式感。每一件上架的商品，都希望让你想起某个温暖的下午。</p><p class="signature" id="storySignature">おいしい時間を、どうぞ。</p></div>
       </section>
