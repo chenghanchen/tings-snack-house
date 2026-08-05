@@ -75,7 +75,12 @@ alter table public.orders add column if not exists delivery_fee numeric(10,2) no
 alter table public.orders add column if not exists total_amount numeric(10,2) not null default 0;
 alter table public.orders add column if not exists archived boolean not null default false;
 alter table public.orders add column if not exists archived_at timestamptz;
+-- The original schema used an older status check.  Keep every lifecycle status
+-- written by the customer and owner order flows valid before recreating it.
+alter table public.orders drop constraint if exists orders_status_check;
 update public.orders set status='待确认' where status='新订单';
+update public.orders set status='待确认' where status not in ('待确认','已确认','配送中','已取消','已完成');
+alter table public.orders add constraint orders_status_check check (status in ('待确认','已确认','配送中','已取消','已完成'));
 update public.orders set archived=true, archived_at=coalesce(archived_at, now()) where status in ('已取消','已完成');
 update public.orders set tax_amount=round(coalesce(subtotal,0)*coalesce(tax_rate,10.5)/100,2), total_amount=round(coalesce(subtotal,0)*(1+coalesce(tax_rate,10.5)/100)+coalesce(delivery_fee,0),2) where total_amount=0;
 
