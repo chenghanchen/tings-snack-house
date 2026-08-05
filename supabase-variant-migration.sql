@@ -14,6 +14,8 @@ alter table public.products add column if not exists position integer not null d
 alter table public.categories add column if not exists position integer not null default 0;
 alter table public.categories add column if not exists is_system boolean not null default false;
 alter table public.shop_settings add column if not exists is_accepting_orders boolean not null default true;
+alter table public.shop_settings add column if not exists pickup_address text not null default '天河城二楼，Archer Ave';
+alter table public.shop_settings add column if not exists pickup_note text not null default '请到天河城二楼取货；每日 10:00–22:00';
 
 with ranked as (select id,row_number() over(order by id)-1 as new_position from public.products)
 update public.products p set position=r.new_position from ranked r where p.id=r.id and p.position=0;
