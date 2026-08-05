@@ -135,7 +135,7 @@ begin
   end loop;
   fee := case when p_fulfillment='pickup' or item_subtotal >= free_at then 0 else base_fee end;
   tax := round(item_subtotal*store_tax/100,2); total := round(item_subtotal+tax+fee,2);
-  num := 'TSH-'||to_char(clock_timestamp(),'YYMMDDHH24MISSMS')||upper(substr(md5(random()::text),1,3));
+  num := 'TSH-'||to_char(clock_timestamp(),'YYMMDD')||'-'||upper(substr(md5(random()::text),1,5));
   insert into public.orders(order_number,customer_name,phone,email,fulfillment,address,customer_note,items,subtotal,tax_rate,tax_amount,delivery_fee,total_amount,status,archived)
   values(num,trim(p_customer_name),p_phone,nullif(trim(p_email),''),p_fulfillment,nullif(trim(p_address),''),nullif(trim(p_note),''),lines,item_subtotal,store_tax,tax,fee,total,'待确认',false) returning id into order_id;
   return jsonb_build_object('id',order_id,'order_number',num,'subtotal',item_subtotal,'tax_rate',store_tax,'tax_amount',tax,'delivery_fee',fee,'total_amount',total);
