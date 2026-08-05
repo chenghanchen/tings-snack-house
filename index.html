@@ -92,6 +92,7 @@
           <label>您的姓名<input required name="name" placeholder="请输入姓名" autocomplete="name" /></label>
           <label>手机号码<input required name="phone" type="tel" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" title="请输入 10 位数字电话号码" placeholder="请输入10位电话号码" autocomplete="tel" /></label>
           <label>电子邮箱（选填）<input name="email" type="email" placeholder="例如 name@example.com" autocomplete="email" /></label>
+          <label>订单备注（选填）<textarea name="note" maxlength="300" rows="3" placeholder="例如：请放在门口；最多 300 字"></textarea></label>
           <label>取货方式<select required name="fulfillment" id="fulfillment"><option value="delivery">配送到家</option><option value="pickup">到店自取</option></select></label>
           <label id="addressField">配送地址<input name="address" id="address" required placeholder="请输入街道、门牌号和邮编" autocomplete="street-address" /></label>
           <p class="delivery-note" id="deliveryNote">Chinatown 附近免费配送；10 英里以内满 $50 免费配送。我们会电话确认配送安排。</p>
