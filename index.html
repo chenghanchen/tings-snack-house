@@ -19,7 +19,7 @@
       #story.footer-composite { min-height:0; width:100%; margin:0; aspect-ratio:8/3; padding:0; display:block; background-image:url("footer-composite-v1.png") !important; background-size:100% 100%; background-position:center; }
       #story.footer-composite > * { display:none; }
       .delivery-info:has(+ #story.footer-composite) { margin-bottom:0; }
-      #story.footer-composite + footer { display:none; }
+      body:has(#story.footer-composite) > footer { display:none; }
       #story .story-mark { color:#ae4c38; border-color:#ae4c38aa; background:#fffdf899; }
       #story > div:last-child { max-width:470px; padding:18px; background:#fffdf874; }
       @media (max-width:780px) { .hero { min-height:560px; } .hero-copy { width:100%; min-height:560px; padding:60px 8vw; background:linear-gradient(90deg,#f8f3e8ee 0%,#f8f3e8b8 58%,#f8f3e800 100%); } #heroArt { min-height:100%; } }
