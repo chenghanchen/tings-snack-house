@@ -8,6 +8,9 @@ alter table public.shop_settings add column if not exists free_delivery_threshol
 alter table public.shop_settings add column if not exists tax_rate numeric(6,3) not null default 10.5;
 alter table public.shop_settings add column if not exists low_stock_threshold integer not null default 5;
 update public.shop_settings set delivery_fee=5, free_delivery_threshold=50, tax_rate=10.5, low_stock_threshold=5 where id=1;
+update public.shop_settings
+set delivery='配送费 $'||to_char(delivery_fee,'FM999999990.00')||'；商品小计满 $'||to_char(free_delivery_threshold,'FM999999990.00')||' 免费配送。'
+where id=1 and coalesce(trim(delivery),'') in ('','芝加哥 Chinatown 附近可免费配送；10 英里以内订单满 $50 也可享免费配送。');
 
 -- Customer ordering, public sorting, and safe product/category management.
 alter table public.products add column if not exists position integer not null default 0;
