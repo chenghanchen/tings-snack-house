@@ -78,6 +78,8 @@ alter table public.orders add column if not exists delivery_fee numeric(10,2) no
 alter table public.orders add column if not exists total_amount numeric(10,2) not null default 0;
 alter table public.orders add column if not exists archived boolean not null default false;
 alter table public.orders add column if not exists archived_at timestamptz;
+alter table public.orders add column if not exists staff_note text;
+alter table public.orders add column if not exists staff_note_updated_at timestamptz;
 -- The original schema used an older status check.  Keep every lifecycle status
 -- written by the customer and owner order flows valid before recreating it.
 alter table public.orders drop constraint if exists orders_status_check;
@@ -184,8 +186,20 @@ begin
   get diagnostics changed=row_count; return changed=1;
 end $$;
 
+create or replace function public.owner_update_order_note(p_order_id uuid,p_staff_note text) returns jsonb language plpgsql security definer set search_path=public as $$
+declare saved_note text; updated_time timestamptz;
+begin
+  if (auth.jwt()->>'email') <> 'chenghanchen1@gmail.com' then raise exception '无权操作'; end if;
+  saved_note := nullif(trim(coalesce(p_staff_note,'')),'');
+  update public.orders set staff_note=saved_note,staff_note_updated_at=case when saved_note is null then null else now() end
+  where id=p_order_id returning staff_note,staff_note_updated_at into saved_note,updated_time;
+  if not found then raise exception '订单不存在'; end if;
+  return jsonb_build_object('staff_note',saved_note,'staff_note_updated_at',updated_time);
+end $$;
+
 grant execute on function public.submit_shop_order(text,text,text,text,text,text,jsonb) to anon, authenticated;
 grant execute on function public.request_order_cancellation(text,text) to anon, authenticated;
 grant execute on function public.lookup_customer_order_v2(text,text) to anon, authenticated;
 grant execute on function public.owner_update_order(uuid,text,text,numeric) to authenticated;
 grant execute on function public.owner_reject_cancellation(uuid) to authenticated;
+grant execute on function public.owner_update_order_note(uuid,text) to authenticated;
