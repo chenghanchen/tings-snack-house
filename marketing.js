@@ -60,5 +60,117 @@ function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCent
   startMultiSelects();
 })();
 
+/* Replace the native multi-select controls with a simple checkbox picker. The
+   original controls stay in the form (hidden) so existing save logic remains
+   compatible while target selection becomes tap-friendly. */
+;(() => {
+  function syncHidden(select) {
+    const hidden = document.getElementById(select.dataset.target);
+    if (hidden) hidden.value = [...select.options].filter(option => option.selected).map(option => option.value).join(',');
+  }
+  function syncChecks(select) {
+    const picker = select.parentElement?.querySelector(`[data-picker-for="${select.dataset.target}"]`);
+    if (!picker) return;
+    picker.querySelectorAll('input[type="checkbox"]').forEach(box => {
+      box.checked = [...select.options].some(option => option.value === box.value && option.selected);
+    });
+    syncHidden(select);
+  }
+  function enhancePickers() {
+    document.querySelectorAll('select[data-target]').forEach(select => {
+      if (select.dataset.checkboxPicker === 'true') { syncChecks(select); return; }
+      select.dataset.checkboxPicker = 'true';
+      select.hidden = true;
+      const picker = document.createElement('div');
+      picker.className = 'marketing-checkbox-picker';
+      picker.dataset.pickerFor = select.dataset.target;
+      picker.innerHTML = [...select.options].map(option => `<label><input type="checkbox" value="${option.value}"> ${option.textContent}</label>`).join('') || '<small>暂无可选项目</small>';
+      picker.addEventListener('change', event => {
+        const box = event.target;
+        if (!box.matches('input[type="checkbox"]')) return;
+        const option = [...select.options].find(item => item.value === box.value);
+        if (option) option.selected = box.checked;
+        syncHidden(select);
+      });
+      select.after(picker);
+      const help = select.parentElement?.querySelector('.marketing-multi-help');
+      if (help) help.textContent = '可勾选多个；不选择代表不限制。';
+      syncChecks(select);
+    });
+  }
+  document.addEventListener('click', event => {
+    if (event.target.matches('[data-edit-campaign], #campaignReset')) setTimeout(enhancePickers, 0);
+  });
+  const observer = new MutationObserver(enhancePickers);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+  enhancePickers();
+})();
 
 
+
+
+
+;(() => {
+  let referralDb;
+  const $ = selector => document.querySelector(selector);
+  const notice = message => {
+    const toast = $('#toast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2800);
+  };
+  const targetVisibility = () => {
+    const kind = $('#campaignKind')?.value;
+    const showProducts = kind === 'product_discount' || kind === 'holiday';
+    const showCategories = kind === 'category_discount' || kind === 'holiday';
+    const productTarget = $('#campaignProducts');
+    const categoryTarget = $('#campaignCategories');
+    if (productTarget) productTarget.closest('label').hidden = !showProducts;
+    if (categoryTarget) categoryTarget.closest('label').hidden = !showCategories;
+  };
+  async function referralTools() {
+    const section = $('.marketing-referral');
+    if (!section || section.dataset.referralToolsReady) return;
+    if (!window.supabase || !window.TINGS_SUPABASE) return;
+    section.dataset.referralToolsReady = 'true';
+    referralDb ||= window.supabase.createClient(TINGS_SUPABASE.url, TINGS_SUPABASE.anonKey);
+    const { data: settings, error } = await referralDb.from('referral_reward_settings').select('*').eq('id', 1).maybeSingle();
+    if (error) { section.dataset.referralToolsReady = ''; notice(error.message); return; }
+    const current = settings || { amount: 5, min_spend: 35, valid_days: 0 };
+    const tools = document.createElement('div');
+    tools.className = 'marketing-grid referral-settings';
+    tools.innerHTML = `<section><h3>推荐奖励设置</h3><form id="referralRewardForm"><div class="two"><label>奖励金额（美元）<input id="referralRewardAmount" type="number" min="0.01" step="0.01" value="${current.amount}"></label><label>最低消费（美元）<input id="referralRewardMin" type="number" min="0" step="0.01" value="${current.min_spend}"></label></div><label>奖励券有效期（天）<input id="referralRewardDays" type="number" min="0" step="1" value="${current.valid_days}"><small>填写 0 代表长期有效；该设置也用于本次推荐码立即优惠。</small></label><button class="primary">保存推荐奖励</button></form></section><section><h3>店主生成推荐码</h3><form id="ownerReferralForm"><label>推荐人电话号码<input id="ownerReferralPhone" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" placeholder="输入推荐人的 10 位电话号码" required></label><button class="primary">生成推荐码</button><p class="muted" id="generatedReferralCode">生成后可将推荐码发给顾客使用。</p></form></section>`;
+    section.prepend(tools);
+    $('#referralRewardForm').onsubmit = async event => {
+      event.preventDefault();
+      const row = { id: 1, amount: +$('#referralRewardAmount').value, min_spend: +$('#referralRewardMin').value, valid_days: +$('#referralRewardDays').value, updated_at: new Date().toISOString() };
+      const { error: saveError } = await referralDb.from('referral_reward_settings').upsert(row);
+      notice(saveError ? saveError.message : '推荐奖励已保存');
+    };
+    $('#ownerReferralForm').onsubmit = async event => {
+      event.preventDefault();
+      const phone = $('#ownerReferralPhone').value.trim();
+      if (!/^[0-9]{10}$/.test(phone)) return notice('请输入 10 位数字电话号码');
+      const { data: existing, error: checkError } = await referralDb.from('customer_referrals').select('referral_code').eq('phone', phone).maybeSingle();
+      if (checkError) return notice(checkError.message);
+      const code = existing?.referral_code || ('TSHREF-' + Math.random().toString(36).slice(2, 10).toUpperCase());
+      if (!existing) {
+        const { error: createError } = await referralDb.from('customer_referrals').insert({ phone, referral_code: code });
+        if (createError) return notice(createError.message);
+      }
+      $('#generatedReferralCode').textContent = `推荐码：${code}（已绑定 ${phone}）`;
+      notice('推荐码已生成');
+    };
+  }
+  function startOfferAdminTools() {
+    const root = $('#marketingCenter');
+    if (!root) return setTimeout(startOfferAdminTools, 100);
+    targetVisibility();
+    referralTools();
+    new MutationObserver(() => { targetVisibility(); referralTools(); }).observe(root, { childList: true, subtree: true });
+    document.addEventListener('change', event => { if (event.target.id === 'campaignKind') targetVisibility(); });
+    document.addEventListener('click', event => { if (event.target.matches('[data-edit-campaign]') || event.target.id === 'campaignReset') setTimeout(targetVisibility, 0); });
+  }
+  startOfferAdminTools();
+})();
