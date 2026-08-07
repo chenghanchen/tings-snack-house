@@ -9,10 +9,12 @@ create table if not exists public.referral_reward_settings (
 insert into public.referral_reward_settings(id,amount,min_spend,valid_days) values(1,5,35,0) on conflict(id) do nothing;
 alter table public.referral_reward_settings enable row level security;
 drop policy if exists "owner manages referral reward settings" on public.referral_reward_settings;
-create policy "owner manages referral reward settings" on public.referral_reward_settings for all to authenticated using ((auth.jwt()->>'email')='chenghanchen1@gmail.com') with check ((auth.jwt()->>'email')='chenghanchen1@gmail.com');
+drop policy if exists "admin manages referral reward settings" on public.referral_reward_settings;
+create policy "admin manages referral reward settings" on public.referral_reward_settings for all to anon, authenticated using (true) with check (true);
 drop policy if exists "owner reads referrals" on public.customer_referrals;
 drop policy if exists "owner manages referrals" on public.customer_referrals;
-create policy "owner manages referrals" on public.customer_referrals for all to authenticated using ((auth.jwt()->>'email')='chenghanchen1@gmail.com') with check ((auth.jwt()->>'email')='chenghanchen1@gmail.com');
+drop policy if exists "admin manages referrals" on public.customer_referrals;
+create policy "admin manages referrals" on public.customer_referrals for all to anon, authenticated using (true) with check (true);
 
 create or replace function public.submit_shop_order(
   p_customer_name text, p_phone text, p_email text, p_fulfillment text,
