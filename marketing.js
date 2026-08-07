@@ -142,6 +142,13 @@ function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCent
     if (productTarget) productTarget.closest('label').hidden = !showProducts;
     if (categoryTarget) categoryTarget.closest('label').hidden = !showCategories;
   };
+  const forceTargetVisibility = () => {
+    const kind = $('#campaignKind')?.value;
+    const productLabel = document.querySelector('label:has(#campaignProducts)');
+    const categoryLabel = document.querySelector('label:has(#campaignCategories)');
+    if (productLabel) productLabel.hidden = !(kind === 'product_discount' || kind === 'holiday');
+    if (categoryLabel) categoryLabel.hidden = !(kind === 'category_discount' || kind === 'holiday');
+  };
   async function referralTools() {
     const section = $('.marketing-referral');
     if (!section || section.dataset.referralToolsReady) return;
@@ -179,11 +186,12 @@ function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCent
   function startOfferAdminTools() {
     const root = $('#marketingCenter');
     if (!root) return setTimeout(startOfferAdminTools, 100);
-    targetVisibility();
+    targetVisibility(); forceTargetVisibility();
     referralTools();
-    new MutationObserver(() => { targetVisibility(); referralTools(); }).observe(root, { childList: true, subtree: true });
-    document.addEventListener('change', event => { if (event.target.id === 'campaignKind') targetVisibility(); });
-    document.addEventListener('click', event => { if (event.target.matches('[data-edit-campaign]') || event.target.id === 'campaignReset') setTimeout(targetVisibility, 0); });
+    new MutationObserver(() => { targetVisibility(); forceTargetVisibility(); referralTools(); }).observe(root, { childList: true, subtree: true });
+    document.addEventListener('change', event => { if (event.target.id === 'campaignKind') { targetVisibility(); forceTargetVisibility(); } });
+    document.addEventListener('click', event => { if (event.target.matches('[data-edit-campaign]') || event.target.id === 'campaignReset') setTimeout(() => { targetVisibility(); forceTargetVisibility(); }, 0); });
+    setInterval(forceTargetVisibility, 400);
   }
   startOfferAdminTools();
 })();
