@@ -6,3 +6,57 @@ function couponEdit(x){val('couponId',x.id);val('couponCode',x.code);val('coupon
 function campaignEdit(x){val('campaignId',x.id);val('campaignKind',x.kind);val('campaignName',x.name);val('campaignDiscount',x.discount_kind);val('campaignAmount',x.amount);val('campaignThreshold',x.threshold);val('campaignProducts',list(x.product_ids));val('campaignCategories',list(x.category_names));val('campaignStart',local(x.starts_at));val('campaignEnd',local(x.ends_at));}
 function bind(){const cf=$('#couponForm'),af=$('#campaignForm');cf.onsubmit=async e=>{e.preventDefault();const row={id:$('#couponId').value||undefined,code:$('#couponCode').value.trim().toUpperCase(),name:$('#couponName').value.trim(),amount:+$('#couponAmount').value,min_spend:+$('#couponMin').value,total_quantity:+$('#couponQty').value,per_phone_limit:1,starts_at:$('#couponStart').value||null,ends_at:$('#couponEnd').value||null,active:true,updated_at:new Date().toISOString()};if(!row.id)delete row.id;const {error}=await db.from('marketing_coupons').upsert(row);toast(error?error.message:'优惠券已保存');if(!error)load()};af.onsubmit=async e=>{e.preventDefault();const kind=$('#campaignKind').value,row={id:$('#campaignId').value||undefined,kind,name:$('#campaignName').value.trim(),discount_kind:kind==='free_shipping'?'free_shipping':$('#campaignDiscount').value,amount:+$('#campaignAmount').value,threshold:+$('#campaignThreshold').value,product_ids:csv($('#campaignProducts').value).map(Number).filter(Number.isFinite),category_names:csv($('#campaignCategories').value),starts_at:$('#campaignStart').value||null,ends_at:$('#campaignEnd').value||null,active:true,updated_at:new Date().toISOString()};if(!row.id)delete row.id;const {error}=await db.from('marketing_campaigns').upsert(row);toast(error?error.message:'活动已保存');if(!error)load()};$('#couponReset').onclick=()=>{cf.reset();val('couponId','')};$('#campaignReset').onclick=()=>{af.reset();val('campaignId','')};root=document.querySelector('#marketingCenter');root.onclick=async e=>{const id=e.target.dataset.editCoupon||e.target.dataset.stopCoupon||e.target.dataset.editCampaign||e.target.dataset.stopCampaign;if(!id)return;if(e.target.dataset.editCoupon){couponEdit(coupons.find(x=>x.id===id));return}if(e.target.dataset.editCampaign){campaignEdit(campaigns.find(x=>x.id===id));return}const table=e.target.dataset.stopCoupon?'marketing_coupons':'marketing_campaigns';const {error}=await db.from(table).update({active:false,updated_at:new Date().toISOString()}).eq('id',id);toast(error?error.message:'已停用');if(!error)load()};$('#refreshStats').onclick=()=>render();}
 function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCenter'))return setTimeout(start,120);db=window.supabase.createClient(TINGS_SUPABASE.url,TINGS_SUPABASE.anonKey);document.querySelector('[data-view="marketing"]')?.addEventListener('click',()=>{document.querySelectorAll('aside nav button,.view').forEach(x=>x.classList.remove('active'));document.querySelector('[data-view="marketing"]').classList.add('active');$('#marketing').classList.add('active');$('#pageTitle').textContent='营销中心';load()});load()}start()})();
+
+
+;(() => {
+  const parseProducts = text => String(text || '').split('；').map(part => {
+    const [value, ...label] = part.trim().split(' ');
+    return value ? { value, label: label.join(' ') || value } : null;
+  }).filter(Boolean);
+  const parseCategories = text => String(text || '').split('、').map(value => value.trim()).filter(Boolean).map(value => ({ value, label: value }));
+  const sync = select => {
+    const hidden = document.getElementById(select.dataset.target);
+    if (hidden) hidden.value = [...select.selectedOptions].map(option => option.value).join(',');
+  };
+  const selected = select => {
+    const hidden = document.getElementById(select.dataset.target);
+    const values = new Set(String(hidden?.value || '').split(',').map(value => value.trim()).filter(Boolean));
+    [...select.options].forEach(option => { option.selected = values.has(option.value); });
+  };
+  function replaceInput(id, options, help) {
+    const hidden = document.getElementById(id);
+    if (!hidden || hidden.dataset.multiReady) return;
+    hidden.dataset.multiReady = 'true';
+    hidden.type = 'hidden';
+    const select = document.createElement('select');
+    select.multiple = true; select.size = 4; select.className = 'marketing-multi-select';
+    select.dataset.target = id;
+    options(hidden.placeholder).forEach(({ value, label }) => select.add(new Option(label, value)));
+    hidden.before(select);
+    const note = document.createElement('small');
+    note.className = 'marketing-multi-help';
+    note.textContent = help;
+    hidden.after(note);
+    selected(select);
+    select.addEventListener('change', () => sync(select));
+  }
+  function enhance() {
+    replaceInput('campaignProducts', parseProducts, '可按住 Ctrl／⌘ 多选；不选择代表不限制商品。');
+    replaceInput('campaignCategories', parseCategories, '可按住 Ctrl／⌘ 多选；不选择代表不限制分类。');
+  }
+  function startMultiSelects() {
+    const root = document.getElementById('marketingCenter');
+    if (!root) return setTimeout(startMultiSelects, 100);
+    enhance();
+    new MutationObserver(enhance).observe(root, { childList: true, subtree: true });
+    document.addEventListener('submit', event => {
+      if (event.target.id === 'campaignForm') document.querySelectorAll('select[data-target]').forEach(sync);
+    }, true);
+    document.addEventListener('click', event => {
+      if (event.target.matches('[data-edit-campaign]')) setTimeout(() => document.querySelectorAll('select[data-target]').forEach(selected), 0);
+      if (event.target.id === 'campaignReset') setTimeout(() => document.querySelectorAll('select[data-target]').forEach(select => { [...select.options].forEach(option => { option.selected = false; }); sync(select); }), 0);
+    });
+  }
+  startMultiSelects();
+})();
+
