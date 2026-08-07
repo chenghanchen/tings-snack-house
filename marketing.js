@@ -112,6 +112,19 @@ function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCent
 
 ;(() => {
   let referralDb;
+  if (!document.getElementById('campaignTargetVisibilityStyle')) {
+    const style = document.createElement('style');
+    style.id = 'campaignTargetVisibilityStyle';
+    style.textContent = `
+      #marketingCenter:has(#campaignKind option[value="full_reduction"]:checked) label:has(#campaignProducts),
+      #marketingCenter:has(#campaignKind option[value="full_reduction"]:checked) label:has(#campaignCategories),
+      #marketingCenter:has(#campaignKind option[value="free_shipping"]:checked) label:has(#campaignProducts),
+      #marketingCenter:has(#campaignKind option[value="free_shipping"]:checked) label:has(#campaignCategories),
+      #marketingCenter:has(#campaignKind option[value="product_discount"]:checked) label:has(#campaignCategories),
+      #marketingCenter:has(#campaignKind option[value="category_discount"]:checked) label:has(#campaignProducts) { display:none !important; }
+    `;
+    document.head.append(style);
+  }
   const $ = selector => document.querySelector(selector);
   const notice = message => {
     const toast = $('#toast');
