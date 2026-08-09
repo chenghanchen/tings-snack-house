@@ -60,6 +60,24 @@ function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCent
   startMultiSelects();
 })();
 
+/* Retired activity types stay out of the owner interface and cannot be created again. */
+;(() => {
+  const pruneRetiredCampaignTypes = () => {
+    document.querySelectorAll('#campaignKind option[value="holiday"], #campaignKind option[value="free_shipping"], #campaignDiscount option[value="free_shipping"]').forEach(option => option.remove());
+    document.querySelectorAll('#marketingCenter .marketing-list article').forEach(card => {
+      const text = card.textContent || '';
+      if (text.includes('节日活动') || text.includes('免费配送')) card.remove();
+    });
+  };
+  const waitForMarketing = () => {
+    const root = document.querySelector('#marketingCenter');
+    if (!root) return setTimeout(waitForMarketing, 120);
+    pruneRetiredCampaignTypes();
+    new MutationObserver(pruneRetiredCampaignTypes).observe(root, { childList: true, subtree: true });
+  };
+  waitForMarketing();
+})();
+
 /* Replace the native multi-select controls with a simple checkbox picker. The
    original controls stay in the form (hidden) so existing save logic remains
    compatible while target selection becomes tap-friendly. */
@@ -118,8 +136,6 @@ function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCent
     style.textContent = `
       #marketingCenter:has(#campaignKind option[value="full_reduction"]:checked) label:has(#campaignProducts),
       #marketingCenter:has(#campaignKind option[value="full_reduction"]:checked) label:has(#campaignCategories),
-      #marketingCenter:has(#campaignKind option[value="free_shipping"]:checked) label:has(#campaignProducts),
-      #marketingCenter:has(#campaignKind option[value="free_shipping"]:checked) label:has(#campaignCategories),
       #marketingCenter:has(#campaignKind option[value="product_discount"]:checked) label:has(#campaignCategories),
       #marketingCenter:has(#campaignKind option[value="category_discount"]:checked) label:has(#campaignProducts) { display:none !important; }
     `;
@@ -135,8 +151,8 @@ function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCent
   };
   const targetVisibility = () => {
     const kind = $('#campaignKind')?.value;
-    const showProducts = kind === 'product_discount' || kind === 'holiday';
-    const showCategories = kind === 'category_discount' || kind === 'holiday';
+    const showProducts = kind === 'product_discount';
+    const showCategories = kind === 'category_discount';
     const productTarget = $('#campaignProducts');
     const categoryTarget = $('#campaignCategories');
     if (productTarget) productTarget.closest('label').hidden = !showProducts;
@@ -146,8 +162,8 @@ function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCent
     const kind = $('#campaignKind')?.value;
     const productLabel = document.querySelector('label:has(#campaignProducts)');
     const categoryLabel = document.querySelector('label:has(#campaignCategories)');
-    if (productLabel) productLabel.hidden = !(kind === 'product_discount' || kind === 'holiday');
-    if (categoryLabel) categoryLabel.hidden = !(kind === 'category_discount' || kind === 'holiday');
+    if (productLabel) productLabel.hidden = kind !== 'product_discount';
+    if (categoryLabel) categoryLabel.hidden = kind !== 'category_discount';
   };
   async function referralTools() {
     const section = $('.marketing-referral');
