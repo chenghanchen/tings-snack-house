@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260809b" />
+    <link rel="stylesheet" href="styles.css?v=20260809c" />
     <style>
       .hero { position:relative; display:block; min-height:620px; overflow:hidden; }
       .hero-copy { position:relative; z-index:4; width:min(54%,650px); min-height:620px; display:flex; flex-direction:column; justify-content:center; padding:92px max(7vw,42px); }
@@ -94,7 +94,7 @@
           <label>手机号码<input required name="phone" type="tel" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" title="请输入 10 位数字电话号码" placeholder="请输入10位电话号码" autocomplete="tel" /></label>
           <label>电子邮箱（选填）<input name="email" type="email" placeholder="例如 name@example.com" autocomplete="email" /></label>
           <label class="order-note-field">订单备注（选填）<textarea name="note" maxlength="300" rows="3" placeholder="例如：“请放门口”“到了打电话”"></textarea><small class="order-note-count" id="orderNoteCount">0 / 300</small></label>
-          <section class="promotion-choice" id="promotionChoice"><p class="eyebrow">OFFER CODE</p><label>优惠券或推荐码（选填）<input name="coupon_code" id="couponCodeInput" placeholder="输入一张优惠券兑换码或推荐码"></label><small>系统自动使用符合条件的最佳活动；一张优惠券或推荐码可与该活动同时使用。</small></section>
+          <section class="promotion-choice" id="promotionChoice"><label>优惠券或推荐码（选填）<input name="coupon_code" id="couponCodeInput" placeholder="输入一张优惠券兑换码或推荐码"></label></section>
           <label>取货方式<select required name="fulfillment" id="fulfillment"><option value="delivery">配送到家</option><option value="pickup">到店自取</option></select></label>
           <label id="addressField">配送地址<input name="address" id="address" required placeholder="请输入街道、门牌号和邮编" autocomplete="street-address" /></label>
           <p class="delivery-note" id="deliveryNote">Chinatown 附近免费配送；10 英里以内满 $50 免费配送。我们会电话确认配送安排。</p>
