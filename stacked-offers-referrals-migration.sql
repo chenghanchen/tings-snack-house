@@ -65,7 +65,16 @@ begin
         select coalesce(sum((x->>'line_total')::numeric),0) into eligible_subtotal from jsonb_array_elements(lines) x
         where (cardinality(campaign.product_ids)>0 and (x->>'product_id')::bigint=any(campaign.product_ids)) or (cardinality(campaign.category_names)>0 and (x->>'category')=any(campaign.category_names));
       end if;
-      if eligible_subtotal>0 then candidate_discount:=case when campaign.discount_kind='percent' then round(eligible_subtotal*campaign.amount/100,2) else least(campaign.amount,eligible_subtotal) end; candidate_benefit:=candidate_discount; end if;
+      if eligible_subtotal>0 then
+        if campaign.discount_kind='percent' then candidate_discount:=round(eligible_subtotal*campaign.amount/100,2);
+        else
+          select coalesce(sum(least(campaign.amount,(x->>'price')::numeric)*(x->>'qty')::integer),0) into candidate_discount from jsonb_array_elements(lines) x
+          where cardinality(campaign.product_ids)=0 and cardinality(campaign.category_names)=0
+             or (cardinality(campaign.product_ids)>0 and (x->>'product_id')::bigint=any(campaign.product_ids))
+             or (cardinality(campaign.category_names)>0 and (x->>'category')=any(campaign.category_names));
+        end if;
+        candidate_benefit:=candidate_discount;
+      end if;
     elsif campaign.kind='free_shipping' and p_fulfillment='delivery' and fee>0 then candidate_benefit:=fee; end if;
     if candidate_benefit>selected_campaign_benefit then
       selected_campaign_benefit:=candidate_benefit; campaign_discount:=candidate_discount; selected_free_shipping:=(campaign.kind='free_shipping'); selected_campaign_id:=campaign.id; selected_campaign_name:=campaign.name; selected_campaign_kind:=campaign.kind;
