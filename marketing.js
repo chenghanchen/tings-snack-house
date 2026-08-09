@@ -102,7 +102,7 @@ function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCent
       const picker = document.createElement('div');
       picker.className = 'marketing-checkbox-picker';
       picker.dataset.pickerFor = select.dataset.target;
-      picker.innerHTML = [...select.options].map(option => `<label><input type="checkbox" value="${option.value}"> ${option.textContent}</label>`).join('') || '<small>暂无可选项目</small>';
+      picker.innerHTML = [...select.options].map(option => `<label class="marketing-picker-option"><input type="checkbox" value="${option.value}"><span>${option.textContent}</span></label>`).join('') || '<small>暂无可选项目</small>';
       picker.addEventListener('change', event => {
         const box = event.target;
         if (!box.matches('input[type="checkbox"]')) return;
