@@ -216,3 +216,6 @@ function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCent
   }
   startOfferAdminTools();
 })();
+
+/* Load the dedicated order-card presentation after the existing admin tools. */
+(()=>{const style=document.createElement('link');style.rel='stylesheet';style.href='order-cards.css?v=20260809a';document.head.append(style);const script=document.createElement('script');script.src='order-cards.js?v=20260809a';document.body.append(script)})();
