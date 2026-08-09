@@ -153,17 +153,22 @@ function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCent
     const kind = $('#campaignKind')?.value;
     const showProducts = kind === 'product_discount';
     const showCategories = kind === 'category_discount';
+    const showThreshold = kind === 'full_reduction';
     const productTarget = $('#campaignProducts');
     const categoryTarget = $('#campaignCategories');
+    const thresholdTarget = $('#campaignThreshold');
     if (productTarget) productTarget.closest('label').hidden = !showProducts;
     if (categoryTarget) categoryTarget.closest('label').hidden = !showCategories;
+    if (thresholdTarget) thresholdTarget.closest('label').hidden = !showThreshold;
   };
   const forceTargetVisibility = () => {
     const kind = $('#campaignKind')?.value;
     const productLabel = document.querySelector('label:has(#campaignProducts)');
     const categoryLabel = document.querySelector('label:has(#campaignCategories)');
+    const thresholdLabel = document.querySelector('label:has(#campaignThreshold)');
     if (productLabel) productLabel.hidden = kind !== 'product_discount';
     if (categoryLabel) categoryLabel.hidden = kind !== 'category_discount';
+    if (thresholdLabel) thresholdLabel.hidden = kind !== 'full_reduction';
   };
   async function referralTools() {
     const section = $('.marketing-referral');
