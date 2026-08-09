@@ -55,7 +55,7 @@ begin
     end if;
   end loop;
   fee:=case when p_fulfillment='pickup' or item_subtotal>=free_at then 0 else base_fee end;
-  for campaign in select * from public.marketing_campaigns where active=true and (starts_at is null or starts_at<=now()) and (ends_at is null or ends_at>=now()) order by created_at,id loop
+  for campaign in select * from public.marketing_campaigns where active=true and kind in ('full_reduction','product_discount','category_discount') and (starts_at is null or starts_at<=now()) and (ends_at is null or ends_at>=now()) order by created_at,id loop
     candidate_benefit:=0; candidate_discount:=0;
     if campaign.kind='full_reduction' and item_subtotal>=campaign.threshold then
       candidate_discount:=least(campaign.amount,item_subtotal); candidate_benefit:=candidate_discount;
