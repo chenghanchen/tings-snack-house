@@ -4,7 +4,7 @@
   const contentDefaults={heroEyebrow:'今日の小さなごほうび',heroTitle:'把喜欢的零食，',heroEmphasis:'装进日常里。',heroIntro:'从童年味道到新鲜人气款，挑一袋让心情变好的中国零食。下单即为您预留，无需在线付款。',heroButton:'开始挑选',footerHours:'营业时间：每日 10:00 – 21:00',footerYear:'2026'};
   const deliveryDefaults={deliveryEyebrow:'LOCAL DELIVERY',deliveryTitle:'把零食送到你身边',deliveryStampTop:'DELIVERY',deliveryStampBottom:'CHICAGO',deliveryBackgroundColor:'#f4e9d2'};
   const imageKeys=['heroBackgroundImage','storyBackgroundImage','deliveryStampImage','deliveryBackgroundImage'];
-  const footerSocials=[['instagram','Instagram'],['facebook','Facebook'],['xiaohongshu','小红书'],['wechat','微信']];
+  const footerSocials=[['instagram','Instagram'],['facebook','Facebook'],['xiaohongshu','Xiaohongshu'],['wechat','Wechat']];
   const footerDefaults={showPhone:true,showEmail:true,socials:Object.fromEntries(footerSocials.map(([id])=>[id,{show:false,qr:''}]))};
   const toast=message=>{const node=$('#toast');if(!node)return;node.textContent=message;node.classList.add('show');setTimeout(()=>node.classList.remove('show'),2800);};
   const inputValue=(id,fallback)=>$(id)?.value.trim()||fallback;
