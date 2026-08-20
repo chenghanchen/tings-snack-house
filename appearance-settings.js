@@ -57,6 +57,18 @@
     images.remove();
   }
 
+  function guardLateLegacyImageSettings(){
+    const source=$('#settingsForm');
+    if(!source||source.dataset.appearanceImageGuard)return;
+    source.dataset.appearanceImageGuard='true';
+    new MutationObserver(()=>{
+      // admin.js may add its retired image settings block after the new
+      // appearance controls have already been created.  The controls above
+      // are the single source of truth, so discard that duplicate block.
+      source.querySelector(':scope > #imageSettings')?.remove();
+    }).observe(source,{childList:true});
+  }
+
   async function saveAppearance(event){
     event.preventDefault();
     const source=$('#settingsForm');
@@ -85,7 +97,7 @@
   function setup(){
     if(!ensureShell())return setTimeout(setup,150);
     if(!moveAppearanceFields())return setTimeout(setup,180);
-    splitImageControls();extraControls();setupAppearanceMenu();bindAppearanceForm();bindAdvanced();bindAnnouncementImage();bindFooterContacts();
+    splitImageControls();guardLateLegacyImageSettings();extraControls();setupAppearanceMenu();bindAppearanceForm();bindAdvanced();bindAnnouncementImage();bindFooterContacts();
   }
 
   window.addEventListener('load',()=>setTimeout(setup,220));
