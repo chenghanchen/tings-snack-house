@@ -59,7 +59,7 @@
   async function setup(){
     if(!window.supabase||!window.TINGS_SUPABASE||!build())return setTimeout(setup,180);
     db??=window.supabase.createClient(window.TINGS_SUPABASE.url,window.TINGS_SUPABASE.anonKey);
-    if(!$('#storeSettingsLayout').dataset.loaded){const {data}=await db.from('shop_settings').select('content').eq('id',1).maybeSingle();config=deepMerge(defaultConfig,data?.content?.storeSettings||{});populate();$('#storeSettingsLayout').dataset.loaded='true';wrapSubmit();}
+    if(!$('#storeSettingsLayout').dataset.loaded){const {data}=await db.from('shop_settings').select('content').eq('id',1).maybeSingle();config=deepMerge(defaultConfig,data?.content?.storeSettings||{});populate();$('#storeSettingsLayout').dataset.loaded='true';wrapSubmit();if(window.matchMedia('(min-width:721px)').matches)screen('profile');else mobileMenu();}
   }
   window.addEventListener('load',()=>setTimeout(setup,300));
 })();
