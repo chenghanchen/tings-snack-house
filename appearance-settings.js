@@ -41,7 +41,8 @@
     imageKeys.forEach(key=>{content[key]=source.dataset[key]||'';});
     const fee=Number($('#deliveryFeeInput')?.value||5),free=Number($('#freeDeliveryInput')?.value||50),delivery=inputValue('#deliveryText',`配送费 $${fee.toFixed(2)}；商品小计满 $${free.toFixed(2)} 免费配送。`);
     const db=window.supabase.createClient(window.TINGS_SUPABASE.url,window.TINGS_SUPABASE.anonKey);
-    const {error}=await db.from('shop_settings').update({delivery,content,updated_at:new Date().toISOString()}).eq('id',1);
+    const {data:current}=await db.from('shop_settings').select('content').eq('id',1).maybeSingle();
+    const {error}=await db.from('shop_settings').update({delivery,content:{...(current?.content||{}),...content},updated_at:new Date().toISOString()}).eq('id',1);
     toast(error?error.message:'店铺外观已保存');
   }
 
