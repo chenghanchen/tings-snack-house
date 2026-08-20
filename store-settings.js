@@ -35,8 +35,10 @@
     injectStyle();
     settings.querySelector('h2').textContent='店铺设置';const intro=settings.querySelector('.panel > .muted');if(intro)intro.textContent='管理店铺资料、营业时间、配送、下单规则与通知。';
     if(!$('#storeSettingsLayout')){
-      const oldSave=form.querySelector('button.primary');if(oldSave)oldSave.remove();
-      form.insertAdjacentHTML('afterbegin',`<div class="store-settings-layout" id="storeSettingsLayout"><div class="store-settings-pages"><div id="storeProfileSlot"></div><div id="storeHoursSlot"></div><div id="storeDeliverySlot"></div><div id="storeOrderSlot"></div><div id="storeNotificationSlot"></div></div></div>`);
+      const oldSave=form.querySelector('#legacySettingsSaveAnchor')||form.querySelector('button.primary')||document.createElement('button');
+      oldSave.id='legacySettingsSaveAnchor';oldSave.type='submit';oldSave.className='primary legacy-settings-save-anchor';oldSave.textContent='保存店铺设置';
+      form.insertAdjacentElement('afterbegin',oldSave);
+      oldSave.insertAdjacentHTML('afterend',`<div class="store-settings-layout" id="storeSettingsLayout"><div class="store-settings-pages"><div id="storeProfileSlot"></div><div id="storeHoursSlot"></div><div id="storeDeliverySlot"></div><div id="storeOrderSlot"></div><div id="storeNotificationSlot"></div></div></div>`);
       $('#storeProfileSlot').innerHTML=pane('profile','🏪','店铺资料','用于店主后台与顾客网站的基础联系信息。',`<div class="store-settings-row" id="storeNameRow"></div><div class="store-settings-row">${label('店铺电话','storePhoneInput','tel')}${label('店铺邮箱','storeEmailInput','email')}</div>${label('店铺地址','storeAddressInput')}<label>店铺简介<textarea id="storeIntroInput" placeholder="向顾客介绍您的店铺"></textarea></label>`);
       $('#storeHoursSlot').innerHTML=pane('hours','🕐','营业时间','逐日设置正常营业时间；特殊日期可覆盖当天规则。',hoursMarkup());
       $('#storeDeliverySlot').innerHTML=pane('delivery','🚚','配送与自取','设置配送门槛、配送说明及到店自取信息。',`<div class="store-settings-row">${label('最低消费金额（美元）','minOrderInput','number','min="0" step="0.01"')}${label('最低配送金额（美元）','minDeliveryInput','number','min="0" step="0.01"')}</div><div class="two" id="deliveryPriceSlot"></div><label class="store-proxy-label">配送说明<textarea id="deliveryCopyInput" rows="3"></textarea></label><div id="pickupSlot"></div>`);
