@@ -15,7 +15,7 @@
     settingsButton.textContent='店铺设置';
     if(!$('[data-view="appearance"]')){
       settingsButton.insertAdjacentHTML('afterend','<button data-view="appearance">店铺外观</button>');
-      settings.insertAdjacentHTML('afterend','<section class="view" id="appearance"><div class="panel narrow appearance-panel"><h2>店铺外观</h2><p class="muted">管理顾客网站的首页、配送区域和页尾文案、插画与背景图片。</p><form id="appearanceForm"><div id="appearanceFields"><p class="muted">正在加载外观设置…</p></div><button class="primary" type="submit">保存店铺外观</button></form></div></section>');
+      settings.insertAdjacentHTML('afterend','<section class="view" id="appearance"><div class="panel narrow appearance-panel"><form id="appearanceForm"><div id="appearanceFields"></div><button class="primary" type="submit">保存店铺外观</button></form></div></section>');
       $('[data-view="appearance"]').addEventListener('click',()=>{document.querySelectorAll('aside nav button,.view').forEach(node=>node.classList.remove('active'));$('[data-view="appearance"]').classList.add('active');$('#appearance')?.classList.add('active');$('#pageTitle').textContent='店铺外观';});
     }
     return true;
