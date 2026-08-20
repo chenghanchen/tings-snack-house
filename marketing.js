@@ -1,221 +1,65 @@
-(()=>{const money=n=>`$${Number(n||0).toFixed(2)}`,kinds={full_reduction:'满减活动',product_discount:'商品折扣',category_discount:'分类折扣',holiday:'节日活动',free_shipping:'免费配送'};let db,products=[],categories=[],campaigns=[],coupons=[],orders=[],redemptions=[],referrals=[];const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function toast(s){const t=$('#toast');if(!t)return;t.textContent=s;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}const val=(id,v)=>{const e=$('#'+id);if(e)e.value=v??''};const list=v=>(v||[]).join(', ');const csv=v=>String(v||'').split(',').map(x=>x.trim()).filter(Boolean);const local=v=>v?new Date(v).toISOString().slice(0,16):'';
-async function load(){const r=await Promise.all([db.from('marketing_campaigns').select('*').order('created_at',{ascending:false}),db.from('marketing_coupons').select('*').order('created_at',{ascending:false}),db.from('orders').select('*').order('created_at',{ascending:false}),db.from('coupon_redemptions').select('*'),db.from('customer_referrals').select('*').order('created_at',{ascending:false}),db.from('products').select('id,name'),db.from('categories').select('name')]);[campaigns,coupons,orders,redemptions,referrals,products,categories]=r.map(x=>x.data||[]);render()}
-function render(){const root=$('#marketingCenter');if(!root)return;const active=x=>x.active?'启用中':'已停用',uses=id=>redemptions.filter(x=>x.coupon_id===id).length;const stats=statsFor();root.innerHTML=`<div class="panel marketing-panel"><div class="panel-head"><div><p class="eyebrow">MARKETING CENTER</p><h2>营销中心</h2></div><span class="muted">每笔订单只能选择一项优惠</span></div><div class="marketing-grid"><section><h3>优惠券</h3><form id="couponForm"><input id="couponId" type="hidden"><label>兑换码<input id="couponCode" required placeholder="例如 WELCOME5" style="text-transform:uppercase"></label><label>名称<input id="couponName" required placeholder="例如 新客优惠"></label><div class="two"><label>优惠金额（美元）<input id="couponAmount" type="number" min="0.01" step="0.01" required></label><label>最低消费（美元）<input id="couponMin" type="number" min="0" step="0.01" value="0"></label></div><div class="two"><label>总数量<input id="couponQty" type="number" min="1" value="1" required></label><label>每个电话号码限用<input value="1" disabled><small>固定为 1 次</small></label></div><div class="two"><label>开始时间<input id="couponStart" type="datetime-local"></label><label>结束时间<input id="couponEnd" type="datetime-local"></label></div><button class="primary">保存优惠券</button><button id="couponReset" class="text-btn" type="button">新增</button></form><div class="marketing-list">${coupons.map(x=>`<article><b>${esc(x.name)}</b><small>${esc(x.code)} · ${money(x.amount)}，满 ${money(x.min_spend)} 可用 · 已用 ${uses(x.id)}/${x.total_quantity} · ${active(x)}</small><div><button data-edit-coupon="${x.id}">编辑</button><button data-stop-coupon="${x.id}" ${x.active?'':'disabled'}>停用</button></div></article>`).join('')||'<p class="muted">尚无优惠券。</p>'}</div></section><section><h3>活动设置</h3><form id="campaignForm"><input id="campaignId" type="hidden"><label>活动类型<select id="campaignKind">${Object.entries(kinds).map(([id,name])=>`<option value="${id}">${name}</option>`).join('')}</select></label><label>活动名称<input id="campaignName" required placeholder="例如 夏日饮料九折"></label><div class="two"><label>开始时间<input id="campaignStart" type="datetime-local"></label><label>结束时间<input id="campaignEnd" type="datetime-local"></label></div><div class="two"><label>优惠方式<select id="campaignDiscount"><option value="fixed">减 $</option><option value="percent">打折（填写百分比）</option><option value="free_shipping">免费配送</option></select></label><label>优惠金额／百分比<input id="campaignAmount" type="number" min="0" step="0.01" value="0"></label></div><label>满减门槛（仅满减活动）<input id="campaignThreshold" type="number" min="0" step="0.01" value="0"></label><label>指定商品（可多选）<input id="campaignProducts" placeholder="${products.map(x=>x.id+' '+x.name).join('；')}"></label><label>指定分类（可多选）<input id="campaignCategories" placeholder="${categories.map(x=>x.name).join('、')}"></label><button class="primary">保存活动</button><button id="campaignReset" class="text-btn" type="button">新增</button></form><div class="marketing-list">${campaigns.map(x=>`<article><b>${esc(x.name)}</b><small>${kinds[x.kind]} · ${x.discount_kind==='percent'?x.amount+'%':x.kind==='free_shipping'?'免配送':money(x.amount)}${x.threshold?` · 满 ${money(x.threshold)}`:''} · ${active(x)}</small><div><button data-edit-campaign="${x.id}">编辑</button><button data-stop-campaign="${x.id}" ${x.active?'':'disabled'}>停用</button></div></article>`).join('')||'<p class="muted">尚无活动。</p>'}</div></section></div><section class="marketing-referral"><h3>推荐奖励</h3><p>新顾客首次提交订单时可填写推荐人 10 位电话号码或推荐码；双方各自动获得 1 张 <b>$5.00</b> 优惠券，满 <b>$35.00</b> 可用，长期有效。</p><div class="marketing-list compact">${referrals.slice(0,12).map(x=>`<article><b>${esc(x.phone)}</b><small>推荐码：${esc(x.referral_code)}${x.referred_by_phone?' · 推荐人：'+esc(x.referred_by_phone):''}</small></article>`).join('')||'<p class="muted">推荐记录会在首笔订单后出现。</p>'}</div></section><section class="marketing-stats"><div class="panel-head"><h3>数据统计</h3><div class="date-filter"><input id="marketingStart" type="date"><input id="marketingEnd" type="date"><button id="refreshStats">筛选</button></div></div><div class="stats"><div><span>订单数</span><b>${stats.count}</b></div><div><span>销售额</span><b>${money(stats.sales)}</b></div><div><span>优惠使用次数</span><b>${stats.promotions}</b></div><div><span>配送费减免</span><b>${stats.freeShipping}</b></div><div><span>推荐成功数</span><b>${stats.referrals}</b></div></div></section></div>`;bind()}
-function statsFor(){const start=$('#marketingStart')?.value,end=$('#marketingEnd')?.value,rows=orders.filter(x=>x.status!=='已取消').filter(x=>!start||x.created_at>=start).filter(x=>!end||x.created_at<new Date(end+'T23:59:59').toISOString());return{count:rows.length,sales:rows.reduce((s,x)=>s+Number(x.total_amount||0),0),promotions:rows.filter(x=>x.promotion_kind).length,freeShipping:rows.filter(x=>x.fulfillment==='delivery'&&Number(x.delivery_fee||0)===0).length,referrals:rows.filter(x=>x.referral_source).length}}
-function couponEdit(x){val('couponId',x.id);val('couponCode',x.code);val('couponName',x.name);val('couponAmount',x.amount);val('couponMin',x.min_spend);val('couponQty',x.total_quantity);val('couponStart',local(x.starts_at));val('couponEnd',local(x.ends_at));}
-function campaignEdit(x){val('campaignId',x.id);val('campaignKind',x.kind);val('campaignName',x.name);val('campaignDiscount',x.discount_kind);val('campaignAmount',x.amount);val('campaignThreshold',x.threshold);val('campaignProducts',list(x.product_ids));val('campaignCategories',list(x.category_names));val('campaignStart',local(x.starts_at));val('campaignEnd',local(x.ends_at));}
-function bind(){const cf=$('#couponForm'),af=$('#campaignForm');cf.onsubmit=async e=>{e.preventDefault();const row={id:$('#couponId').value||undefined,code:$('#couponCode').value.trim().toUpperCase(),name:$('#couponName').value.trim(),amount:+$('#couponAmount').value,min_spend:+$('#couponMin').value,total_quantity:+$('#couponQty').value,per_phone_limit:1,starts_at:$('#couponStart').value||null,ends_at:$('#couponEnd').value||null,active:true,updated_at:new Date().toISOString()};if(!row.id)delete row.id;const {error}=await db.from('marketing_coupons').upsert(row);toast(error?error.message:'优惠券已保存');if(!error)load()};af.onsubmit=async e=>{e.preventDefault();const kind=$('#campaignKind').value,row={id:$('#campaignId').value||undefined,kind,name:$('#campaignName').value.trim(),discount_kind:kind==='free_shipping'?'free_shipping':$('#campaignDiscount').value,amount:+$('#campaignAmount').value,threshold:+$('#campaignThreshold').value,product_ids:csv($('#campaignProducts').value).map(Number).filter(Number.isFinite),category_names:csv($('#campaignCategories').value),starts_at:$('#campaignStart').value||null,ends_at:$('#campaignEnd').value||null,active:true,updated_at:new Date().toISOString()};if(!row.id)delete row.id;const {error}=await db.from('marketing_campaigns').upsert(row);toast(error?error.message:'活动已保存');if(!error)load()};$('#couponReset').onclick=()=>{cf.reset();val('couponId','')};$('#campaignReset').onclick=()=>{af.reset();val('campaignId','')};root=document.querySelector('#marketingCenter');root.onclick=async e=>{const id=e.target.dataset.editCoupon||e.target.dataset.stopCoupon||e.target.dataset.editCampaign||e.target.dataset.stopCampaign;if(!id)return;if(e.target.dataset.editCoupon){couponEdit(coupons.find(x=>x.id===id));return}if(e.target.dataset.editCampaign){campaignEdit(campaigns.find(x=>x.id===id));return}const table=e.target.dataset.stopCoupon?'marketing_coupons':'marketing_campaigns';const {error}=await db.from(table).update({active:false,updated_at:new Date().toISOString()}).eq('id',id);toast(error?error.message:'已停用');if(!error)load()};$('#refreshStats').onclick=()=>render();}
-function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCenter'))return setTimeout(start,120);db=window.supabase.createClient(TINGS_SUPABASE.url,TINGS_SUPABASE.anonKey);document.querySelector('[data-view="marketing"]')?.addEventListener('click',()=>{document.querySelectorAll('aside nav button,.view').forEach(x=>x.classList.remove('active'));document.querySelector('[data-view="marketing"]').classList.add('active');$('#marketing').classList.add('active');$('#pageTitle').textContent='营销中心';load()});load()}start()})();
+(() => {
+  const money = n => `$${Number(n || 0).toFixed(2)}`;
+  const $ = s => document.querySelector(s);
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const now = () => new Date();
+  const localValue = value => value ? new Date(value).toISOString().slice(0, 16) : '';
+  const asArray = value => Array.isArray(value) ? value : [];
+  const currentStatus = item => item.status || (item.active ? 'published' : 'stopped');
+  const isPublished = item => currentStatus(item) === 'published' && item.active !== false;
+  const isRunning = item => isPublished(item) && (!item.starts_at || new Date(item.starts_at) <= now()) && (!item.ends_at || new Date(item.ends_at) >= now());
+  const typeNames = {full_reduction:'满减优惠',discount:'折扣',coupon:'优惠券',referral:'推荐奖励',free_shipping:'免配送费',product_special:'指定商品优惠',limited:'限时促销'};
+  let db, products = [], categories = [], campaigns = [], coupons = [], orders = [], redemptions = [], referrals = [], rewards = null, wizard = null;
 
+  function toast(message) { const el = $('#toast'); if (!el) return; el.textContent = message; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2800); }
+  function blank(type = 'full_reduction') { return {type,id:'',name:'',code:'',amount:'',threshold:'',discountMode:'percent',fold:'8',quantity:100,customerScope:'all',targetMode:type==='product_special'?'products':'all',productIds:new Set(),categoryNames:new Set(),allowCouponStack:true,startsAt:'',endsAt:'',rewardAmount:rewards?.amount ?? 5,rewardMin:rewards?.min_spend ?? 35,rewardDays:rewards?.valid_days ?? 0,originalStatus:'published'}; }
 
-;(() => {
-  const parseProducts = text => String(text || '').split('；').map(part => {
-    const [value, ...label] = part.trim().split(' ');
-    return value ? { value, label: label.join(' ') || value } : null;
-  }).filter(Boolean);
-  const parseCategories = text => String(text || '').split('、').map(value => value.trim()).filter(Boolean).map(value => ({ value, label: value }));
-  const sync = select => {
-    const hidden = document.getElementById(select.dataset.target);
-    if (hidden) hidden.value = [...select.selectedOptions].map(option => option.value).join(',');
-  };
-  const selected = select => {
-    const hidden = document.getElementById(select.dataset.target);
-    const values = new Set(String(hidden?.value || '').split(',').map(value => value.trim()).filter(Boolean));
-    [...select.options].forEach(option => { option.selected = values.has(option.value); });
-  };
-  function replaceInput(id, options, help) {
-    const hidden = document.getElementById(id);
-    if (!hidden || hidden.dataset.multiReady) return;
-    hidden.dataset.multiReady = 'true';
-    hidden.type = 'hidden';
-    const select = document.createElement('select');
-    select.multiple = true; select.size = 4; select.className = 'marketing-multi-select';
-    select.dataset.target = id;
-    options(hidden.placeholder).forEach(({ value, label }) => select.add(new Option(label, value)));
-    hidden.before(select);
-    const note = document.createElement('small');
-    note.className = 'marketing-multi-help';
-    note.textContent = help;
-    hidden.after(note);
-    selected(select);
-    select.addEventListener('change', () => sync(select));
+  async function load() {
+    const result = await Promise.all([
+      db.from('marketing_campaigns').select('*').order('created_at',{ascending:false}), db.from('marketing_coupons').select('*').order('created_at',{ascending:false}), db.from('orders').select('*').order('created_at',{ascending:false}), db.from('coupon_redemptions').select('*'), db.from('customer_referrals').select('*').order('created_at',{ascending:false}), db.from('products').select('id,name'), db.from('categories').select('name'), db.from('referral_reward_settings').select('*').eq('id',1).maybeSingle()
+    ]);
+    [campaigns,coupons,orders,redemptions,referrals,products,categories] = result.slice(0,7).map(x => x.data || []); rewards = result[7].data || {amount:5,min_spend:35,valid_days:0}; render();
   }
-  function enhance() {
-    replaceInput('campaignProducts', parseProducts, '可按住 Ctrl／⌘ 多选；不选择代表不限制商品。');
-    replaceInput('campaignCategories', parseCategories, '可按住 Ctrl／⌘ 多选；不选择代表不限制分类。');
+  function stats() { const rows=orders.filter(x=>x.status!=='已取消'), discounted=rows.filter(x=>Number(x.discount_amount||0)>0||(x.fulfillment==='delivery'&&Number(x.delivery_fee||0)===0)); return {sales:rows.reduce((s,x)=>s+Number(x.total_amount||0),0),orders:discounted.length,savings:rows.reduce((s,x)=>s+Number(x.discount_amount||0),0),newCustomers:new Set(rows.map(x=>x.phone).filter(Boolean)).size}; }
+  function campaignType(item) { if(item.kind==='full_reduction')return'full_reduction'; if(item.kind==='free_shipping')return'free_shipping'; if(asArray(item.product_ids).length)return'product_special'; return item.ends_at||item.starts_at?'limited':'discount'; }
+  function offerText(item,coupon=false) { if(coupon)return`${esc(item.code)} · 立减 ${money(item.amount)}，满 ${money(item.min_spend)} 可用`; if(item.kind==='free_shipping')return'配送费全免'; if(item.kind==='full_reduction')return`满 ${money(item.threshold)} 立减 ${money(item.amount)}`; return item.discount_kind==='percent'?`商品 ${Number(item.amount||0)/10} 折`:`每件立减 ${money(item.amount)}`; }
+  function timeText(item) { if(!item.starts_at&&!item.ends_at)return'长期有效'; const f=v=>new Intl.DateTimeFormat('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(v)); return`${item.starts_at?f(item.starts_at):'立即'} — ${item.ends_at?f(item.ends_at):'长期'}`; }
+  function statusLabel(item) { const status=currentStatus(item); return status==='draft'?'草稿':status==='stopped'?'已停用':isRunning(item)?'进行中':item.starts_at&&new Date(item.starts_at)>now()?'待开始':'已结束'; }
+  function offerCard(item,coupon=false) {
+    const status=statusLabel(item),used=coupon?`已用 ${redemptions.filter(x=>x.coupon_id===item.id).length}/${item.total_quantity}`:item.allow_coupon_stack===false?'不可与优惠券叠加':'可与优惠券叠加';
+    const actions=currentStatus(item)==='draft'?`<button data-publish="${item.id}" data-table="${coupon?'coupon':'campaign'}">立即发布</button><button data-edit="${item.id}" data-table="${coupon?'coupon':'campaign'}">编辑</button>`:currentStatus(item)==='stopped'?`<button data-publish="${item.id}" data-table="${coupon?'coupon':'campaign'}">重新发布</button><button data-edit="${item.id}" data-table="${coupon?'coupon':'campaign'}">编辑</button>`:`<button data-edit="${item.id}" data-table="${coupon?'coupon':'campaign'}">编辑</button><button data-stop="${item.id}" data-table="${coupon?'coupon':'campaign'}">停用</button>`;
+    return `<article class="marketing-offer-card ${status==='进行中'?'running':''}"><div class="offer-dot"></div><div class="offer-content"><div class="offer-title"><b>${esc(item.name)}</b><span class="offer-status ${currentStatus(item)}">${status}</span></div><p>${offerText(item,coupon)}</p><small>${timeText(item)} · ${used}</small></div><div class="offer-actions">${actions}</div></article>`;
   }
-  function startMultiSelects() {
-    const root = document.getElementById('marketingCenter');
-    if (!root) return setTimeout(startMultiSelects, 100);
-    enhance();
-    new MutationObserver(enhance).observe(root, { childList: true, subtree: true });
-    document.addEventListener('submit', event => {
-      if (event.target.id === 'campaignForm') document.querySelectorAll('select[data-target]').forEach(sync);
-    }, true);
-    document.addEventListener('click', event => {
-      if (event.target.matches('[data-edit-campaign]')) setTimeout(() => document.querySelectorAll('select[data-target]').forEach(selected), 0);
-      if (event.target.id === 'campaignReset') setTimeout(() => document.querySelectorAll('select[data-target]').forEach(select => { [...select.options].forEach(option => { option.selected = false; }); sync(select); }), 0);
-    });
+  function render() {
+    const root=$('#marketingCenter'); if(!root)return; const s=stats(),active=[...campaigns.filter(isRunning),...coupons.filter(isRunning).map(x=>({...x,_coupon:true}))];
+    root.innerHTML=`<div class="marketing-home"><section class="panel marketing-overview"><div class="marketing-hero"><div><p class="eyebrow">MARKETING CENTER</p><h2>营销中心</h2><p class="muted">创建、发布并追踪每一个优惠活动。</p></div><button class="primary marketing-create" data-create>＋ 创建营销活动</button></div><div class="marketing-metrics"><div><span>营销销售额</span><b>${money(s.sales)}</b></div><div><span>优惠订单</span><b>${s.orders}</b></div><div><span>优惠金额</span><b>${money(s.savings)}</b></div><div><span>新客</span><b>${s.newCustomers}</b></div></div></section><section class="panel marketing-active"><div class="panel-head"><div><h2>正在进行的活动</h2><p class="muted">顾客当前可享受的优惠</p></div><span class="marketing-count">${active.length} 项</span></div><div class="marketing-offer-list">${active.map(x=>offerCard(x,!!x._coupon)).join('')||'<p class="muted empty-offer">暂时没有正在进行的活动。点击“创建营销活动”开始设置。</p>'}</div></section><section class="panel marketing-library"><div class="panel-head"><div><h2>活动与优惠券</h2><p class="muted">草稿、待开始、已结束或已停用的活动也会保留在这里。</p></div><button class="text-btn" data-create>＋ 创建</button></div><div class="marketing-offer-list">${[...campaigns,...coupons.map(x=>({...x,_coupon:true}))].filter(x=>!isRunning(x)).map(x=>offerCard(x,!!x._coupon)).join('')||'<p class="muted empty-offer">还没有草稿或历史活动。</p>'}</div></section><section class="panel referral-summary"><div><p class="eyebrow">REFERRAL REWARD</p><h2>推荐奖励</h2><p>新顾客使用店主生成的推荐码后，双方各获 <b>${money(rewards.amount)}</b> 券；订单满 <b>${money(rewards.min_spend)}</b> 可用${Number(rewards.valid_days)?`，有效期 ${rewards.valid_days} 天`:'，长期有效'}。</p></div><div><b>${referrals.length}</b><small>已生成推荐码</small><button class="text-btn" data-create-referral>调整推荐奖励</button></div></section></div>${wizard?wizardView():''}`; bind();
   }
-  startMultiSelects();
+  function choice(type,icon,title,note){return`<button type="button" class="wizard-type${wizard?.type===type?' selected':''}" data-wizard-type="${type}"><i>${icon}</i><b>${title}</b><small>${note}</small></button>`;}
+  function stepIndicator(step){return`<div class="wizard-steps">${['选择类型','设置优惠','适用范围','时间与预览'].map((l,i)=>`<span class="${i+1===step?'active':i+1<step?'done':''}"><i>${i+1}</i>${l}</span>`).join('')}</div>`;}
+  function wizardView(){const w=wizard,heading=w.id?'编辑营销活动':'创建营销活动',typeName=typeNames[w.type]||'营销活动',body=w.step===1?`<div class="wizard-type-grid">${choice('full_reduction','💵','满减优惠','消费满额立减')}${choice('discount','%','折扣','全店、分类或商品折扣')}${choice('coupon','🎟','优惠券','创建兑换码')}${choice('referral','🎁','推荐奖励','设置推荐奖励券')}${choice('free_shipping','🚗','免配送费','配送订单免运费')}${choice('product_special','🛍','指定商品优惠','给指定商品优惠')}${choice('limited','⏰','限时促销','为优惠设置活动时间')}</div>`:w.step===2?wizardCore(w):w.step===3?wizardAudience(w):wizardPreview(w),next=w.step===4?'':`<button class="primary" data-wizard-next>${w.step===1?'下一步':'继续'} →</button>`,previous=w.step>1?'<button class="text-btn" data-wizard-back>← 上一步</button>':'';return`<section class="marketing-wizard-shell" aria-label="营销活动向导"><div class="marketing-wizard"><div class="wizard-head"><div><p class="eyebrow">CAMPAIGN WIZARD</p><h2>${heading}</h2><p class="muted">${w.step===1?'第一步：你想做什么？':typeName}</p></div><button class="close-wizard" data-wizard-close aria-label="关闭">×</button></div>${stepIndicator(w.step)}<div class="wizard-body">${body}</div><div class="wizard-footer"><div>${previous}</div>${next}</div></div></section>`;}
+  function field(label,content,hint=''){return`<label>${label}${content}${hint?`<small>${hint}</small>`:''}</label>`;} function input(id,value,opts=''){return`<input id="${id}" value="${esc(value)}" ${opts}>`;}
+  function wizardCore(w){
+    if(w.type==='coupon')return`<div class="wizard-form"><h3>创建优惠券</h3><p class="muted">顾客会在结账页输入兑换码使用。</p>${field('活动名称',input('wizName',w.name,'required placeholder="例如：开学零食券"'))}<div class="two">${field('兑换码',input('wizCode',w.code,'required placeholder="例如：WELCOME5" style="text-transform:uppercase"'))}${field('立减金额（美元）',input('wizAmount',w.amount,'type="number" min="0.01" step="0.01" required placeholder="5"'))}</div><div class="two">${field('最低消费（美元）',input('wizThreshold',w.threshold,'type="number" min="0" step="0.01" placeholder="35"'))}${field('总数量',input('wizQuantity',w.quantity,'type="number" min="1" step="1" required'))}</div></div>`;
+    if(w.type==='referral')return`<div class="wizard-form"><h3>设置推荐奖励</h3><p class="muted">新顾客首次使用有效推荐码后，新顾客和推荐人各获得一张奖励券。</p><div class="two">${field('奖励金额（美元）',input('wizRewardAmount',w.rewardAmount,'type="number" min="0.01" step="0.01" required'))}${field('最低消费（美元）',input('wizRewardMin',w.rewardMin,'type="number" min="0" step="0.01" required'))}</div>${field('奖励券有效期（天）',input('wizRewardDays',w.rewardDays,'type="number" min="0" step="1"'),'填写 0 代表长期有效。')}</div>`;
+    if(w.type==='free_shipping')return`<div class="wizard-form"><h3>配送费全免</h3><p class="muted">仅配送到家的订单可享受；到店自取不会显示配送费。</p>${field('活动名称',input('wizName',w.name,'required placeholder="例如：周末免配送"'))}</div>`;
+    const full=w.type==='full_reduction';return`<div class="wizard-form"><h3>${full?'设置满减优惠':'设置折扣'}</h3>${field('活动名称',input('wizName',w.name,`required placeholder="例如：${full?'周末零食节':'夏日饮料折扣'}"`))}${full?`<div class="two">${field('消费满（美元）',input('wizThreshold',w.threshold,'type="number" min="0" step="0.01" required placeholder="50"'))}${field('优惠（美元）',input('wizAmount',w.amount,'type="number" min="0.01" step="0.01" required placeholder="8"'))}</div>`:`<div class="two">${field('优惠方式',`<select id="wizDiscountMode"><option value="percent" ${w.discountMode==='percent'?'selected':''}>打折</option><option value="fixed" ${w.discountMode==='fixed'?'selected':''}>每件减 $</option></select>`)}${w.discountMode==='percent'?field('折扣（输入 8 表示 8 折）',input('wizFold',w.fold,'type="number" min="0.1" max="10" step="0.1" required')):field('每件优惠（美元）',input('wizAmount',w.amount,'type="number" min="0.01" step="0.01" required'))}</div>`}</div>`;
+  }
+  function checked(set,value){return set.has(String(value))?'checked':'';} function picker(title,key,rows,selected){return`<div class="wizard-picker"><b>${title}</b><div class="wizard-choice-list">${rows.map(r=>`<label><input type="checkbox" data-picker="${key}" value="${esc(r.value)}" ${checked(selected,r.value)}><span>${esc(r.label)}</span></label>`).join('')||'<small>暂无可选项目</small>'}</div></div>`;}
+  function wizardAudience(w){
+    if(w.type==='referral')return`<div class="wizard-form"><h3>确认推荐奖励</h3><p class="muted">设置保存后会立即用于新的推荐码订单。</p></div>`;
+    const coupon=w.type==='coupon',shipping=w.type==='free_shipping',target=shipping||coupon?'':`<div class="wizard-target-options"><b>适用商品</b><div class="segment-control"><button data-target-mode="all" class="${w.targetMode==='all'?'selected':''}">所有商品</button><button data-target-mode="categories" class="${w.targetMode==='categories'?'selected':''}">指定分类</button><button data-target-mode="products" class="${w.targetMode==='products'?'selected':''}">指定商品</button></div>${w.targetMode==='products'?picker('选择商品（可多选）','products',products.map(x=>({value:String(x.id),label:x.name})),w.productIds):''}${w.targetMode==='categories'?picker('选择分类（可多选）','categories',categories.map(x=>({value:x.name,label:x.name})),w.categoryNames):''}</div>`;
+    return`<div class="wizard-form"><h3>适用范围</h3><div class="wizard-target-options"><b>适用顾客</b><div class="segment-control"><button data-customer-scope="all" class="${w.customerScope==='all'?'selected':''}">所有顾客</button><button data-customer-scope="new" class="${w.customerScope==='new'?'selected':''}">仅新顾客</button></div></div>${target}${!coupon?`<label class="stack-choice"><input id="wizStack" type="checkbox" ${w.allowCouponStack?'checked':''}><span><b>允许与优惠券／推荐码叠加</b><small>取消勾选后，顾客使用这个活动时不能同时使用兑换码。</small></span></label>`:''}</div>`;
+  }
+  function previewDescription(w){if(w.type==='coupon')return`兑换码 ${w.code||'—'}：立减 ${money(w.amount||0)}，满 ${money(w.threshold||0)} 可用`;if(w.type==='referral')return`双方各获得 ${money(w.rewardAmount||0)} 券，满 ${money(w.rewardMin||0)} 可用`;if(w.type==='free_shipping')return'配送订单免配送费';if(w.type==='full_reduction')return`满 ${money(w.threshold||0)} 立减 ${money(w.amount||0)}`;return w.discountMode==='percent'?`指定范围商品 ${w.fold||0} 折`:`指定范围商品每件立减 ${money(w.amount||0)}`;}
+  function wizardPreview(w){const scope=w.targetMode==='products'?`指定 ${w.productIds.size||0} 件商品`:w.targetMode==='categories'?`指定 ${w.categoryNames.size||0} 个分类`:'所有商品';return`<div class="wizard-form wizard-schedule"><h3>设置活动时间</h3><p class="muted">留空即为立即开始、长期有效。</p><div class="two">${field('开始时间',input('wizStartsAt',w.startsAt,'type="datetime-local"'))}${field('结束时间',input('wizEndsAt',w.endsAt,'type="datetime-local"'))}</div></div><div class="wizard-preview"><p class="eyebrow">PREVIEW</p><h3>${esc(w.name||(w.type==='referral'?'推荐奖励':'未命名活动'))}</h3><b>${previewDescription(w)}</b><p>${w.type==='coupon'||w.type==='referral'?(w.customerScope==='new'?'仅新顾客':'所有顾客'):`${w.customerScope==='new'?'仅新顾客 · ':'所有顾客 · '}${scope}`}</p><p>${w.startsAt?timeText({starts_at:w.startsAt,ends_at:w.endsAt}):'立即开始 — 长期有效'}</p>${w.type!=='coupon'&&w.type!=='referral'?`<p>${w.allowCouponStack?'可与优惠券／推荐码叠加':'不可与其他优惠同时使用'}</p>`:''}<div class="wizard-preview-actions">${w.type==='referral'?'<button class="text-btn" data-save-referral>保存设置</button>':'<button class="text-btn" data-save="draft">保存草稿</button><button class="primary" data-save="published">立即发布</button>'}</div></div>`;}
+  function collect(step){if(!wizard)return;const get=id=>$('#'+id)?.value?.trim()??'';if(step===2){wizard.name=get('wizName');wizard.code=get('wizCode').toUpperCase();wizard.amount=get('wizAmount');wizard.threshold=get('wizThreshold');wizard.quantity=get('wizQuantity')||wizard.quantity;wizard.discountMode=$('#wizDiscountMode')?.value||wizard.discountMode;wizard.fold=get('wizFold')||wizard.fold;wizard.rewardAmount=get('wizRewardAmount')||wizard.rewardAmount;wizard.rewardMin=get('wizRewardMin')||wizard.rewardMin;wizard.rewardDays=get('wizRewardDays')||wizard.rewardDays;}if(step===3)wizard.allowCouponStack=$('#wizStack')?$('#wizStack').checked:wizard.allowCouponStack;if(step===4){wizard.startsAt=get('wizStartsAt');wizard.endsAt=get('wizEndsAt');}}
+  function validStep(){if(wizard.step===1)return!!wizard.type;if(wizard.step===2){if(wizard.type==='coupon')return wizard.name&&wizard.code&&Number(wizard.amount)>0;if(wizard.type==='referral')return Number(wizard.rewardAmount)>0;if(wizard.type==='free_shipping')return!!wizard.name;if(!wizard.name)return false;return wizard.type==='full_reduction'?Number(wizard.threshold)>=0&&Number(wizard.amount)>0:wizard.discountMode==='percent'?Number(wizard.fold)>0&&Number(wizard.fold)<=10:Number(wizard.amount)>0;}if(wizard.step===3&&wizard.targetMode==='products'&&wizard.type==='product_special')return wizard.productIds.size>0;return true;}
+  function campaignRow(status){const w=wizard,fixed=w.discountMode==='fixed';let kind='product_discount';if(w.type==='full_reduction')kind='full_reduction';if(w.type==='free_shipping')kind='free_shipping';if(w.targetMode==='categories')kind='category_discount';const amount=w.type==='full_reduction'?Number(w.amount):w.type==='free_shipping'?0:fixed?Number(w.amount):Math.max(0,(10-Number(w.fold))*10),row={kind,name:w.name.trim(),discount_kind:w.type==='free_shipping'?'free_shipping':w.type==='full_reduction'?'fixed':fixed?'fixed':'percent',amount,threshold:w.type==='full_reduction'?Number(w.threshold):0,product_ids:w.targetMode==='products'?[...w.productIds].map(Number):[],category_names:w.targetMode==='categories'?[...w.categoryNames]:[],customer_scope:w.customerScope,allow_coupon_stack:w.allowCouponStack,starts_at:w.startsAt||null,ends_at:w.endsAt||null,status,active:status==='published',updated_at:new Date().toISOString()};if(w.id)row.id=w.id;return row;}
+  function couponRow(status){const w=wizard,row={code:w.code.trim().toUpperCase(),name:w.name.trim(),amount:Number(w.amount),min_spend:Number(w.threshold||0),total_quantity:Number(w.quantity||1),per_phone_limit:1,customer_scope:w.customerScope,starts_at:w.startsAt||null,ends_at:w.endsAt||null,status,active:status==='published',updated_at:new Date().toISOString()};if(w.id)row.id=w.id;return row;}
+  async function save(status){collect(4);if(!validStep())return toast('请先补全必填内容。');if(wizard.endsAt&&wizard.startsAt&&new Date(wizard.endsAt)<=new Date(wizard.startsAt))return toast('结束时间需晚于开始时间。');const table=wizard.type==='coupon'?'marketing_coupons':'marketing_campaigns',row=wizard.type==='coupon'?couponRow(status):campaignRow(status),{error}=await db.from(table).upsert(row);toast(error?error.message:status==='draft'?'草稿已保存':'活动已发布');if(!error){wizard=null;load();}}
+  async function saveReferral(){collect(2);const row={id:1,amount:Number(wizard.rewardAmount),min_spend:Number(wizard.rewardMin),valid_days:Number(wizard.rewardDays),updated_at:new Date().toISOString()},{error}=await db.from('referral_reward_settings').upsert(row);toast(error?error.message:'推荐奖励设置已保存');if(!error){wizard=null;load();}}
+  function edit(item,table){if(table==='coupon'){wizard=blank('coupon');Object.assign(wizard,{id:item.id,name:item.name,code:item.code,amount:item.amount,threshold:item.min_spend,quantity:item.total_quantity,customerScope:item.customer_scope||'all',startsAt:localValue(item.starts_at),endsAt:localValue(item.ends_at),originalStatus:currentStatus(item)});}else{const type=campaignType(item);wizard=blank(type);Object.assign(wizard,{id:item.id,name:item.name,amount:item.amount,threshold:item.threshold,discountMode:item.discount_kind||'percent',fold:item.discount_kind==='percent'?(10-Number(item.amount||0)/10).toString():'8',customerScope:item.customer_scope||'all',targetMode:asArray(item.product_ids).length?'products':asArray(item.category_names).length?'categories':'all',productIds:new Set(asArray(item.product_ids).map(String)),categoryNames:new Set(asArray(item.category_names)),allowCouponStack:item.allow_coupon_stack!==false,startsAt:localValue(item.starts_at),endsAt:localValue(item.ends_at),originalStatus:currentStatus(item)});}wizard.step=2;render();}
+  async function updateStatus(id,table,status){const target=table==='coupon'?'marketing_coupons':'marketing_campaigns',{error}=await db.from(target).update({status,active:status==='published',updated_at:new Date().toISOString()}).eq('id',id);toast(error?error.message:status==='stopped'?'已停用':'已发布');if(!error)load();}
+  function bind(){const root=$('#marketingCenter');root.onclick=async event=>{const target=event.target.closest('button');if(!target)return;if(target.dataset.create!==undefined){wizard=blank();wizard.step=1;render();return;}if(target.dataset.createReferral!==undefined){wizard=blank('referral');wizard.step=2;render();return;}if(target.dataset.wizardClose!==undefined){wizard=null;render();return;}if(target.dataset.wizardType){wizard.type=target.dataset.wizardType;if(wizard.type==='product_special')wizard.targetMode='products';render();return;}if(target.dataset.wizardBack!==undefined){collect(wizard.step);wizard.step--;render();return;}if(target.dataset.wizardNext!==undefined){collect(wizard.step);if(!validStep())return toast('请先补全必填内容。');wizard.step++;render();return;}if(target.dataset.targetMode){wizard.targetMode=target.dataset.targetMode;render();return;}if(target.dataset.customerScope){wizard.customerScope=target.dataset.customerScope;render();return;}if(target.dataset.save)return save(target.dataset.save);if(target.dataset.saveReferral!==undefined)return saveReferral();if(target.dataset.edit)return edit((target.dataset.table==='coupon'?coupons:campaigns).find(x=>x.id===target.dataset.edit),target.dataset.table);if(target.dataset.stop)return updateStatus(target.dataset.stop,target.dataset.table,'stopped');if(target.dataset.publish)return updateStatus(target.dataset.publish,target.dataset.table,'published');};root.onchange=event=>{const input=event.target;if(input.id==='wizDiscountMode'){collect(2);render();return;}if(input.id==='wizStartsAt'||input.id==='wizEndsAt'){collect(4);render();return;}if(!input.dataset.picker)return;const set=input.dataset.picker==='products'?wizard.productIds:wizard.categoryNames;input.checked?set.add(input.value):set.delete(input.value);};}
+  function start(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#marketingCenter'))return setTimeout(start,120);db=window.supabase.createClient(TINGS_SUPABASE.url,TINGS_SUPABASE.anonKey);document.querySelector('[data-view="marketing"]')?.addEventListener('click',load);load();}start();
 })();
-
-/* Retired activity types stay out of the owner interface and cannot be created again. */
-;(() => {
-  const pruneRetiredCampaignTypes = () => {
-    document.querySelectorAll('#campaignKind option[value="holiday"], #campaignKind option[value="free_shipping"], #campaignDiscount option[value="free_shipping"]').forEach(option => option.remove());
-    document.querySelectorAll('#marketingCenter .marketing-list article').forEach(card => {
-      const text = card.textContent || '';
-      if (text.includes('节日活动') || text.includes('免费配送')) card.remove();
-    });
-  };
-  const waitForMarketing = () => {
-    const root = document.querySelector('#marketingCenter');
-    if (!root) return setTimeout(waitForMarketing, 120);
-    pruneRetiredCampaignTypes();
-    new MutationObserver(pruneRetiredCampaignTypes).observe(root, { childList: true, subtree: true });
-  };
-  waitForMarketing();
-})();
-
-/* Replace the native multi-select controls with a simple checkbox picker. The
-   original controls stay in the form (hidden) so existing save logic remains
-   compatible while target selection becomes tap-friendly. */
-;(() => {
-  function syncHidden(select) {
-    const hidden = document.getElementById(select.dataset.target);
-    if (hidden) hidden.value = [...select.options].filter(option => option.selected).map(option => option.value).join(',');
-  }
-  function syncChecks(select) {
-    const picker = select.parentElement?.querySelector(`[data-picker-for="${select.dataset.target}"]`);
-    if (!picker) return;
-    picker.querySelectorAll('input[type="checkbox"]').forEach(box => {
-      box.checked = [...select.options].some(option => option.value === box.value && option.selected);
-    });
-    syncHidden(select);
-  }
-  function enhancePickers() {
-    document.querySelectorAll('select[data-target]').forEach(select => {
-      if (select.dataset.checkboxPicker === 'true') { syncChecks(select); return; }
-      select.dataset.checkboxPicker = 'true';
-      select.hidden = true;
-      const picker = document.createElement('div');
-      picker.className = 'marketing-checkbox-picker';
-      picker.dataset.pickerFor = select.dataset.target;
-      picker.innerHTML = [...select.options].map(option => `<label class="marketing-picker-option"><input type="checkbox" value="${option.value}"><span>${option.textContent}</span></label>`).join('') || '<small>暂无可选项目</small>';
-      picker.addEventListener('change', event => {
-        const box = event.target;
-        if (!box.matches('input[type="checkbox"]')) return;
-        const option = [...select.options].find(item => item.value === box.value);
-        if (option) option.selected = box.checked;
-        syncHidden(select);
-      });
-      select.after(picker);
-      const help = select.parentElement?.querySelector('.marketing-multi-help');
-      if (help) help.textContent = '可勾选多个；不选择代表不限制。';
-      syncChecks(select);
-    });
-  }
-  document.addEventListener('click', event => {
-    if (event.target.matches('[data-edit-campaign], #campaignReset')) setTimeout(enhancePickers, 0);
-  });
-  const observer = new MutationObserver(enhancePickers);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  enhancePickers();
-})();
-
-
-
-
-
-;(() => {
-  let referralDb;
-  if (!document.getElementById('campaignTargetVisibilityStyle')) {
-    const style = document.createElement('style');
-    style.id = 'campaignTargetVisibilityStyle';
-    style.textContent = `
-      #marketingCenter:has(#campaignKind option[value="full_reduction"]:checked) label:has(#campaignProducts),
-      #marketingCenter:has(#campaignKind option[value="full_reduction"]:checked) label:has(#campaignCategories),
-      #marketingCenter:has(#campaignKind option[value="product_discount"]:checked) label:has(#campaignCategories),
-      #marketingCenter:has(#campaignKind option[value="category_discount"]:checked) label:has(#campaignProducts) { display:none !important; }
-    `;
-    document.head.append(style);
-  }
-  const $ = selector => document.querySelector(selector);
-  const notice = message => {
-    const toast = $('#toast');
-    if (!toast) return;
-    toast.textContent = message;
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2800);
-  };
-  const targetVisibility = () => {
-    const kind = $('#campaignKind')?.value;
-    const showProducts = kind === 'product_discount';
-    const showCategories = kind === 'category_discount';
-    const showThreshold = kind === 'full_reduction';
-    const productTarget = $('#campaignProducts');
-    const categoryTarget = $('#campaignCategories');
-    const thresholdTarget = $('#campaignThreshold');
-    if (productTarget) productTarget.closest('label').hidden = !showProducts;
-    if (categoryTarget) categoryTarget.closest('label').hidden = !showCategories;
-    if (thresholdTarget) thresholdTarget.closest('label').hidden = !showThreshold;
-  };
-  const forceTargetVisibility = () => {
-    const kind = $('#campaignKind')?.value;
-    const productLabel = document.querySelector('label:has(#campaignProducts)');
-    const categoryLabel = document.querySelector('label:has(#campaignCategories)');
-    const thresholdLabel = document.querySelector('label:has(#campaignThreshold)');
-    if (productLabel) productLabel.hidden = kind !== 'product_discount';
-    if (categoryLabel) categoryLabel.hidden = kind !== 'category_discount';
-    if (thresholdLabel) thresholdLabel.hidden = kind !== 'full_reduction';
-  };
-  async function referralTools() {
-    const section = $('.marketing-referral');
-    if (!section || section.dataset.referralToolsReady) return;
-    if (!window.supabase || !window.TINGS_SUPABASE) return;
-    section.dataset.referralToolsReady = 'true';
-    referralDb ||= window.supabase.createClient(TINGS_SUPABASE.url, TINGS_SUPABASE.anonKey);
-    const { data: settings, error } = await referralDb.from('referral_reward_settings').select('*').eq('id', 1).maybeSingle();
-    if (error) { section.dataset.referralToolsReady = ''; notice(error.message); return; }
-    const current = settings || { amount: 5, min_spend: 35, valid_days: 0 };
-    const tools = document.createElement('div');
-    tools.className = 'marketing-grid referral-settings';
-    tools.innerHTML = `<section><h3>推荐奖励设置</h3><form id="referralRewardForm"><div class="two"><label>奖励金额（美元）<input id="referralRewardAmount" type="number" min="0.01" step="0.01" value="${current.amount}"></label><label>最低消费（美元）<input id="referralRewardMin" type="number" min="0" step="0.01" value="${current.min_spend}"></label></div><label>奖励券有效期（天）<input id="referralRewardDays" type="number" min="0" step="1" value="${current.valid_days}"><small>填写 0 代表长期有效；该设置也用于本次推荐码立即优惠。</small></label><button class="primary">保存推荐奖励</button></form></section><section><h3>店主生成推荐码</h3><form id="ownerReferralForm"><label>推荐人电话号码<input id="ownerReferralPhone" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" placeholder="输入推荐人的 10 位电话号码" required></label><button class="primary">生成推荐码</button><p class="muted" id="generatedReferralCode">生成后可将推荐码发给顾客使用。</p></form></section>`;
-    section.prepend(tools);
-    $('#referralRewardForm').onsubmit = async event => {
-      event.preventDefault();
-      const row = { id: 1, amount: +$('#referralRewardAmount').value, min_spend: +$('#referralRewardMin').value, valid_days: +$('#referralRewardDays').value, updated_at: new Date().toISOString() };
-      const { error: saveError } = await referralDb.from('referral_reward_settings').upsert(row);
-      notice(saveError ? saveError.message : '推荐奖励已保存');
-    };
-    $('#ownerReferralForm').onsubmit = async event => {
-      event.preventDefault();
-      const phone = $('#ownerReferralPhone').value.trim();
-      if (!/^[0-9]{10}$/.test(phone)) return notice('请输入 10 位数字电话号码');
-      const { data: existing, error: checkError } = await referralDb.from('customer_referrals').select('referral_code').eq('phone', phone).maybeSingle();
-      if (checkError) return notice(checkError.message);
-      const code = existing?.referral_code || ('TSHREF-' + Math.random().toString(36).slice(2, 10).toUpperCase());
-      if (!existing) {
-        const { error: createError } = await referralDb.from('customer_referrals').insert({ phone, referral_code: code });
-        if (createError) return notice(createError.message);
-      }
-      $('#generatedReferralCode').textContent = `推荐码：${code}（已绑定 ${phone}）`;
-      notice('推荐码已生成');
-    };
-  }
-  function startOfferAdminTools() {
-    const root = $('#marketingCenter');
-    if (!root) return setTimeout(startOfferAdminTools, 100);
-    targetVisibility(); forceTargetVisibility();
-    referralTools();
-    new MutationObserver(() => { targetVisibility(); forceTargetVisibility(); referralTools(); }).observe(root, { childList: true, subtree: true });
-    document.addEventListener('change', event => { if (event.target.id === 'campaignKind') { targetVisibility(); forceTargetVisibility(); } });
-    document.addEventListener('click', event => { if (event.target.matches('[data-edit-campaign]') || event.target.id === 'campaignReset') setTimeout(() => { targetVisibility(); forceTargetVisibility(); }, 0); });
-    setInterval(forceTargetVisibility, 400);
-  }
-  startOfferAdminTools();
-})();
-
-/* Load the dedicated order-card presentation after the existing admin tools. */
-(()=>{const style=document.createElement('link');style.rel='stylesheet';style.href='order-cards.css?v=20260809d';document.head.append(style)})();
