@@ -46,3 +46,7 @@ db.from('marketing_campaigns').select('*').then(({data})=>{cardCampaigns=data||[
 const orderNoteInput=$('textarea[name="note"]'),orderNoteCount=$('#orderNoteCount');
 function updateOrderNoteCount(){if(orderNoteInput&&orderNoteCount)orderNoteCount.textContent=`${orderNoteInput.value.length} / ${orderNoteInput.maxLength||300}`;}
 orderNoteInput?.addEventListener('input',updateOrderNoteCount);updateOrderNoteCount();
+
+/* A timed pause is reopened by the database when its deadline arrives. */
+async function refreshScheduledOrderAvailability(){if(settings.is_accepting_orders!==false||!settings.order_paused_until||new Date(settings.order_paused_until).getTime()>Date.now())return;const {data,error}=await db.rpc('refresh_shop_order_availability');if(!error&&data){settings.is_accepting_orders=true;settings.order_paused_until=null;renderCart();}}
+setInterval(refreshScheduledOrderAvailability,30000);setTimeout(refreshScheduledOrderAvailability,500);
