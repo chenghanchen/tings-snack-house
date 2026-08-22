@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260822c" />
+    <link rel="stylesheet" href="styles.css?v=20260822d" />
     <style>.order-amounts .fee-value b{grid-column:2;min-width:52px;text-align:right;font-size:12px;font-weight:400;color:inherit}</style>
     <style>
       .hero { position:relative; display:block; min-height:620px; overflow:hidden; }
@@ -80,8 +80,8 @@
       <div class="cart-header"><h2>购物篮</h2><button id="closeCart" aria-label="关闭购物篮">×</button></div>
       <div class="cart-items" id="cartItems"></div>
       <div class="cart-footer">
-        <div class="cart-total"><span>已选商品</span><b id="totalCount">0 件</b></div>
-        <button class="primary-button checkout" id="checkout" disabled>填写订购信息 <span>→</span></button>
+        <div class="cart-total"><span>商品小计（<b id="totalCount">0 件</b>）</span><b id="cartSubtotal">$0.00</b></div>
+        <div class="cart-actions"><button class="continue-shopping" id="continueShopping">继续挑选</button><button class="primary-button checkout" id="checkout" disabled>我挑好啦！ <span>→</span></button></div>
       </div>
     </aside>
     <div class="overlay" id="overlay"></div>
@@ -113,7 +113,7 @@
     </dialog>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
-    <script src="app.js?v=20260822c"></script>
+    <script src="app.js?v=20260822d"></script>
     <script src="activity-announcement.js?v=20260820c"></script>
     <script src="site-appearance.js?v=20260820a"></script>
     <script src="footer-contact-overlay.js?v=20260820e"></script>
