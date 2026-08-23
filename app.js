@@ -56,3 +56,83 @@ orderNoteInput?.addEventListener('input',updateOrderNoteCount);updateOrderNoteCo
 /* A timed pause is reopened by the database when its deadline arrives. */
 async function refreshScheduledOrderAvailability(){if(settings.is_accepting_orders!==false||!settings.order_paused_until||new Date(settings.order_paused_until).getTime()>Date.now())return;const {data,error}=await db.rpc('refresh_shop_order_availability');if(!error&&data){settings.is_accepting_orders=true;settings.order_paused_until=null;renderCart();}}
 setInterval(refreshScheduledOrderAvailability,30000);setTimeout(refreshScheduledOrderAvailability,500);
+
+
+/* Keep customer interactions local: only the changed card and cart row are updated. */
+function partialProductPrice(p,item){
+  let saving=0,now=new Date();
+  for(const campaign of cardCampaigns||[]){
+    if(!isActiveDirectDiscount(campaign,now)||!campaignMatchesProduct(campaign,p))continue;
+    const discount=campaign.discount_kind==='percent'?Number(item.price||0)*Number(campaign.amount||0)/100:Math.min(Number(item.price||0),Number(campaign.amount||0));
+    saving=Math.max(saving,discount);
+  }
+  if(!saving)return dollars(item.price);
+  return `<s>${dollars(item.price)}</s> <span class="sale-price">${dollars(Math.max(0,Number(item.price)-saving))}</span>`;
+}
+function refreshProductCard(productId){
+  const product=products.find(row=>row.id===Number(productId));
+  const card=document.querySelector('#productGrid [data-preview="'+productId+'"]')?.closest('.product');
+  if(!product||!card)return;
+  const groupsForProduct=optionGroups(product.id),item=itemFor(product),allSelected=groupsForProduct.every(group=>selected[product.id]?.[group.id]);
+  card.querySelectorAll('[data-choice]').forEach(button=>button.classList.toggle('selected',Number(button.dataset.value)===Number(selected[product.id]?.[button.dataset.group])));
+  const visual=card.querySelector('.product-image'),image=item?.image||product.image,currentImage=visual?.querySelector('img'),currentIcon=visual?.querySelector('.product-icon');
+  if(visual){
+    if(image){
+      if(currentImage){currentImage.src=image;currentImage.alt=product.name;}
+      else if(currentIcon)currentIcon.outerHTML=`<img src="${image}" alt="${escapeHtml(product.name)}">`;
+    }else if(!currentIcon&&currentImage)currentImage.outerHTML=`<span class="product-icon">${escapeHtml(product.icon)}</span>`;
+  }
+  const action=groupsForProduct.length&&!allSelected?'<button class="add" disabled>请选择规格</button>':item?qtyControl(product,item):'<button class="add" disabled>缺货</button>';
+  const bottom=card.querySelector('.product-bottom');
+  if(bottom)bottom.innerHTML=`<b>${item?partialProductPrice(product,item):dollars(product.price)}</b>${action}`;
+  let warning=card.querySelector('.stock-warning');
+  if(item?.out){
+    if(!warning)bottom?.insertAdjacentHTML('beforebegin','<p class="stock-warning">该规格已缺货</p>');
+  }else warning?.remove();
+}
+function cartRowMarkup(item){
+  return `<div class="cart-item" data-cart-key="${escapeHtml(item.key)}"><div class="cart-thumb" style="background:${item.product.color}">${item.image?`<img src="${item.image}" alt="">`:escapeHtml(item.product.icon)}</div><div><h3>${escapeHtml(item.product.name)}${item.label?` · ${escapeHtml(item.label)}`:''}</h3><p class="cart-line">${dollars(item.price)} × ${item.qty}</p></div><div class="quantity"><button data-change="-1" data-key="${escapeHtml(item.key)}">−</button><b class="cart-qty">${item.qty}</b><button data-change="1" data-key="${escapeHtml(item.key)}" ${item.qty>=item.stock?'disabled':''}>+</button></div></div>`;
+}
+function refreshCartLocally(){
+  const totalsNow=totals(),accepting=settings.is_accepting_orders!==false,checkout=$('#checkout'),paused=$('#orderPausedMessage'),list=$('#cartItems');
+  $('#cartCount').textContent=totalsNow.count;$('#totalCount').textContent=`${totalsNow.count} 件`;$('#cartSubtotal').textContent=dollars(totalsNow.subtotal);
+  const beforeScroll=list.scrollTop,liveKeys=new Set(cart.map(item=>item.key));
+  list.querySelectorAll('.cart-item').forEach(node=>{if(!liveKeys.has(node.dataset.cartKey))node.remove();});
+  for(const item of cart){
+    let node=Array.from(list.querySelectorAll('.cart-item')).find(row=>row.dataset.cartKey===item.key);
+    if(!node){list.insertAdjacentHTML('beforeend',cartRowMarkup(item));node=Array.from(list.querySelectorAll('.cart-item')).find(row=>row.dataset.cartKey===item.key);}
+    if(!node)continue;
+    node.querySelector('.cart-line').textContent=`${dollars(item.price)} × ${item.qty}`;
+    node.querySelector('.cart-qty').textContent=item.qty;
+    node.querySelector('[data-change="1"]').disabled=item.qty>=item.stock;
+  }
+  let encouragement=list.querySelector('.cart-encouragement');
+  if(cart.length){if(!encouragement){list.insertAdjacentHTML('beforeend','<p class="cart-encouragement">篮子还很空呢！<br>再挑多一份小快乐吧！</p>');encouragement=list.querySelector('.cart-encouragement');}list.append(encouragement);}else encouragement?.remove();
+  list.scrollTop=beforeScroll;
+  checkout.disabled=!totalsNow.count||!accepting;checkout.innerHTML=accepting?'我挑好啦！ <span>→</span>':'店铺暂不接单';if(paused)paused.hidden=accepting;
+  const pickup=$('#fulfillment')?.value==='pickup',feeRow=pickup?'':`<div><span>配送费</span><span class="fee-value">${totalsNow.delivery===0?'<small>（已减免）</small>':''}<b>${dollars(totalsNow.delivery)}</b></span></div>`;
+  $('#orderSummary').innerHTML=cart.map(item=>`${escapeHtml(item.product.name)}${item.label?` · ${escapeHtml(item.label)}`:''} × ${item.qty}　${dollars(item.price*item.qty)}`).join('<br>')+`<hr><div class="order-amounts"><div><span>商品小计</span><span>${dollars(totalsNow.subtotal)}</span></div>${feeRow}<div><span>税（${Number(settings.tax_rate||10.5)}%）</span><span>${dollars(totalsNow.tax)}</span></div><div><b>最终应付金额</b><b>${dollars(totalsNow.total)}</b></div></div>`;
+  drawOfferPreview();previewOffer();
+}
+change=function(key,delta){
+  const item=cart.find(row=>row.key===key);
+  if(!item)return;
+  if(delta>0&&item.qty>=item.stock)return alert('库存不足');
+  item.qty+=delta;
+  if(item.qty<1)cart=cart.filter(row=>row!==item);
+  refreshProductCard(item.product.id);refreshCartLocally();
+};
+$('#productGrid').onclick=event=>{
+  if(event.target.dataset.choice){
+    const productId=Number(event.target.dataset.choice);selected[productId]??={};selected[productId][Number(event.target.dataset.group)]=Number(event.target.dataset.value);refreshProductCard(productId);return;
+  }
+  if(event.target.dataset.cardChange){
+    const product=products.find(row=>row.id===Number(event.target.dataset.id)),item=product&&itemFor(product);if(item)change(item.key,Number(event.target.dataset.cardChange));return;
+  }
+  const productId=Number(event.target.dataset.add);
+  if(productId){
+    const product=products.find(row=>row.id===productId),item=product&&itemFor(product);
+    if(item&&!item.out){const existing=cartItem(product);if(existing)change(item.key,1);else{cart.push({...item,qty:1});refreshProductCard(product.id);refreshCartLocally();}}
+  }
+};
+renderCart=refreshCartLocally;
