@@ -196,3 +196,4 @@ cartScrollArea.addEventListener('touchmove',event=>{
   event.stopPropagation();
   if((atTop&&delta<0)||(atBottom&&delta>0))event.preventDefault();
 },{passive:false});
+$('#openOrderLookupMobile').onclick=event=>{event.preventDefault();openOrderLookup();};
