@@ -170,3 +170,29 @@ loadShop=async function(){
   if(!catalogDetailsReady&&version===shopLoadVersion)setTimeout(()=>loadShop(),3000);
 };
 loadShop();
+
+/* On phones, the open cart owns the swipe gesture instead of the page behind it. */
+let cartPageScrollY=0,cartTouchStartY=0,cartPageLocked=false;
+function lockPageForCart(){
+  if(cartPageLocked)return;
+  cartPageLocked=true;cartPageScrollY=window.scrollY;
+  document.body.style.position='fixed';document.body.style.top=`-${cartPageScrollY}px`;document.body.style.width='100%';document.body.style.overflow='hidden';
+}
+function unlockPageFromCart(){
+  if(!cartPageLocked)return;
+  cartPageLocked=false;
+  document.body.style.position='';document.body.style.top='';document.body.style.width='';document.body.style.overflow='';
+  window.scrollTo(0,cartPageScrollY);
+}
+toggleCart=show=>{
+  $('#cart').classList.toggle('open',show);$('#overlay').classList.toggle('visible',show);
+  if(window.matchMedia('(max-width:780px)').matches){if(show)lockPageForCart();else unlockPageFromCart();}
+};
+const cartScrollArea=$('#cartItems');
+cartScrollArea.addEventListener('touchstart',event=>{cartTouchStartY=event.touches[0]?.clientY||0;},{passive:true});
+cartScrollArea.addEventListener('touchmove',event=>{
+  const fingerY=event.touches[0]?.clientY||cartTouchStartY,delta=cartTouchStartY-fingerY;
+  const atTop=cartScrollArea.scrollTop<=0,atBottom=cartScrollArea.scrollTop+cartScrollArea.clientHeight>=cartScrollArea.scrollHeight-1;
+  event.stopPropagation();
+  if((atTop&&delta<0)||(atBottom&&delta>0))event.preventDefault();
+},{passive:false});
