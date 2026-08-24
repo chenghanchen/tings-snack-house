@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260822d" />
+    <link rel="stylesheet" href="styles.css?v=20260823a" />
     <style>.order-amounts .fee-value b{grid-column:2;min-width:52px;text-align:right;font-size:12px;font-weight:400;color:inherit}</style>
     <style>
       .hero { position:relative; display:block; min-height:620px; overflow:hidden; }
@@ -60,7 +60,7 @@
         <div class="filters" id="filters">
           <button class="active" data-filter="全部">全部</button><button data-filter="甜味">甜味</button><button data-filter="咸香">咸香</button><button data-filter="饮品">饮品</button><button data-filter="童年回忆">童年回忆</button><button data-filter="促销">促销</button>
         </div>
-        <div class="product-grid" id="productGrid"></div>
+        <div class="product-grid product-grid-loading" id="productGrid" aria-live="polite"><p class="catalog-loading">正在准备今日零食…</p></div>
       </section>
 
       <section class="delivery-info" id="deliveryInfo" aria-label="配送说明">
@@ -113,7 +113,7 @@
     </dialog>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
-    <script src="app.js?v=20260822e"></script>
+    <script src="app.js?v=20260823a"></script>
     <script src="activity-announcement.js?v=20260820c"></script>
     <script src="site-appearance.js?v=20260820a"></script>
     <script src="footer-contact-overlay.js?v=20260820e"></script>
