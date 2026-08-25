@@ -20,6 +20,17 @@
   aside.querySelector('nav')?.addEventListener('click',event=>{
     const button=event.target.closest('[data-view]');
     if(!button)return;
+    /* Run the established page switcher directly, then consume this click once. */
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if(typeof button.onclick==='function')button.onclick.call(button,event);
+    else{
+      document.querySelectorAll('aside nav button,.view').forEach(node=>node.classList.remove('active'));
+      button.classList.add('active');
+      document.querySelector('#'+button.dataset.view)?.classList.add('active');
+      const pageTitle=document.querySelector('#pageTitle');
+      if(pageTitle)pageTitle.textContent=button.textContent.replace(/\d+/g,'').trim();
+    }
     title.textContent=button.textContent.replace(/\d+/g,'').trim();
     close();
   },true);
