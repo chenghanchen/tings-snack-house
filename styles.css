@@ -19,3 +19,6 @@
 /* Mobile order lookup: the results are the only vertical scroll surface. */
 @media(max-width:780px){#orderLookupDialog[open]{width:min(560px,94vw);max-height:86dvh;padding:24px 16px;display:flex;flex-direction:column;overflow:hidden;touch-action:pan-y}#orderLookupFormWrap{flex:none;min-height:0}#lookupResult:not([hidden]){display:block;flex:1 1 auto;min-height:0;overflow-x:hidden;overflow-y:auto;padding:0 2px 4px 0;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y}}
 @media(max-width:780px){html{-webkit-text-size-adjust:100%}#orderLookupDialog #lookupQuery{font-size:16px!important;line-height:1.4}}
+/* Give the lookup results a definite native scroll viewport on phones. */
+.lookup-close-bottom{display:block;width:100%;margin:16px 0 2px;padding:11px 12px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;font:700 12px inherit}
+@media(max-width:780px){#orderLookupDialog[open]{height:min(86dvh,760px);max-height:86dvh}#orderLookupDialog .dialog-close{z-index:5;pointer-events:auto}#lookupResult:not([hidden]){overscroll-behavior-y:none}}
