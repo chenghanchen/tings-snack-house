@@ -233,11 +233,12 @@ function placeLookupCloseButton(inResult){
   }
   toolbar.querySelector('[data-new-lookup]').hidden=!inResult;
   dialog.classList.toggle('has-lookup-results',inResult);
+  dialog.classList.toggle('lookup-form-mode',!inResult);
   dialog.style.height=inResult?'':'auto';
   dialog.style.minHeight='0';
 }
 const openOrderLookupNative=openOrderLookup;
-openOrderLookup=()=>{const dialog=$('#orderLookupDialog');dialog.classList.remove('has-lookup-results');dialog.style.height='auto';dialog.style.minHeight='0';placeLookupCloseButton(false);openOrderLookupNative();lockPageForLookup();fitLookupFormToContent();};
+openOrderLookup=()=>{const dialog=$('#orderLookupDialog');dialog.classList.remove('has-lookup-results');dialog.classList.add('lookup-form-mode');dialog.style.height='auto';dialog.style.minHeight='0';placeLookupCloseButton(false);openOrderLookupNative();lockPageForLookup();fitLookupFormToContent();};
 $('#orderLookupDialog').addEventListener('close',unlockPageFromLookup);
 
 /* Customer order lookup: compact tracking cards, with the full receipt available on demand. */
@@ -286,6 +287,7 @@ var lastLookupQuery='';
 async function loadLookupResults(query){
   const result=$('#lookupResult');
   result.innerHTML='<p class="dialog-note">正在查询订单…</p>';result.hidden=false;
+  placeLookupCloseButton(true);
   const response=await db.rpc('lookup_customer_orders',{p_query:query});
   if(response.error||!response.data?.length){result.innerHTML='<p class="dialog-note">没有找到对应订单，请检查订单号或电话号码。</p>';placeLookupCloseButton(true);return;}
   result.innerHTML=response.data.map(lookupOrderCard).join('');
