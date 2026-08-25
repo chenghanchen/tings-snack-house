@@ -28,9 +28,21 @@
     }
     const button=event.target.closest('[data-view]');
     if(!button)return;
+    if(button.dataset.view==='settings'||button.dataset.view==='appearance'){
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      /* The old view switcher stays responsible for opening the page. */
+      if(typeof button.onclick==='function')button.onclick.call(button,event);
+      const menu=document.querySelector(button.dataset.view==='settings'?'#storeSettingsSubmenu':'#appearanceSubmenu');
+      const open=!!menu&&!menu.classList.contains('open');
+      menu?.classList.toggle('open',open);
+      button.classList.toggle('expanded',open);
+      button.setAttribute('aria-expanded',String(open));
+      title.textContent=button.textContent.replace(/\d+/g,'').trim();
+      return;
+    }
     title.textContent=button.textContent.replace(/\d+/g,'').trim();
-    /* Parent items must keep their native click handlers so their submenus open. */
-    if(button.dataset.view!=='settings'&&button.dataset.view!=='appearance')close();
-  });
+    close();
+  },true);
   document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});
 })();
