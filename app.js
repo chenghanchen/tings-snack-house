@@ -211,6 +211,16 @@ function unlockPageFromLookup(){
   document.body.style.position='';document.body.style.top='';document.body.style.width='';document.body.style.overflow='';
   window.scrollTo(0,lookupPageScrollY);
 }
+function fitLookupFormToContent(){
+  if(!window.matchMedia('(max-width:780px)').matches)return;
+  const dialog=$('#orderLookupDialog'),toolbar=$('#lookupResultToolbar'),form=$('#orderLookupFormWrap');
+  dialog.style.height='auto';
+  requestAnimationFrame(()=>{
+    if(!dialog.open||!$('#lookupResult').hidden)return;
+    const style=getComputedStyle(dialog),padding=parseFloat(style.paddingTop)+parseFloat(style.paddingBottom),content=(toolbar?.getBoundingClientRect().height||0)+form.getBoundingClientRect().height+padding;
+    dialog.style.height=`${Math.min(Math.ceil(content),window.innerHeight-32)}px`;
+  });
+}
 function placeLookupCloseButton(inResult){
   const close=$('#closeOrderLookup'),dialog=$('#orderLookupDialog');
   if(!close)return;
@@ -219,7 +229,7 @@ function placeLookupCloseButton(inResult){
     toolbar=document.createElement('div');toolbar.id='lookupResultToolbar';
     toolbar.innerHTML='<button type="button" class="lookup-retry" data-new-lookup>重新查询</button>';
     toolbar.append(close);dialog.prepend(toolbar);
-    toolbar.addEventListener('click',event=>{if(!event.target.closest('[data-new-lookup]'))return;placeLookupCloseButton(false);$('#lookupResult').hidden=true;$('#orderLookupFormWrap').hidden=false;$('#lookupQuery').focus();});
+    toolbar.addEventListener('click',event=>{if(!event.target.closest('[data-new-lookup]'))return;placeLookupCloseButton(false);$('#lookupResult').hidden=true;$('#orderLookupFormWrap').hidden=false;fitLookupFormToContent();$('#lookupQuery').focus();});
   }
   toolbar.querySelector('[data-new-lookup]').hidden=!inResult;
   dialog.classList.toggle('has-lookup-results',inResult);
@@ -227,7 +237,7 @@ function placeLookupCloseButton(inResult){
   dialog.style.minHeight='0';
 }
 const openOrderLookupNative=openOrderLookup;
-openOrderLookup=()=>{const dialog=$('#orderLookupDialog');dialog.classList.remove('has-lookup-results');dialog.style.height='auto';dialog.style.minHeight='0';placeLookupCloseButton(false);openOrderLookupNative();lockPageForLookup();};
+openOrderLookup=()=>{const dialog=$('#orderLookupDialog');dialog.classList.remove('has-lookup-results');dialog.style.height='auto';dialog.style.minHeight='0';placeLookupCloseButton(false);openOrderLookupNative();lockPageForLookup();fitLookupFormToContent();};
 $('#orderLookupDialog').addEventListener('close',unlockPageFromLookup);
 
 /* Customer order lookup: compact tracking cards, with the full receipt available on demand. */
