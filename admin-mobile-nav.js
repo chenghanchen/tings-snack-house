@@ -5,6 +5,8 @@
   const backdrop=document.querySelector('#mobileNavBackdrop');
   const title=document.querySelector('#mobileNavTitle');
   if(!aside||!toggle||!backdrop||!title)return;
+  /* Keep the drawer above its dimming backdrop on small screens. */
+  aside.style.zIndex='42';
   const close=()=>{
     document.body.classList.remove('mobile-nav-open');
     toggle.setAttribute('aria-expanded','false');
