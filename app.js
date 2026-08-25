@@ -197,20 +197,23 @@ cartScrollArea.addEventListener('touchmove',event=>{
   if((atTop&&delta<0)||(atBottom&&delta>0))event.preventDefault();
 },{passive:false});
 $('#openOrderLookupMobile').onclick=event=>{event.preventDefault();openOrderLookup();};
-/* Keep touch scrolling inside the mobile order-lookup result area. Mobile
-   Safari may otherwise chain a scroll at either edge to the page behind it. */
-const lookupScrollArea=$('#lookupResult');
-let lookupTouchStartY=0,lookupTouchStartTop=0;
-lookupScrollArea?.addEventListener('touchstart',event=>{
-  if(!window.matchMedia('(max-width:780px)').matches||event.touches.length!==1)return;
-  lookupTouchStartY=event.touches[0].clientY;lookupTouchStartTop=lookupScrollArea.scrollTop;
-  event.stopPropagation();
-},{passive:true});
-lookupScrollArea?.addEventListener('touchmove',event=>{
-  if(!window.matchMedia('(max-width:780px)').matches||event.touches.length!==1||lookupScrollArea.scrollHeight<=lookupScrollArea.clientHeight)return;
-  lookupScrollArea.scrollTop=lookupTouchStartTop+(lookupTouchStartY-event.touches[0].clientY);
-  event.preventDefault();event.stopPropagation();
-},{passive:false});
+/* Keep the browser's native momentum scrolling for lookup results.  The page
+   behind the dialog is locked below, so Safari cannot pass an edge swipe on. */
+let lookupPageScrollY=0,lookupPageLocked=false;
+function lockPageForLookup(){
+  if(lookupPageLocked||!window.matchMedia('(max-width:780px)').matches)return;
+  lookupPageLocked=true;lookupPageScrollY=window.scrollY;
+  document.body.style.position='fixed';document.body.style.top=`-${lookupPageScrollY}px`;document.body.style.width='100%';document.body.style.overflow='hidden';
+}
+function unlockPageFromLookup(){
+  if(!lookupPageLocked)return;
+  lookupPageLocked=false;
+  document.body.style.position='';document.body.style.top='';document.body.style.width='';document.body.style.overflow='';
+  window.scrollTo(0,lookupPageScrollY);
+}
+const openOrderLookupNative=openOrderLookup;
+openOrderLookup=()=>{openOrderLookupNative();lockPageForLookup();};
+$('#orderLookupDialog').addEventListener('close',unlockPageFromLookup);
 
 /* Customer order lookup: compact tracking cards, with the full receipt available on demand. */
 /* Customer order tracking and the customer-confirmed cancellation workflow. */
