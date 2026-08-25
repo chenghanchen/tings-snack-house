@@ -197,12 +197,20 @@ cartScrollArea.addEventListener('touchmove',event=>{
   if((atTop&&delta<0)||(atBottom&&delta>0))event.preventDefault();
 },{passive:false});
 $('#openOrderLookupMobile').onclick=event=>{event.preventDefault();openOrderLookup();};
-/* Keep touch scrolling inside the mobile order-lookup result area.  This does
-   not cancel the browser's native scroll; it only prevents outer handlers from
-   treating a vertical swipe on an order card as a page/dialog swipe. */
+/* Keep touch scrolling inside the mobile order-lookup result area. Mobile
+   Safari may otherwise chain a scroll at either edge to the page behind it. */
 const lookupScrollArea=$('#lookupResult');
-lookupScrollArea?.addEventListener('touchstart',event=>event.stopPropagation(),{passive:true});
-lookupScrollArea?.addEventListener('touchmove',event=>event.stopPropagation(),{passive:true});
+let lookupTouchStartY=0,lookupTouchStartTop=0;
+lookupScrollArea?.addEventListener('touchstart',event=>{
+  if(!window.matchMedia('(max-width:780px)').matches||event.touches.length!==1)return;
+  lookupTouchStartY=event.touches[0].clientY;lookupTouchStartTop=lookupScrollArea.scrollTop;
+  event.stopPropagation();
+},{passive:true});
+lookupScrollArea?.addEventListener('touchmove',event=>{
+  if(!window.matchMedia('(max-width:780px)').matches||event.touches.length!==1||lookupScrollArea.scrollHeight<=lookupScrollArea.clientHeight)return;
+  lookupScrollArea.scrollTop=lookupTouchStartTop+(lookupTouchStartY-event.touches[0].clientY);
+  event.preventDefault();event.stopPropagation();
+},{passive:false});
 
 /* Customer order lookup: compact tracking cards, with the full receipt available on demand. */
 /* Customer order tracking and the customer-confirmed cancellation workflow. */
