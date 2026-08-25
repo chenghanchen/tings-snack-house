@@ -58,12 +58,25 @@
     toast(result.error?result.error.message:T.orderUpdated);
     if(!result.error)render();
   };
+  const toggleDetails=button=>{
+    const node=button.closest('.order-card');
+    if(!node)return;
+    const collapsed=node.classList.toggle('is-collapsed');
+    button.textContent=collapsed?T.details:T.collapse;
+  };
+  /* This runs before legacy order handlers, so the compact-card toggle only fires once. */
+  root.addEventListener('click',event=>{
+    const button=event.target.closest('[data-card-toggle]');
+    if(!button)return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    toggleDetails(button);
+  },true);
   root.addEventListener('input',e=>{if(e.target.matches('textarea[data-card-note]')){e.target.style.height='auto';e.target.style.height=Math.max(40,e.target.scrollHeight)+'px'}});
   root.addEventListener('change',e=>{if(!e.target.dataset.cardFulfillment)return;const node=e.target.closest('.order-card');save(node,node.dataset.orderStatus,e.target.value)});
   root.addEventListener('click',async e=>{
     const node=e.target.closest('.order-card');if(!node)return;
     const id=node.dataset.orderId,fulfillment=node.querySelector('[data-card-fulfillment]')?.value||'pickup';
-    if(e.target.dataset.cardToggle){const collapsed=node.classList.toggle('is-collapsed');e.target.textContent=collapsed?T.details:T.collapse;return}
     if(e.target.dataset.cardCopy){try{await navigator.clipboard.writeText(decodeURIComponent(e.target.dataset.address||''));toast(T.copied)}catch{toast(T.copyFail)}return}
     if(e.target.dataset.cardSaveNote){const field=node.querySelector('[data-card-note]');const result=await client.rpc('owner_update_order_note',{p_order_id:id,p_staff_note:field?.value||''});toast(result.error?result.error.message:T.noteSaved);if(!result.error)render();return}
     if(e.target.dataset.cardAdvance)return save(node,e.target.dataset.target,fulfillment);
