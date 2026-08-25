@@ -54,7 +54,7 @@
   };
   const save=async(node,status,fulfillment)=>{
     const fee=fulfillment==='pickup'?0:Number(node.dataset.deliveryFee||0);
-    const result=await client.rpc('owner_update_order',{p_order_id:Number(node.dataset.orderId),p_status:status,p_fulfillment:fulfillment,p_delivery_fee:fee});
+    const result=await client.rpc('owner_update_order',{p_order_id:node.dataset.orderId,p_status:status,p_fulfillment:fulfillment,p_delivery_fee:fee});
     toast(result.error?result.error.message:T.orderUpdated);
     if(!result.error)render();
   };
@@ -62,7 +62,7 @@
   root.addEventListener('change',e=>{if(!e.target.dataset.cardFulfillment)return;const node=e.target.closest('.order-card');save(node,node.dataset.orderStatus,e.target.value)});
   root.addEventListener('click',async e=>{
     const node=e.target.closest('.order-card');if(!node)return;
-    const id=Number(node.dataset.orderId),fulfillment=node.querySelector('[data-card-fulfillment]')?.value||'pickup';
+    const id=node.dataset.orderId,fulfillment=node.querySelector('[data-card-fulfillment]')?.value||'pickup';
     if(e.target.dataset.cardToggle){const collapsed=node.classList.toggle('is-collapsed');e.target.textContent=collapsed?T.details:T.collapse;return}
     if(e.target.dataset.cardCopy){try{await navigator.clipboard.writeText(decodeURIComponent(e.target.dataset.address||''));toast(T.copied)}catch{toast(T.copyFail)}return}
     if(e.target.dataset.cardSaveNote){const field=node.querySelector('[data-card-note]');const result=await client.rpc('owner_update_order_note',{p_order_id:id,p_staff_note:field?.value||''});toast(result.error?result.error.message:T.noteSaved);if(!result.error)render();return}
