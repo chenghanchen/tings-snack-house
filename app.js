@@ -199,46 +199,78 @@ cartScrollArea.addEventListener('touchmove',event=>{
 $('#openOrderLookupMobile').onclick=event=>{event.preventDefault();openOrderLookup();};
 
 /* Customer order lookup: compact tracking cards, with the full receipt available on demand. */
-function lookupStatusMeta(order){
-  const pickup=order.fulfillment==='pickup',status=order.status||'待确认';
-  const labels=pickup?['订单确认','正在准备','等待取单','已完成']:['订单确认','正在准备','正在配送','已送达'];
-  const current=status==='待确认'?0:status==='已确认'?1:status==='配送中'?2:status==='已完成'?3:-1;
-  const title=status==='待确认'?'待确认':status==='已确认'?'正在准备':status==='配送中'?(pickup?'等待取单':'配送中'):status==='已完成'?(pickup?'已完成':'已送达'):status;
-  return {pickup,labels,current,title,cancelled:status==='已取消'};
+/* Customer order tracking and the customer-confirmed cancellation workflow. */
+function lookupItemPreview(item){return item.image?`<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name||'商品')}">`:`<span>${escapeHtml(item.icon||'🍬')}</span>`;}
+function lookupStageIndex(status){return status==='待确认'?0:status==='已确认'?1:status==='配送中'||status==='等待取单'?2:2;}
+function lookupTimeline(order){
+  const pickup=order.fulfillment==='pickup',status=order.status||'待确认',finalLabel=pickup?'等待取单':'正在配送',finishedLabel=pickup?'订单已取':'配送完成';
+  const index=lookupStageIndex(status);
+  const steps=[
+    {label:status==='待确认'?'待确认':'订单确认',state:status==='待确认'?'current':'done'},
+    {label:index<1?'正在准备':index===1?'正在准备':'准备完成',state:index<1?'future':index===1?'current':'done'},
+    {label:index<2?finalLabel:status==='已完成'?finishedLabel:finalLabel,state:index<2?'future':status==='已完成'?'done':'current'}
+  ];
+  const requested=order.cancellation_requested===true,wasRejected=!!order.cancellation_rejected_at,cancelIndex=lookupStageIndex(order.cancellation_stage||status),rejectedIndex=lookupStageIndex(order.cancellation_rejected_stage||order.cancellation_stage||status);
+  if(requested||status==='已取消'){
+    const visible=steps.slice(0,cancelIndex+1);
+    visible.forEach((step,i)=>{if(i<cancelIndex)step.state='done';});
+    visible[visible.length-1]={label:status==='已取消'?'已取消':'取消申请中',state:'cancelled'};
+    return {pickup,steps:visible,title:status==='已取消'?'已取消':'取消申请中',cancelled:true,requested};
+  }
+  if(wasRejected)steps.splice(Math.min(rejectedIndex+1,steps.length),0,{label:'申请未通过',state:'rejected'});
+  const title=wasRejected?'申请未通过':status==='待确认'?'待确认':status==='已确认'?'正在准备':status==='配送中'?'正在配送':status==='等待取单'?'等待取单':status==='已完成'?(pickup?'订单已取':'配送完成'):status;
+  return {pickup,steps,title,cancelled:wasRejected,requested:false};
 }
 function lookupProgress(order){
-  const meta=lookupStatusMeta(order);
-  if(meta.cancelled)return '<p class="lookup-cancelled">该订单已取消</p>';
-  return `<div class="lookup-progress">${meta.labels.map((label,index)=>`<div class="lookup-step ${index<meta.current?'done':''} ${index===meta.current?'current':''}"><span>${index<meta.current?'✓':index===meta.current?(meta.pickup&&index===2?'🛍':'●'):(index===3?'▣':'○')}</span><b>${label}</b></div>`).join('')}</div>`;
+  const meta=lookupTimeline(order);
+  return `<div class="lookup-progress lookup-progress-v2" style="--lookup-steps:${meta.steps.length}">${meta.steps.map(step=>`<div class="lookup-step ${step.state}"><span>${step.state==='done'?'✓':step.state==='cancelled'||step.state==='rejected'?'×':step.state==='current'?'●':'○'}</span><b>${step.label}</b></div>`).join('')}</div>`;
 }
-function lookupItemPreview(item){return item.image?`<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name||'商品')}">`:`<span>${escapeHtml(item.icon||'🍬')}</span>`;}
-function lookupOrderCard(order,phone){
-  const items=Array.isArray(order.items)?order.items:[],meta=lookupStatusMeta(order),canCancel=['待确认','已确认'].includes(order.status)&&!order.cancellation_requested&&phone;
+function lookupOrderCard(order){
+  const items=Array.isArray(order.items)?order.items:[],meta=lookupTimeline(order),canCancel=['待确认','已确认'].includes(order.status)&&!order.cancellation_requested&&!order.cancellation_rejected_at;
   const itemLines=items.slice(0,3).map(item=>`<li>${escapeHtml(item.name||'商品')}${item.variant_label?` · ${escapeHtml(item.variant_label)}`:''} × ${Number(item.qty||0)}</li>`).join('');
   const thumbs=items.slice(0,3).map(item=>`<div class="lookup-item-thumb">${lookupItemPreview(item)}</div>`).join('');
   const address=meta.pickup?`<span>🛍</span><span>到店自取</span>`:`<span>📍</span><span>送至 ${escapeHtml(order.address||'配送地址待确认')}</span>`;
   const discount=Number(order.discount_amount||0),fee=Number(order.delivery_fee||0),feeRow=meta.pickup?'':`<div><span>配送费${fee===0?'（已减免）':''}</span><b>${dollars(fee)}</b></div>`;
   const detailRows=items.map(item=>`<div class="lookup-detail-item"><div class="lookup-item-thumb">${lookupItemPreview(item)}</div><p><b>${escapeHtml(item.name||'商品')}</b>${item.variant_label?`<small>${escapeHtml(item.variant_label)}</small>`:''}</p><span>× ${Number(item.qty||0)}</span><b>${dollars(item.line_total??Number(item.price||0)*Number(item.qty||0))}</b></div>`).join('');
-  const notes=`${order.customer_note?`<p class="lookup-note"><b>订单备注</b>${escapeHtml(order.customer_note)}</p>`:''}${order.staff_note?`<p class="lookup-note staff"><b>店主说明</b>${escapeHtml(order.staff_note)}<small>更新于 ${formatChicagoTime(order.staff_note_updated_at)}</small></p>`:''}`;
   const promo=order.promotion_name?`<p class="lookup-promo">已享受：${escapeHtml(order.promotion_name)}</p>`:'';
-  return `<article class="lookup-order-card" data-lookup-order="${escapeHtml(order.order_number)}"><header><div><span class="lookup-order-label">订单号</span><b>${escapeHtml(order.order_number)}</b><small>下单时间：${formatChicagoTime(order.created_at)}</small></div><strong class="lookup-status ${meta.cancelled?'cancelled':''}">${escapeHtml(meta.title)}</strong></header>${lookupProgress(order)}<p class="lookup-address">${address}<i>›</i></p>${order.cancellation_requested?'<p class="lookup-cancel-requested">已提交取消申请，等待店主确认。</p>':''}<section class="lookup-items-preview"><div class="lookup-thumbs">${thumbs||'<div class="lookup-item-thumb">🍬</div>'}</div><div><ul>${itemLines}</ul><small>共 ${items.reduce((sum,item)=>sum+Number(item.qty||0),0)} 件商品</small></div></section><div class="lookup-total"><span>合计</span><b>${dollars(order.total_amount)}</b></div><div class="lookup-actions"><button type="button" class="lookup-detail-button" data-lookup-details>查看详情</button>${canCancel?`<button type="button" class="lookup-cancel-button" data-cancel="${escapeHtml(order.order_number)}">申请取消</button>`:''}</div><section class="lookup-details" hidden><div class="lookup-detail-list">${detailRows}</div>${promo}<div class="lookup-amounts"><div><span>商品小计</span><b>${dollars(order.subtotal)}</b></div>${discount?`<div><span>已优惠</span><b>−${dollars(discount)}</b></div>`:''}${feeRow}<div><span>税</span><b>${dollars(order.tax_amount)}</b></div><div class="lookup-final"><span>订单总额</span><b>${dollars(order.total_amount)}</b></div></div>${notes}</section></article>`;
+  const rejectionNote=order.cancellation_rejected_at&&order.staff_note?`<p class="lookup-note staff lookup-rejection-note"><b>店主说明</b>${escapeHtml(order.staff_note)}<small>更新于 ${formatChicagoTime(order.staff_note_updated_at)}</small></p>`:'';
+  const notes=`${order.customer_note?`<p class="lookup-note"><b>订单备注</b>${escapeHtml(order.customer_note)}</p>`:''}${order.cancellation_reason?`<p class="lookup-note cancellation-reason"><b>取消原因</b>${escapeHtml(order.cancellation_reason)}</p>`:''}`;
+  const cancelForm=canCancel?`<form class="lookup-cancel-form" data-cancel-form hidden><label>再次输入手机号码<input name="cancelPhone" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" required placeholder="请输入10位手机号码"></label><label>取消原因<textarea name="cancelReason" required maxlength="100" placeholder="请说明取消原因（最多100字）"></textarea><small class="lookup-cancel-count">0 / 100</small></label><button type="submit" class="lookup-cancel-submit">提交取消申请</button></form>`:'';
+  const actions=`<div class="lookup-actions"><button type="button" class="lookup-detail-button" data-lookup-details>查看详情</button>${canCancel?`<button type="button" class="lookup-cancel-button" data-show-cancel>申请取消订单</button>`:''}</div>`;
+  return `<article class="lookup-order-card" data-lookup-order="${escapeHtml(order.order_number)}"><header><div><span class="lookup-order-label">订单号</span><b>${escapeHtml(order.order_number)}</b><small>下单时间：${formatChicagoTime(order.created_at)}</small></div><strong class="lookup-status ${meta.cancelled?'cancelled':''}">${escapeHtml(meta.title)}</strong></header>${lookupProgress(order)}${rejectionNote}<p class="lookup-address">${address}<i>›</i></p>${order.cancellation_requested?`<p class="lookup-cancel-requested">取消申请中：${escapeHtml(order.cancellation_reason||'等待店主确认')}</p>`:''}<section class="lookup-items-preview"><div class="lookup-thumbs">${thumbs||'<div class="lookup-item-thumb">🍬</div>'}</div><div><ul>${itemLines}</ul><small>共 ${items.reduce((sum,item)=>sum+Number(item.qty||0),0)} 件商品</small></div></section><div class="lookup-total"><span>合计</span><b>${dollars(order.total_amount)}</b></div><section class="lookup-details" hidden><div class="lookup-detail-list">${detailRows}</div>${promo}<div class="lookup-amounts"><div><span>商品小计</span><b>${dollars(order.subtotal)}</b></div>${discount?`<div><span>已优惠</span><b>−${dollars(discount)}</b></div>`:''}${feeRow}<div><span>税</span><b>${dollars(order.tax_amount)}</b></div><div class="lookup-final"><span>订单总额</span><b>${dollars(order.total_amount)}</b></div></div>${notes}</section>${cancelForm}${actions}</article>`;
+}
+var lastLookupQuery='';
+async function loadLookupResults(query){
+  const result=$('#lookupResult');
+  result.innerHTML='<p class="dialog-note">正在查询订单…</p>';result.hidden=false;
+  const response=await db.rpc('lookup_customer_orders',{p_query:query});
+  if(response.error||!response.data?.length){result.innerHTML='<p class="dialog-note">没有找到对应订单，请检查订单号或电话号码。</p><button type="button" class="lookup-retry" data-new-lookup>重新查询</button>';return;}
+  result.innerHTML=`<button type="button" class="lookup-retry" data-new-lookup>重新查询</button>${response.data.map(lookupOrderCard).join('')}`;
 }
 $('#orderLookupForm').onsubmit=async event=>{
   event.preventDefault();
-  const orderNumber=$('#lookupOrderNumber').value.trim(),phone=$('#lookupPhone').value.trim(),result=$('#lookupResult');
-  result.innerHTML='<p class="dialog-note">正在查询订单…</p>';result.hidden=false;
-  const response=await db.rpc('lookup_customer_order_v2',{p_order_number:orderNumber,p_phone:phone});
-  if(response.error||!response.data?.length){result.innerHTML='<p class="dialog-note">没有找到对应订单，请检查订单号或电话号码。</p>';return;}
-  result.innerHTML=response.data.map(order=>lookupOrderCard(order,phone)).join('');
-  result.querySelectorAll('.lookup-order-card').forEach(card=>card.append(card.querySelector('.lookup-actions')));
-  result.onclick=async clickEvent=>{
-    const detailButton=clickEvent.target.closest('[data-lookup-details]');
-    if(detailButton){const card=detailButton.closest('.lookup-order-card'),details=card.querySelector('.lookup-details'),open=details.hidden;details.hidden=!open;card.classList.toggle('is-expanded',open);detailButton.textContent=open?'收起详情':'查看详情';return;}
-    const cancelButton=clickEvent.target.closest('[data-cancel]');
-    if(!cancelButton)return;
-    cancelButton.disabled=true;cancelButton.textContent='正在提交…';
-    const cancelResponse=await db.rpc('request_order_cancellation',{p_order_number:cancelButton.dataset.cancel,p_phone:phone});
-    if(cancelResponse.error||!cancelResponse.data){cancelButton.disabled=false;cancelButton.textContent='申请取消';alert('无法提交取消申请');return;}
-    cancelButton.replaceWith(Object.assign(document.createElement('span'),{className:'lookup-cancel-requested',textContent:'已提交取消申请'}));
-  };
+  const query=$('#lookupQuery').value.trim();
+  if(!query)return;
+  lastLookupQuery=query;
+  $('#orderLookupFormWrap').hidden=true;
+  await loadLookupResults(query);
+};
+$('#lookupResult').onclick=async clickEvent=>{
+  const retry=clickEvent.target.closest('[data-new-lookup]');
+  if(retry){$('#lookupResult').hidden=true;$('#orderLookupFormWrap').hidden=false;$('#lookupQuery').focus();return;}
+  const detailButton=clickEvent.target.closest('[data-lookup-details]');
+  if(detailButton){const card=detailButton.closest('.lookup-order-card'),details=card.querySelector('.lookup-details'),open=details.hidden;details.hidden=!open;card.classList.toggle('is-expanded',open);detailButton.textContent=open?'收起详情':'查看详情';return;}
+  const showCancel=clickEvent.target.closest('[data-show-cancel]');
+  if(showCancel){const card=showCancel.closest('.lookup-order-card'),form=card.querySelector('[data-cancel-form]');form.hidden=false;showCancel.hidden=true;form.querySelector('[name="cancelPhone"]').focus();}
+};
+$('#lookupResult').oninput=event=>{if(event.target.name!=='cancelReason')return;const count=event.target.closest('[data-cancel-form]')?.querySelector('.lookup-cancel-count');if(count)count.textContent=`${event.target.value.length} / 100`;};
+$('#lookupResult').onsubmit=async event=>{
+  const form=event.target.closest('[data-cancel-form]');if(!form)return;
+  event.preventDefault();
+  const card=form.closest('.lookup-order-card'),phone=form.elements.cancelPhone.value.trim(),reason=form.elements.cancelReason.value.trim(),submit=form.querySelector('button[type="submit"]');
+  if(!/^\d{10}$/.test(phone)||!reason||reason.length>100)return;
+  submit.disabled=true;submit.textContent='正在提交…';
+  const response=await db.rpc('request_order_cancellation_v2',{p_order_number:card.dataset.lookupOrder,p_phone:phone,p_reason:reason});
+  if(response.error||!response.data){submit.disabled=false;submit.textContent='提交取消申请';alert(response.error?.message||'无法提交取消申请，请确认手机号码和订单状态。');return;}
+  await loadLookupResults(lastLookupQuery);
 };
