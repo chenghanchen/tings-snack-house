@@ -230,6 +230,7 @@ $('#orderLookupForm').onsubmit=async event=>{
   const response=await db.rpc('lookup_customer_order_v2',{p_order_number:orderNumber,p_phone:phone});
   if(response.error||!response.data?.length){result.innerHTML='<p class="dialog-note">没有找到对应订单，请检查订单号或电话号码。</p>';return;}
   result.innerHTML=response.data.map(order=>lookupOrderCard(order,phone)).join('');
+  result.querySelectorAll('.lookup-order-card').forEach(card=>card.append(card.querySelector('.lookup-actions')));
   result.onclick=async clickEvent=>{
     const detailButton=clickEvent.target.closest('[data-lookup-details]');
     if(detailButton){const card=detailButton.closest('.lookup-order-card'),details=card.querySelector('.lookup-details'),open=details.hidden;details.hidden=!open;card.classList.toggle('is-expanded',open);detailButton.textContent=open?'收起详情':'查看详情';return;}
