@@ -22,3 +22,4 @@
 /* Give the lookup results a definite native scroll viewport on phones. */
 #lookupResultToolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;margin:0 0 10px}#lookupResultToolbar .lookup-retry{margin:0}.lookup-close-bottom{display:none}
 @media(max-width:780px){#orderLookupDialog[open]{height:auto;max-height:86dvh}#orderLookupDialog.has-lookup-results{height:min(86dvh,760px);max-height:86dvh}#orderLookupDialog .dialog-close{position:static;z-index:5;pointer-events:auto;margin:0 0 0 auto;line-height:1;padding:2px 4px}#lookupResult:not([hidden]){overscroll-behavior-y:none}}
+@media(max-width:780px){#orderLookupDialog[open]:not(.has-lookup-results){display:block;height:auto!important;min-height:0!important;max-height:calc(100dvh - 32px);overflow-y:auto}#orderLookupDialog[open].has-lookup-results{height:min(76dvh,620px);max-height:76dvh}}
