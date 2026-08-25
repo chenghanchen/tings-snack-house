@@ -227,7 +227,7 @@ function placeLookupCloseButton(inResult){
   dialog.style.minHeight='0';
 }
 const openOrderLookupNative=openOrderLookup;
-openOrderLookup=()=>{placeLookupCloseButton(false);openOrderLookupNative();lockPageForLookup();};
+openOrderLookup=()=>{const dialog=$('#orderLookupDialog');dialog.classList.remove('has-lookup-results');dialog.style.height='auto';dialog.style.minHeight='0';placeLookupCloseButton(false);openOrderLookupNative();lockPageForLookup();};
 $('#orderLookupDialog').addEventListener('close',unlockPageFromLookup);
 
 /* Customer order lookup: compact tracking cards, with the full receipt available on demand. */
