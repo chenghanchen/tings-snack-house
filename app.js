@@ -214,7 +214,7 @@ function unlockPageFromLookup(){
 function fitLookupFormToContent(){
   if(!window.matchMedia('(max-width:780px)').matches)return;
   const dialog=$('#orderLookupDialog'),toolbar=$('#lookupResultToolbar'),form=$('#orderLookupFormWrap');
-  dialog.style.height='auto';
+  dialog.style.height='fit-content';
   requestAnimationFrame(()=>{
     if(!dialog.open||!$('#lookupResult').hidden)return;
     const style=getComputedStyle(dialog),padding=parseFloat(style.paddingTop)+parseFloat(style.paddingBottom),content=(toolbar?.getBoundingClientRect().height||0)+form.getBoundingClientRect().height+padding;
@@ -234,11 +234,11 @@ function placeLookupCloseButton(inResult){
   toolbar.querySelector('[data-new-lookup]').hidden=!inResult;
   dialog.classList.toggle('has-lookup-results',inResult);
   dialog.classList.toggle('lookup-form-mode',!inResult);
-  dialog.style.height=inResult?'':'auto';
+  dialog.style.height=inResult?'':'fit-content';
   dialog.style.minHeight='0';
 }
 const openOrderLookupNative=openOrderLookup;
-openOrderLookup=()=>{const dialog=$('#orderLookupDialog');dialog.classList.remove('has-lookup-results');dialog.classList.add('lookup-form-mode');dialog.style.height='auto';dialog.style.minHeight='0';placeLookupCloseButton(false);openOrderLookupNative();lockPageForLookup();fitLookupFormToContent();};
+openOrderLookup=()=>{const dialog=$('#orderLookupDialog');dialog.classList.remove('has-lookup-results');dialog.classList.add('lookup-form-mode');dialog.style.height='fit-content';dialog.style.minHeight='0';placeLookupCloseButton(false);openOrderLookupNative();lockPageForLookup();fitLookupFormToContent();};
 $('#orderLookupDialog').addEventListener('close',unlockPageFromLookup);
 
 /* Customer order lookup: compact tracking cards, with the full receipt available on demand. */
