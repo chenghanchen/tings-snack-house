@@ -223,6 +223,8 @@ function placeLookupCloseButton(inResult){
   }
   toolbar.querySelector('[data-new-lookup]').hidden=!inResult;
   dialog.classList.toggle('has-lookup-results',inResult);
+  dialog.style.height=inResult?'':'auto';
+  dialog.style.minHeight='0';
 }
 const openOrderLookupNative=openOrderLookup;
 openOrderLookup=()=>{placeLookupCloseButton(false);openOrderLookupNative();lockPageForLookup();};
