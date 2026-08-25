@@ -232,7 +232,7 @@ $('#orderLookupForm').onsubmit=async event=>{
   result.innerHTML=response.data.map(order=>lookupOrderCard(order,phone)).join('');
   result.onclick=async clickEvent=>{
     const detailButton=clickEvent.target.closest('[data-lookup-details]');
-    if(detailButton){const card=detailButton.closest('.lookup-order-card'),details=card.querySelector('.lookup-details'),open=details.hidden;details.hidden=!open;detailButton.textContent=open?'收起详情':'查看详情';return;}
+    if(detailButton){const card=detailButton.closest('.lookup-order-card'),details=card.querySelector('.lookup-details'),open=details.hidden;details.hidden=!open;card.classList.toggle('is-expanded',open);detailButton.textContent=open?'收起详情':'查看详情';return;}
     const cancelButton=clickEvent.target.closest('[data-cancel]');
     if(!cancelButton)return;
     cancelButton.disabled=true;cancelButton.textContent='正在提交…';
