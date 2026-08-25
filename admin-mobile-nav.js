@@ -20,21 +20,17 @@
   toggle.addEventListener('click',()=>document.body.classList.contains('mobile-nav-open')?close():open());
   backdrop.addEventListener('click',close);
   aside.querySelector('nav')?.addEventListener('click',event=>{
+    const subsection=event.target.closest('[data-store-section],[data-appearance-pane]');
+    if(subsection){
+      title.textContent=subsection.hasAttribute('data-store-section')?'店铺设置':'店铺外观';
+      close();
+      return;
+    }
     const button=event.target.closest('[data-view]');
     if(!button)return;
-    /* Run the established page switcher directly, then consume this click once. */
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    if(typeof button.onclick==='function')button.onclick.call(button,event);
-    else{
-      document.querySelectorAll('aside nav button,.view').forEach(node=>node.classList.remove('active'));
-      button.classList.add('active');
-      document.querySelector('#'+button.dataset.view)?.classList.add('active');
-      const pageTitle=document.querySelector('#pageTitle');
-      if(pageTitle)pageTitle.textContent=button.textContent.replace(/\d+/g,'').trim();
-    }
     title.textContent=button.textContent.replace(/\d+/g,'').trim();
-    close();
-  },true);
+    /* Parent items must keep their native click handlers so their submenus open. */
+    if(button.dataset.view!=='settings'&&button.dataset.view!=='appearance')close();
+  });
   document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});
 })();
