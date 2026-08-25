@@ -8,8 +8,9 @@
 @media(max-width:720px){
   body{display:block;padding-top:58px}
   body aside{position:fixed;inset:0 0 auto 0;height:58px;padding:0 16px;display:block;z-index:40;background:var(--ink);box-shadow:0 2px 9px #0002}
-  .mobile-nav-bar{height:58px;display:flex;align-items:center;justify-content:space-between;color:#fff8ed}
-  .mobile-nav-bar strong{font:600 17px "Noto Serif SC",serif}
+  .mobile-nav-bar{height:58px;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#fff8ed}
+  .mobile-nav-bar:before{content:"婷婷的零食屋";min-width:0;font:600 17px "Noto Serif SC",serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mobile-nav-bar #mobileNavTitle{margin-left:auto;font:600 14px "Noto Serif SC",serif;white-space:nowrap}
   #mobileNavToggle{width:36px;height:36px;border:1px solid #ffffff3b;border-radius:4px;background:#ffffff10;color:#fff8ed;font-size:20px;line-height:1;cursor:pointer}
   body aside .admin-brand,body aside .visit{display:none}
   body aside nav{position:fixed;z-index:42;inset:0 auto 0 0;width:min(270px,82vw);margin:0;padding:75px 18px 28px;display:grid;align-content:start;gap:7px;background:var(--ink);overflow-y:auto;transform:translateX(-105%);transition:transform .24s ease;box-shadow:8px 0 24px #0004}
