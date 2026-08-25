@@ -262,8 +262,8 @@ async function loadLookupResults(query){
   const result=$('#lookupResult');
   result.innerHTML='<p class="dialog-note">正在查询订单…</p>';result.hidden=false;
   const response=await db.rpc('lookup_customer_orders',{p_query:query});
-  if(response.error||!response.data?.length){result.innerHTML='<p class="dialog-note">没有找到对应订单，请检查订单号或电话号码。</p><button type="button" class="lookup-retry" data-new-lookup>重新查询</button>';return;}
-  result.innerHTML=`<button type="button" class="lookup-retry" data-new-lookup>重新查询</button>${response.data.map(lookupOrderCard).join('')}`;
+  if(response.error||!response.data?.length){result.innerHTML='<p class="dialog-note">没有找到对应订单，请检查订单号或电话号码。</p><button type="button" class="lookup-retry" data-new-lookup>重新查询</button><button type="button" class="lookup-close-bottom" data-close-order-lookup>关闭查询</button>';return;}
+  result.innerHTML=`<button type="button" class="lookup-retry" data-new-lookup>重新查询</button>${response.data.map(lookupOrderCard).join('')}<button type="button" class="lookup-close-bottom" data-close-order-lookup>关闭查询</button>`;
 }
 $('#orderLookupForm').onsubmit=async event=>{
   event.preventDefault();
@@ -274,6 +274,7 @@ $('#orderLookupForm').onsubmit=async event=>{
   await loadLookupResults(query);
 };
 $('#lookupResult').onclick=async clickEvent=>{
+  if(clickEvent.target.closest('[data-close-order-lookup]')){$('#orderLookupDialog').close();return;}
   const retry=clickEvent.target.closest('[data-new-lookup]');
   if(retry){$('#lookupResult').hidden=true;$('#orderLookupFormWrap').hidden=false;$('#lookupQuery').focus();return;}
   const detailButton=clickEvent.target.closest('[data-lookup-details]');
