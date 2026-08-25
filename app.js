@@ -217,7 +217,8 @@ function lookupTimeline(order){
     visible[visible.length-1]={label:status==='已取消'?'已取消':'取消申请中',state:'cancelled'};
     return {pickup,steps:visible,title:status==='已取消'?'已取消':'取消申请中',cancelled:true,requested};
   }
-  if(wasRejected)steps.splice(Math.min(rejectedIndex+1,steps.length),0,{label:'申请未通过',state:'rejected'});
+  /* Keep the rejection marker immediately before the live order step. */
+  if(wasRejected)steps.splice(Math.min(rejectedIndex,steps.length),0,{label:'申请未通过',state:'rejected'});
   const title=wasRejected?'申请未通过':status==='待确认'?'待确认':status==='已确认'?'正在准备':status==='配送中'?'正在配送':status==='等待取单'?'等待取单':status==='已完成'?(pickup?'订单已取':'配送完成'):status;
   return {pickup,steps,title,cancelled:wasRejected,requested:false};
 }
