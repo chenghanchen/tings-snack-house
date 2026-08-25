@@ -211,8 +211,13 @@ function unlockPageFromLookup(){
   document.body.style.position='';document.body.style.top='';document.body.style.width='';document.body.style.overflow='';
   window.scrollTo(0,lookupPageScrollY);
 }
+function placeLookupCloseButton(inResult){
+  const close=$('#closeOrderLookup'),dialog=$('#orderLookupDialog'),result=$('#lookupResult');
+  if(!close)return;
+  if(inResult)result.prepend(close);else if(close.parentElement!==dialog)dialog.insertAdjacentElement('afterbegin',close);
+}
 const openOrderLookupNative=openOrderLookup;
-openOrderLookup=()=>{openOrderLookupNative();lockPageForLookup();};
+openOrderLookup=()=>{placeLookupCloseButton(false);openOrderLookupNative();lockPageForLookup();};
 $('#orderLookupDialog').addEventListener('close',unlockPageFromLookup);
 
 /* Customer order lookup: compact tracking cards, with the full receipt available on demand. */
@@ -262,8 +267,9 @@ async function loadLookupResults(query){
   const result=$('#lookupResult');
   result.innerHTML='<p class="dialog-note">正在查询订单…</p>';result.hidden=false;
   const response=await db.rpc('lookup_customer_orders',{p_query:query});
-  if(response.error||!response.data?.length){result.innerHTML='<p class="dialog-note">没有找到对应订单，请检查订单号或电话号码。</p><button type="button" class="lookup-retry" data-new-lookup>重新查询</button><button type="button" class="lookup-close-bottom" data-close-order-lookup>关闭查询</button>';return;}
+  if(response.error||!response.data?.length){result.innerHTML='<p class="dialog-note">没有找到对应订单，请检查订单号或电话号码。</p><button type="button" class="lookup-retry" data-new-lookup>重新查询</button><button type="button" class="lookup-close-bottom" data-close-order-lookup>关闭查询</button>';placeLookupCloseButton(true);return;}
   result.innerHTML=`<button type="button" class="lookup-retry" data-new-lookup>重新查询</button>${response.data.map(lookupOrderCard).join('')}<button type="button" class="lookup-close-bottom" data-close-order-lookup>关闭查询</button>`;
+  placeLookupCloseButton(true);
 }
 $('#orderLookupForm').onsubmit=async event=>{
   event.preventDefault();
@@ -276,7 +282,7 @@ $('#orderLookupForm').onsubmit=async event=>{
 $('#lookupResult').onclick=async clickEvent=>{
   if(clickEvent.target.closest('[data-close-order-lookup]')){$('#orderLookupDialog').close();return;}
   const retry=clickEvent.target.closest('[data-new-lookup]');
-  if(retry){$('#lookupResult').hidden=true;$('#orderLookupFormWrap').hidden=false;$('#lookupQuery').focus();return;}
+  if(retry){placeLookupCloseButton(false);$('#lookupResult').hidden=true;$('#orderLookupFormWrap').hidden=false;$('#lookupQuery').focus();return;}
   const detailButton=clickEvent.target.closest('[data-lookup-details]');
   if(detailButton){const card=detailButton.closest('.lookup-order-card'),details=card.querySelector('.lookup-details'),open=details.hidden;details.hidden=!open;card.classList.toggle('is-expanded',open);detailButton.textContent=open?'收起详情':'查看详情';return;}
   const showCancel=clickEvent.target.closest('[data-show-cancel]');
