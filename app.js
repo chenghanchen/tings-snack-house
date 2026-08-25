@@ -212,9 +212,17 @@ function unlockPageFromLookup(){
   window.scrollTo(0,lookupPageScrollY);
 }
 function placeLookupCloseButton(inResult){
-  const close=$('#closeOrderLookup'),dialog=$('#orderLookupDialog'),result=$('#lookupResult');
+  const close=$('#closeOrderLookup'),dialog=$('#orderLookupDialog');
   if(!close)return;
-  if(inResult)result.prepend(close);else if(close.parentElement!==dialog)dialog.insertAdjacentElement('afterbegin',close);
+  let toolbar=$('#lookupResultToolbar');
+  if(!toolbar){
+    toolbar=document.createElement('div');toolbar.id='lookupResultToolbar';
+    toolbar.innerHTML='<button type="button" class="lookup-retry" data-new-lookup>重新查询</button>';
+    toolbar.append(close);dialog.prepend(toolbar);
+    toolbar.addEventListener('click',event=>{if(!event.target.closest('[data-new-lookup]'))return;placeLookupCloseButton(false);$('#lookupResult').hidden=true;$('#orderLookupFormWrap').hidden=false;$('#lookupQuery').focus();});
+  }
+  toolbar.querySelector('[data-new-lookup]').hidden=!inResult;
+  dialog.classList.toggle('has-lookup-results',inResult);
 }
 const openOrderLookupNative=openOrderLookup;
 openOrderLookup=()=>{placeLookupCloseButton(false);openOrderLookupNative();lockPageForLookup();};
@@ -267,8 +275,8 @@ async function loadLookupResults(query){
   const result=$('#lookupResult');
   result.innerHTML='<p class="dialog-note">正在查询订单…</p>';result.hidden=false;
   const response=await db.rpc('lookup_customer_orders',{p_query:query});
-  if(response.error||!response.data?.length){result.innerHTML='<p class="dialog-note">没有找到对应订单，请检查订单号或电话号码。</p><button type="button" class="lookup-retry" data-new-lookup>重新查询</button><button type="button" class="lookup-close-bottom" data-close-order-lookup>关闭查询</button>';placeLookupCloseButton(true);return;}
-  result.innerHTML=`<button type="button" class="lookup-retry" data-new-lookup>重新查询</button>${response.data.map(lookupOrderCard).join('')}<button type="button" class="lookup-close-bottom" data-close-order-lookup>关闭查询</button>`;
+  if(response.error||!response.data?.length){result.innerHTML='<p class="dialog-note">没有找到对应订单，请检查订单号或电话号码。</p>';placeLookupCloseButton(true);return;}
+  result.innerHTML=response.data.map(lookupOrderCard).join('');
   placeLookupCloseButton(true);
 }
 $('#orderLookupForm').onsubmit=async event=>{
@@ -280,7 +288,6 @@ $('#orderLookupForm').onsubmit=async event=>{
   await loadLookupResults(query);
 };
 $('#lookupResult').onclick=async clickEvent=>{
-  if(clickEvent.target.closest('[data-close-order-lookup]')){$('#orderLookupDialog').close();return;}
   const retry=clickEvent.target.closest('[data-new-lookup]');
   if(retry){placeLookupCloseButton(false);$('#lookupResult').hidden=true;$('#orderLookupFormWrap').hidden=false;$('#lookupQuery').focus();return;}
   const detailButton=clickEvent.target.closest('[data-lookup-details]');
