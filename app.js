@@ -138,6 +138,18 @@ $('#productGrid').onclick=event=>{
 };
 renderCart=refreshCartLocally;
 $('#productGrid').addEventListener('click',event=>{if(event.target.closest('[data-retry-catalog]'))loadShop();});
+
+/* Keep the empty-cart message local so it does not recreate the product list. */
+const renderCartWithEmptyMessage=renderCart;
+renderCart=function(){
+  renderCartWithEmptyMessage();
+  const list=$('#cartItems');
+  if(!list)return;
+  const empty=list.querySelector('.cart-empty-message');
+  if(cart.length){empty?.remove();return;}
+  if(!empty)list.insertAdjacentHTML('afterbegin','<p class="cart-empty-message">把你喜欢的零食放进来吧！</p>');
+};
+refreshCartLocally=renderCart;
 /* First paint only waits for the product list; supporting catalog data follows without blocking it. */
 loadShop=async function(){
   const version=++shopLoadVersion,grid=$('#productGrid');
