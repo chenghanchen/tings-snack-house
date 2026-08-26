@@ -195,7 +195,11 @@ function unlockPageFromCart(){
   if(!cartPageLocked)return;
   cartPageLocked=false;
   document.body.style.position='';document.body.style.top='';document.body.style.width='';document.body.style.overflow='';
+  /* The site normally uses smooth scrolling; restoring the page after the cart closes must be instant. */
+  const root=document.documentElement,previousBehavior=root.style.scrollBehavior;
+  root.style.scrollBehavior='auto';
   window.scrollTo(0,cartPageScrollY);
+  requestAnimationFrame(()=>{root.style.scrollBehavior=previousBehavior;});
 }
 toggleCart=show=>{
   $('#cart').classList.toggle('open',show);$('#overlay').classList.toggle('visible',show);
