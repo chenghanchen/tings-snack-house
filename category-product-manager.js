@@ -39,5 +39,8 @@ document.addEventListener('click',event=>{
   card.classList.toggle('open');
 },true);
 
+/* Match the store-settings disclosure control: right-facing at rest, down when open. */
+document.head.insertAdjacentHTML('beforeend','<style id="categoryChevronStyle">.category-chevron{width:32px;height:32px;padding:0!important;display:inline-grid;place-items:center;color:transparent!important;font-size:0!important;line-height:1!important;transform:none!important}.category-chevron::after{content:"›";display:block;color:#59665e;font-size:17px;line-height:1;transition:transform .18s}.category-accordion.open .category-chevron{transform:none!important}.category-accordion.open .category-chevron::after{transform:rotate(90deg)}</style>');
+
 /* The original editor still reads this hidden list when opening a product. */
 setTimeout(()=>{if(!document.querySelector('#categoryList'))document.body.insertAdjacentHTML('beforeend','<div hidden aria-hidden="true"><div id="categoryList"></div></div>');},400);
