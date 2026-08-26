@@ -226,7 +226,7 @@ function unlockPageFromLookup(){
   if(!lookupPageLocked)return;
   lookupPageLocked=false;
   document.body.style.position='';document.body.style.top='';document.body.style.width='';document.body.style.overflow='';
-  window.scrollTo(0,lookupPageScrollY);
+  const root=document.documentElement,previousBehavior=root.style.scrollBehavior;  root.style.scrollBehavior='auto';  window.scrollTo(0,lookupPageScrollY);  requestAnimationFrame(()=>{root.style.scrollBehavior=previousBehavior;});const root=document.documentElement,previousBehavior=root.style.scrollBehavior;  root.style.scrollBehavior='auto';  window.scrollTo(0,lookupPageScrollY);  requestAnimationFrame(()=>{root.style.scrollBehavior=previousBehavior;});const root=document.documentElement,previousBehavior=root.style
 }
 function fitLookupFormToContent(){
   if(!window.matchMedia('(max-width:780px)').matches)return;
