@@ -80,6 +80,7 @@ function refreshProductCard(productId){
     if(image){
       if(currentImage){currentImage.src=image;currentImage.alt=product.name;}
       else if(currentIcon)currentIcon.outerHTML=`<img src="${image}" alt="${escapeHtml(product.name)}">`;
+      visual.querySelectorAll('.product-icon').forEach(icon=>icon.remove());
     }else if(!currentIcon&&currentImage)currentImage.outerHTML=`<span class="product-icon">${escapeHtml(product.icon)}</span>`;
   }
   const action=groupsForProduct.length&&!allSelected?'<button class="add" disabled>请选择规格</button>':item?qtyControl(product,item):'<button class="add" disabled>缺货</button>';
