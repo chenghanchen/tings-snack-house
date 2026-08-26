@@ -28,5 +28,16 @@
   window.addEventListener('load',()=>setTimeout(setup,120));
 })();
 
+/* Expanding a category is a local view change, not a database reload. */
+document.addEventListener('click',event=>{
+  const toggle=event.target.closest?.('#categoryProductList [data-category-toggle]');
+  if(!toggle)return;
+  const card=toggle.closest('[data-managed-category-id]');
+  if(!card)return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  card.classList.toggle('open');
+},true);
+
 /* The original editor still reads this hidden list when opening a product. */
 setTimeout(()=>{if(!document.querySelector('#categoryList'))document.body.insertAdjacentHTML('beforeend','<div hidden aria-hidden="true"><div id="categoryList"></div></div>');},400);
