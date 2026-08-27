@@ -51,7 +51,7 @@
     $('#allOrders').textContent=all.filter(x=>!x.archived).length;
     $('#newOrders').textContent=all.filter(x=>x.status===T.pending&&!x.archived).length;
     $('#orderBadge').textContent=all.filter(x=>x.status===T.pending&&!x.archived).length;
-    $('#todayAmount').textContent=money(all.filter(x=>!x.archived).reduce((sum,x)=>sum+Number(x.total_amount||x.subtotal||0),0));
+    $('#todayAmount').textContent=cash(all.filter(x=>!x.archived).reduce((sum,x)=>sum+Number(x.total_amount||x.subtotal||0),0));
     root.classList.add('order-card-list');
     root.innerHTML=list.map(card).join('')||'<p class="muted">'+T.empty+'</p>';
     root.querySelectorAll('textarea[data-card-note]').forEach(field=>{field.style.height='auto';field.style.height=Math.max(40,field.scrollHeight)+'px'});
