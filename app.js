@@ -1,6 +1,6 @@
 const db=window.supabase.createClient(TINGS_SUPABASE.url,TINGS_SUPABASE.anonKey),$=s=>document.querySelector(s),dollars=n=>`$${Number(n||0).toFixed(2)}`,escapeHtml=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&gt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let products=[],categories=[],groups=[],values=[],variants=[],cart=[],settings={},selected={},productSales={},shopLoadVersion=0,catalogDetailsReady=false;
-/* Share initial store settings with separately loaded checkout rules. */
+/* This is also read by the separately-loaded checkout rules script. */
 window.settings=settings;
 const sortByPopularity=list=>[...list].sort((a,b)=>Number(productSales[b.id]||0)-Number(productSales[a.id]||0)||(a.position??0)-(b.position??0)||a.id-b.id);
 const optionGroups=id=>groups.filter(g=>g.product_id===id).sort((a,b)=>a.position-b.position).map(g=>({...g,values:values.filter(v=>v.group_id===g.id).sort((a,b)=>a.position-b.position)}));
@@ -228,7 +228,13 @@ function unlockPageFromLookup(){
   if(!lookupPageLocked)return;
   lookupPageLocked=false;
   document.body.style.position='';document.body.style.top='';document.body.style.width='';document.body.style.overflow='';
-  const root=document.documentElement,previousBehavior=root.style.scrollBehavior;  root.style.scrollBehavior='auto';  window.scrollTo(0,lookupPageScrollY);  requestAnimationFrame(()=>{root.style.scrollBehavior=previousBehavior;});const root=document.documentElement,previousBehavior=root.style.scrollBehavior;  root.style.scrollBehavior='auto';  window.scrollTo(0,lookupPageScrollY);  requestAnimationFrame(()=>{root.style.scrollBehavior=previousBehavior;});const root=document.documentElement,previousBehavior=root.style
+  /* Restore the page instantly when the lookup window closes.  The global
+     smooth-scroll setting otherwise turns this into a visible downward slide
+     on mobile Safari. */
+  const root=document.documentElement,previousBehavior=root.style.scrollBehavior;
+  root.style.scrollBehavior='auto';
+  window.scrollTo(0,lookupPageScrollY);
+  requestAnimationFrame(()=>{root.style.scrollBehavior=previousBehavior;});
 }
 function fitLookupFormToContent(){
   if(!window.matchMedia('(max-width:780px)').matches)return;
@@ -339,3 +345,11 @@ $('#lookupResult').onsubmit=async event=>{
   if(response.error||!response.data){submit.disabled=false;submit.textContent='提交取消申请';alert(response.error?.message||'无法提交取消申请，请确认手机号码和订单状态。');return;}
   await loadLookupResults(lastLookupQuery);
 };
+
+/* Keep the global settings reference current for separately-loaded modules. */
+const applySettingsWithSharedState=applySettings;
+applySettings=function(data){
+  window.settings=data||{};
+  return applySettingsWithSharedState(data);
+};
+
