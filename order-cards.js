@@ -41,7 +41,10 @@
     return '<article class="order-card is-collapsed '+color(x)+'" data-order-id="'+x.id+'" data-order-status="'+esc(x.status)+'" data-delivery-fee="'+Number(x.delivery_fee||0)+'"><div class="order-top"><div><div class="order-title-wrap"><h3>'+esc(x.order_number)+'</h3><span class="status-stage">'+esc(stage(x))+'</span>'+select+'</div><p class="order-time">'+T.time+time(x.created_at)+'</p></div>'+(action&&!x.archived?'<button class="advance-order '+action.kind+'" data-card-advance="'+x.id+'" data-target="'+action.target+'">'+action.label+'</button>':'')+'</div>'+(x.cancellation_requested?'<p class="cancellation-alert">'+T.cancelRequested+(x.cancellation_reason?'<br><b>取消原因：</b>'+esc(x.cancellation_reason):'')+'</p>':'')+'<div class="order-compact"><p class="compact-items">'+compactItems(x)+'</p><div class="compact-meta"><span>'+esc(x.customer_name)+' &middot; '+esc(x.phone)+'</span><b>'+cash(x.total_amount??x.subtotal)+'</b></div></div>'+detail+'<div class="order-footer"><button class="detail-toggle" data-card-toggle="'+x.id+'">'+T.details+'</button><div class="order-footer-right">'+cancel+'</div></div></article>';
   };
   const render=async()=>{
-    const all=await data('orders'),selected=tab(),query=($('#orderSearch')?.value||'').trim().toLowerCase();
+    /* This module is isolated from admin.js, so it must not rely on its private data() helper. */
+    const {data:orders,error}=await client.from('orders').select('*').order('created_at',{ascending:false}).order('id',{ascending:true});
+    if(error){toast(error.message);return;}
+    const all=orders||[],selected=tab(),query=($('#orderSearch')?.value||'').trim().toLowerCase();
     const list=all.filter(x=>(selected==='history')===!!x.archived).filter(x=>!query||[x.order_number,x.customer_name,x.phone,time(x.created_at)].join(' ').toLowerCase().includes(query));
     $('#ordersTitle').textContent=selected==='history'?T.history:T.current;
     $('#allOrders').textContent=all.filter(x=>!x.archived).length;
