@@ -3,6 +3,7 @@
   const root=document.querySelector('#ordersList');
   if(!root)return;
   const client=window.supabase.createClient(TINGS_SUPABASE.url,TINGS_SUPABASE.anonKey);
+  const $=selector=>document.querySelector(selector);
   const T={
     pending:'\u5f85\u786e\u8ba4',confirmed:'\u5df2\u786e\u8ba4',delivering:'\u914d\u9001\u4e2d',complete:'\u5df2\u5b8c\u6210',cancelled:'\u5df2\u53d6\u6d88',
     preparing:'\u6b63\u5728\u51c6\u5907',inDelivery:'\u6b63\u5728\u914d\u9001',confirm:'\u786e\u8ba4\u8ba2\u5355',pickup:'\u81ea\u53d6',delivery:'\u914d\u9001',details:'\u67e5\u770b\u8be6\u60c5',collapse:'\u6536\u8d77\u8be6\u60c5',
