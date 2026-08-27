@@ -17,4 +17,15 @@ window.TINGS_SUPABASE = {
       ? window.TingsDb
       : createClient(url, anonKey, options)
   );
+
+  /* admin.js has an older double-start path. Keep its first live order-alert
+     subscription and safely ignore the duplicate registration. */
+  const channel = window.TingsDb.channel.bind(window.TingsDb);
+  const subscribedChannels = new Set();
+  const ignoredChannel = { on() { return ignoredChannel; }, subscribe() { return ignoredChannel; } };
+  window.TingsDb.channel = (name, options) => {
+    if (name === 'order-alert-v2' && subscribedChannels.has(name)) return ignoredChannel;
+    if (name === 'order-alert-v2') subscribedChannels.add(name);
+    return channel(name, options);
+  };
 })();
