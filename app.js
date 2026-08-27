@@ -1,5 +1,7 @@
 const db=window.supabase.createClient(TINGS_SUPABASE.url,TINGS_SUPABASE.anonKey),$=s=>document.querySelector(s),dollars=n=>`$${Number(n||0).toFixed(2)}`,escapeHtml=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&gt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let products=[],categories=[],groups=[],values=[],variants=[],cart=[],settings={},selected={},productSales={},shopLoadVersion=0,
+/* Share initial store settings with separately loaded checkout rules. */
+window.settings=settings;
 const sortByPopularity=list=>[...list].sort((a,b)=>Number(productSales[b.id]||0)-Number(productSales[a.id]||0)||(a.position??0)-(b.position??0)||a.id-b.id);
 const optionGroups=id=>groups.filter(g=>g.product_id===id).sort((a,b)=>a.position-b.position).map(g=>({...g,values:values.filter(v=>v.group_id===g.id).sort((a,b)=>a.position-b.position)}));
 const optionKey=(id)=>optionGroups(id).map(g=>selected[id]?.[g.id]).join('-');
