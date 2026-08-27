@@ -298,7 +298,8 @@ function lookupOrderCard(order){
   const items=Array.isArray(order.items)?order.items:[],meta=lookupTimeline(order),canCancel=['待确认','已确认'].includes(order.status)&&!order.cancellation_requested&&!order.cancellation_rejected_at;
   const itemLines=items.slice(0,3).map(item=>`<li>${escapeHtml(item.name||'商品')}${item.variant_label?` · ${escapeHtml(item.variant_label)}`:''} × ${Number(item.qty||0)}</li>`).join('');
   const thumbs=items.slice(0,3).map(item=>`<div class="lookup-item-thumb">${lookupItemPreview(item)}</div>`).join('');
-  const address=meta.pickup?`<span>🛍</span><span>到店自取</span>`:`<span>📍</span><span>送至 ${escapeHtml(order.address||'配送地址待确认')}</span>`;
+  const pickupAddress=String(settings.pickup_address||'天河城二楼，Archer Ave').trim();
+  const address=meta.pickup?`<span>🛍</span><span>到店自取 · ${escapeHtml(pickupAddress)}</span>`:`<span>📍</span><span>送至 ${escapeHtml(order.address||'配送地址待确认')}</span>`;
   const discount=Number(order.discount_amount||0),fee=Number(order.delivery_fee||0),feeRow=meta.pickup?'':`<div><span>配送费${fee===0?'（已减免）':''}</span><b>${dollars(fee)}</b></div>`;
   const detailRows=items.map(item=>`<div class="lookup-detail-item"><div class="lookup-item-thumb">${lookupItemPreview(item)}</div><p><b>${escapeHtml(item.name||'商品')}</b>${item.variant_label?`<small>${escapeHtml(item.variant_label)}</small>`:''}</p><span>× ${Number(item.qty||0)}</span><b>${dollars(item.line_total??Number(item.price||0)*Number(item.qty||0))}</b></div>`).join('');
   const promo=order.promotion_name?`<p class="lookup-promo">已享受：${escapeHtml(order.promotion_name)}</p>`:'';
