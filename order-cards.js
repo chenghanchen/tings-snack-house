@@ -495,8 +495,12 @@
       },
     )
     .subscribe();
-  setTimeout(() => {
+  setTimeout(async () => {
     orders = render;
-    render();
+    try {
+      await render();
+    } finally {
+      requestAnimationFrame(() => window.finishAdminBoot?.());
+    }
   }, 0);
 })();
