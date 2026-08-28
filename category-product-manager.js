@@ -574,3 +574,12 @@ setTimeout(() => {
       '<div hidden aria-hidden="true"><div id="categoryList"></div></div>',
     );
 }, 400);
+
+/* Close an open category menu after any non-trigger click. */
+document.addEventListener("click", (event) => {
+  // The category manager's handler toggles the matching menu for this button.
+  if (event.target.closest?.("[data-category-menu]")) return;
+  document.querySelectorAll(".category-popover:not([hidden])").forEach((menu) => {
+    menu.hidden = true;
+  });
+});
