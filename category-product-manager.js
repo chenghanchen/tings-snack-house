@@ -575,7 +575,7 @@ setTimeout(() => {
     );
 }, 400);
 
-/* Keep category menus transient: any operation outside their toggle closes them. */
+/* Keep category menus transient: every other page action closes them. */
 function closeCategoryPopovers(event) {
   // The category manager's click handler owns the toggle itself.
   if (event?.target?.closest?.("[data-category-menu]")) return;
@@ -584,9 +584,8 @@ function closeCategoryPopovers(event) {
   });
 }
 
-// Capture pointer actions first so nested controls cannot keep a menu open.
-document.addEventListener("pointerdown", closeCategoryPopovers, true);
-document.addEventListener("focusin", closeCategoryPopovers, true);
+// Let a category action run first, then close its popover and any others.
+document.addEventListener("click", closeCategoryPopovers);
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeCategoryPopovers();
 });
