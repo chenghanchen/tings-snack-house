@@ -555,6 +555,11 @@ document.addEventListener(
     if (!card) return;
     event.preventDefault();
     event.stopImmediatePropagation();
+    document
+      .querySelectorAll(".category-popover:not([hidden])")
+      .forEach((menu) => {
+        menu.hidden = true;
+      });
     card.classList.toggle("open");
   },
   true,
