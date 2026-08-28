@@ -575,11 +575,18 @@ setTimeout(() => {
     );
 }, 400);
 
-/* Close an open category menu after any non-trigger click. */
-document.addEventListener("click", (event) => {
-  // The category manager's handler toggles the matching menu for this button.
-  if (event.target.closest?.("[data-category-menu]")) return;
+/* Keep category menus transient: any operation outside their toggle closes them. */
+function closeCategoryPopovers(event) {
+  // The category manager's click handler owns the toggle itself.
+  if (event?.target?.closest?.("[data-category-menu]")) return;
   document.querySelectorAll(".category-popover:not([hidden])").forEach((menu) => {
     menu.hidden = true;
   });
+}
+
+// Capture pointer actions first so nested controls cannot keep a menu open.
+document.addEventListener("pointerdown", closeCategoryPopovers, true);
+document.addEventListener("focusin", closeCategoryPopovers, true);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeCategoryPopovers();
 });
