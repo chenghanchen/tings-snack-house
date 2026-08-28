@@ -1,46 +1,576 @@
 /* Grouped product management: categories are collapsed by default and contain their own products. */
-(()=>{
-  const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),cash=v=>`$${Number(v||0).toFixed(2)}`;
-  const notify=message=>{const node=$('#toast');if(!node)return;node.textContent=message;node.classList.add('show');setTimeout(()=>node.classList.remove('show'),2800)};
-  let db,rows=[],categoryRows=[],variantRows=[],expanded=new Set(),dragging=null;
-  const css=`
+(() => {
+  const $ = (s) => document.querySelector(s),
+    esc = (v) =>
+      String(v ?? "").replace(
+        /[&<>"']/g,
+        (c) =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          })[c],
+      ),
+    cash = (v) => `$${Number(v || 0).toFixed(2)}`;
+  const notify = (message) => {
+    const node = $("#toast");
+    if (!node) return;
+    node.textContent = message;
+    node.classList.add("show");
+    setTimeout(() => node.classList.remove("show"), 2800);
+  };
+  let db,
+    rows = [],
+    categoryRows = [],
+    variantRows = [],
+    expanded = new Set(),
+    dragging = null;
+  const css = `
     #categories,#productsList{display:none!important}.category-product-list{display:grid;gap:12px;margin-top:16px}.category-accordion{border:1px solid var(--line);background:#fffdf8}.category-accordion.dragging{opacity:.45}.category-accordion-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:17px 18px}.category-drag{border:0;background:transparent;color:#a0aaa3;font-size:16px;letter-spacing:-2px;cursor:grab;padding:6px}.category-title-button{border:0;background:transparent;text-align:left;padding:0;cursor:pointer;min-width:0}.category-title-button b{display:block;font:700 20px "Noto Serif SC",serif;color:var(--ink)}.category-title-button small{display:block;margin-top:5px;color:#748078;font-size:12px}.category-actions{display:flex;align-items:center;gap:8px;position:relative}.category-actions button{font:700 12px inherit;cursor:pointer}.category-add-product{border:1px solid var(--line);background:#fffdf8;color:#55785a;padding:8px 10px}.category-menu-toggle,.category-chevron{border:0;background:transparent;color:#59665e;padding:8px;font-size:20px;line-height:1}.category-chevron{transition:transform .18s}.category-accordion.open .category-chevron{transform:rotate(180deg)}.category-popover{position:absolute;right:36px;top:38px;z-index:5;display:grid;min-width:142px;padding:5px;border:1px solid var(--line);background:#fffdf8;box-shadow:0 10px 24px #0002}.category-popover[hidden]{display:none}.category-popover button{border:0;background:transparent;text-align:left;padding:8px;color:#58665d}.category-popover button:hover{background:#f5f1e8;color:var(--red)}.category-popover .danger{color:#b55142}.category-product-body{display:none;border-top:1px solid var(--line);padding:0 18px 9px}.category-accordion.open .category-product-body{display:block}.category-product-row{display:grid;grid-template-columns:20px 52px minmax(160px,1fr) minmax(116px,150px) minmax(88px,108px) auto auto;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #eee9df}.category-product-row:last-child{border-bottom:0}.category-product-row.dragging{opacity:.45}.category-product-row .product-thumb{width:48px;height:48px;font-size:25px}.category-product-row h3{font-size:14px;margin:0 0 4px}.category-product-row p{font-size:11px;color:#758077;margin:0}.category-product-row select,.category-product-row input{width:100%;margin:0;padding:7px;font-size:12px}.category-product-row button{border:0;background:transparent;color:var(--red);cursor:pointer;padding:5px}.category-product-row .drag-handle{font-size:12px}.category-empty{margin:0;padding:17px 0;color:#7a857d;font-size:12px}.category-add-dialog{width:min(410px,92vw)}.category-add-dialog h2{font-size:25px}.category-dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:19px}.category-dialog-actions .primary{min-width:100px}@media(max-width:860px){.category-product-row{grid-template-columns:18px 50px minmax(0,1fr) 92px auto auto}.category-product-row .quick-category{display:none}}@media(max-width:720px){.category-accordion-head{grid-template-columns:minmax(0,1fr) auto;padding:14px}.category-drag{display:none}.category-actions{gap:3px}.category-add-product{padding:7px 8px}.category-add-product span{display:none}.category-product-body{padding:0 14px 7px}.category-product-row{grid-template-columns:18px 44px minmax(0,1fr) auto auto;gap:8px}.category-product-row .price-editor{display:none}.category-product-row .product-thumb{width:42px;height:42px}.category-title-button b{font-size:18px}}
   `;
-  document.head.insertAdjacentHTML('beforeend',`<style>${css}</style>`);
-  const systemCategory=category=>category?.name==='未分类'||category?.is_system;
-  const normalizedCategory=product=>categoryRows.some(c=>c.name===product.type)?product.type:'未分类';
-  const sortedCategories=()=>[...categoryRows].sort((a,b)=>(a.position??0)-(b.position??0)||a.id-b.id);
-  const productVariants=id=>variantRows.filter(v=>v.product_id===id);
-  function productCard(product){const variants=productVariants(product.id),deleted=product.is_active===false,start=variants.length?Math.min(...variants.map(v=>Number(v.price||0))):Number(product.price||0),categoryOptions=sortedCategories().map(c=>`<option value="${esc(c.name)}" ${normalizedCategory(product)===c.name?'selected':''}>${esc(c.name)}</option>`).join('');return `<article class="category-product-row ${deleted?'is-deleted':''}" draggable="true" data-managed-product="${product.id}"><i class="drag-handle" title="拖拽排序">⋮⋮</i><div class="product-thumb" style="background:${esc(product.color||'#eee')} ">${product.image?`<img src="${esc(product.image)}" alt="">`:esc(product.icon||'🍪')}</div><div><h3>${esc(product.name)}${deleted?' <small>已下架</small>':''}</h3><p>${esc(product.note||'')}${variants.length?` · ${variants.length} 个规格组合`:` · 库存 ${product.stock??0}`}</p></div><select class="quick-category" data-managed-category="${product.id}" ${deleted?'disabled':''} aria-label="${esc(product.name)} 的分类">${categoryOptions}</select><input class="price-editor" data-managed-price="${product.id}" data-variants="${variants.length?'yes':'no'}" type="number" min="0" step="0.01" value="${start.toFixed(2)}" ${deleted?'disabled':''} aria-label="${esc(product.name)} 的${variants.length?'统一规格':'价格'}"> <button data-managed-edit="${product.id}">编辑</button><button data-managed-delete="${product.id}" ${deleted?'hidden':''}>删除</button><button data-managed-restore="${product.id}" ${deleted?'':'hidden'}>上架</button></article>`;}
-  function categoryCard(category){const name=category.name,products=rows.filter(p=>normalizedCategory(p)===name).sort((a,b)=>(a.position??0)-(b.position??0)||a.id-b.id),isOpen=expanded.has(String(category.id)),system=systemCategory(category),menu=system?'<button type="button" class="category-menu-toggle" data-category-menu="'+category.id+'" aria-label="分类说明">⋯</button><div class="category-popover" data-category-popover="'+category.id+'" hidden><button type="button" disabled>系统固定分类</button></div>':'<button type="button" class="category-menu-toggle" data-category-menu="'+category.id+'" aria-label="管理分类">⋯</button><div class="category-popover" data-category-popover="'+category.id+'" hidden><button type="button" data-category-rename="'+category.id+'">重命名分类</button><button type="button" data-category-move="up" data-category-id="'+category.id+'">上移分类</button><button type="button" data-category-move="down" data-category-id="'+category.id+'">下移分类</button><button type="button" class="danger" data-category-delete="'+category.id+'">删除分类</button></div>';return `<section class="category-accordion ${isOpen?'open':''}" data-managed-category-id="${category.id}" data-category-name="${esc(name)}"><div class="category-accordion-head"><button class="category-drag" draggable="${!system}" type="button" title="拖拽排序">⋮⋮</button><button class="category-title-button" type="button" data-category-toggle="${category.id}"><b>${esc(name)}</b><small>${system?'系统分类 · ':''}${products.length} 个商品</small></button><div class="category-actions"><button class="category-add-product" type="button" data-category-add-product="${esc(name)}">+ <span>添加商品</span></button>${menu}<button class="category-chevron" type="button" data-category-toggle="${category.id}" aria-label="展开或收起">⌄</button></div></div><div class="category-product-body">${products.length?products.map(productCard).join(''):'<p class="category-empty">这个分类还没有商品。</p>'}</div></section>`;}
-  async function fetchData(){const [categories,products,variants]=await Promise.all([db.from('categories').select('*').order('position').order('id'),db.from('products').select('*').order('position').order('id'),db.from('product_variants').select('*')]);if(categories.error||products.error||variants.error){notify((categories.error||products.error||variants.error).message);return false;}categoryRows=categories.data||[];if(!categoryRows.some(c=>c.name==='未分类'))categoryRows.push({id:'uncategorized',name:'未分类',position:999999,is_system:true});rows=products.data||[];variantRows=variants.data||[];return true;}
-  async function render(){if(!await fetchData())return;const root=$('#categoryProductList');if(root)root.innerHTML=sortedCategories().map(categoryCard).join('');}
-  async function openNewProduct(category){if(typeof window.openProduct!=='function')return notify('商品编辑器正在加载，请稍后再试');await window.openProduct();const type=$('#productType');if(type){type.value=category;type.dispatchEvent(new Event('change'));}}
-  async function addCategory(name){name=name.trim();if(!name)return notify('请输入分类名称');if(name==='未分类'||categoryRows.some(c=>c.name===name))return notify('该分类已存在');const {error}=await db.from('categories').insert({name,position:Math.max(-1,...categoryRows.filter(c=>!systemCategory(c)).map(c=>Number(c.position)||0))+1});if(error)return notify(error.message);$('#categoryAddDialog')?.close();notify('分类已添加');render();}
-  async function saveCategoryPositions(list){const updates=list.map((category,index)=>db.from('categories').update({position:index}).eq('id',category.id));const result=await Promise.all(updates),failed=result.find(x=>x.error);if(failed)return notify(failed.error.message);notify('分类排序已同步到顾客网站');render();}
-  async function saveProductPositions(){const groups=sortedCategories().map(c=>rows.filter(p=>normalizedCategory(p)===c.name).sort((a,b)=>(a.position??0)-(b.position??0)||a.id-b.id)),flat=groups.flat();const results=await Promise.all(flat.map((product,index)=>db.from('products').update({position:index,updated_at:new Date().toISOString()}).eq('id',product.id))),failed=results.find(x=>x.error);if(failed)return notify(failed.error.message);notify('商品排序已同步到顾客网站');render();}
-  async function updateProductPrice(id,value,variants){const price=Number(value);if(!Number.isFinite(price)||price<0)return notify('请输入有效的商品价格');if(variants){const {error}=await db.from('product_variants').update({price,updated_at:new Date().toISOString()}).eq('product_id',id);if(error)return notify(error.message);}const {error}=await db.from('products').update({price,updated_at:new Date().toISOString()}).eq('id',id);if(error)return notify(error.message);notify(variants?'所有规格组合价格已统一更新':'商品价格已保存');render();}
-  async function moveCategory(id,direction){const movable=sortedCategories().filter(c=>!systemCategory(c)),index=movable.findIndex(c=>String(c.id)===String(id)),target=index+(direction==='up'?-1:1);if(index<0||target<0||target>=movable.length)return;[movable[index],movable[target]]=[movable[target],movable[index]];await saveCategoryPositions([...movable,...sortedCategories().filter(systemCategory)]);}
-  function addCategoryDialog(){if($('#categoryAddDialog'))return;document.body.insertAdjacentHTML('beforeend','<dialog class="category-add-dialog" id="categoryAddDialog"><button class="close" type="button" data-category-dialog-close>×</button><p class="eyebrow">NEW CATEGORY</p><h2>添加分类</h2><form id="categoryAddForm"><label>分类名称<input id="categoryAddName" required placeholder="例如：辣味零食"></label><div class="category-dialog-actions"><button class="text-btn" type="button" data-category-dialog-close>取消</button><button class="primary">添加分类</button></div></form></dialog>');$('#categoryAddForm').addEventListener('submit',event=>{event.preventDefault();addCategory($('#categoryAddName').value);});$('#categoryAddDialog').addEventListener('click',event=>{if(event.target.matches('[data-category-dialog-close]')||event.target===$('#categoryAddDialog'))$('#categoryAddDialog').close();});}
-  function renameCategoryDialog(){if($('#categoryRenameDialog'))return;document.body.insertAdjacentHTML('beforeend','<dialog class="category-add-dialog" id="categoryRenameDialog"><button class="close" type="button" data-category-rename-close>×</button><p class="eyebrow">RENAME CATEGORY</p><h2>重命名分类</h2><form id="categoryRenameForm"><label>新的分类名称<input id="categoryRenameName" required></label><div class="category-dialog-actions"><button class="text-btn" type="button" data-category-rename-close>取消</button><button class="primary">保存名称</button></div></form></dialog>');const dialog=$('#categoryRenameDialog');$('#categoryRenameForm').addEventListener('submit',async event=>{event.preventDefault();const category=categoryRows.find(c=>String(c.id)===String(dialog.dataset.categoryId)),next=$('#categoryRenameName').value.trim();if(!category||!next)return notify('请输入分类名称');if(next===category.name){dialog.close();return;}if(next==='未分类'||categoryRows.some(c=>c.name===next))return notify('该分类名称已存在');const productUpdate=await db.from('products').update({type:next,updated_at:new Date().toISOString()}).eq('type',category.name);if(productUpdate.error)return notify(productUpdate.error.message);const {error}=await db.from('categories').update({name:next}).eq('id',category.id);if(error)return notify(error.message);dialog.close();notify('分类已重命名');render();});dialog.addEventListener('click',event=>{if(event.target.matches('[data-category-rename-close]')||event.target===dialog)dialog.close();});}
-  function openRenameCategory(category){if(!category)return;const dialog=$('#categoryRenameDialog'),input=$('#categoryRenameName');dialog.dataset.categoryId=category.id;input.value=category.name;dialog.showModal();setTimeout(()=>input.select(),0);}
-  function setup(){if(!window.supabase||!window.TINGS_SUPABASE||!$('#products')||!$('#newProduct'))return setTimeout(setup,120);db=window.supabase.createClient(window.TINGS_SUPABASE.url,window.TINGS_SUPABASE.anonKey);const navCategory=$('aside [data-view="categories"]'),categoryView=$('#categories'),panel=$('#products .panel'),originalList=$('#productsList'),oldButton=$('#newProduct');if(navCategory)navCategory.remove();if(categoryView)categoryView.remove();if(!$('#categoryProductList')){panel.querySelector('h2').textContent='商品管理';originalList.hidden=true;originalList.insertAdjacentHTML('afterend','<div class="category-product-list" id="categoryProductList"></div>');const newButton=oldButton.cloneNode(true);newButton.id='newCategory';newButton.textContent='+ 添加分类';oldButton.replaceWith(newButton);newButton.addEventListener('click',()=>{addCategoryDialog();$('#categoryAddName').value='';$('#categoryAddDialog').showModal();});}addCategoryDialog();renameCategoryDialog();const root=$('#categoryProductList');root.addEventListener('click',async event=>{const target=event.target.closest('button');if(!target)return;const toggle=target.dataset.categoryToggle;if(toggle){const key=String(toggle);expanded.has(key)?expanded.delete(key):expanded.add(key);render();return;}if(target.dataset.categoryAddProduct)return openNewProduct(target.dataset.categoryAddProduct);if(target.dataset.categoryMenu){const menu=$(`[data-category-popover="${target.dataset.categoryMenu}"]`);document.querySelectorAll('.category-popover').forEach(p=>{if(p!==menu)p.hidden=true});if(menu)menu.hidden=!menu.hidden;return;}if(target.dataset.categoryRename){openRenameCategory(categoryRows.find(c=>String(c.id)===String(target.dataset.categoryRename)));return;}if(target.dataset.categoryDelete){const category=categoryRows.find(c=>String(c.id)===String(target.dataset.categoryDelete));if(!category||!confirm(`删除“${category.name}”后，商品会自动归入“未分类”。确定删除吗？`))return;const productUpdate=await db.from('products').update({type:'未分类',updated_at:new Date().toISOString()}).eq('type',category.name);if(productUpdate.error)return notify(productUpdate.error.message);const {error}=await db.from('categories').delete().eq('id',category.id);if(error)return notify(error.message);notify('分类已删除，商品已归入未分类');render();return;}if(target.dataset.categoryMove)return moveCategory(target.dataset.categoryId,target.dataset.categoryMove);const product=rows.find(p=>String(p.id)===String(target.dataset.managedEdit||target.dataset.managedDelete||target.dataset.managedRestore));if(!product)return;if(target.dataset.managedEdit)return window.openProduct?.(product);if(target.dataset.managedDelete){if(!confirm('删除后商品不再显示在顾客网站，历史订单会完整保留。确定删除吗？'))return;const {error}=await db.from('products').update({is_active:false,updated_at:new Date().toISOString()}).eq('id',product.id);if(error)return notify(error.message);notify('商品已删除');render();}if(target.dataset.managedRestore){const {error}=await db.from('products').update({is_active:true,updated_at:new Date().toISOString()}).eq('id',product.id);if(error)return notify(error.message);notify('商品已重新上架');render();}});root.addEventListener('change',async event=>{const id=event.target.dataset.managedCategory||event.target.dataset.managedPrice;if(!id)return;if(event.target.dataset.managedCategory){const {error}=await db.from('products').update({type:event.target.value||'未分类',updated_at:new Date().toISOString()}).eq('id',id);if(error)return notify(error.message);notify('商品分类已保存');return render();}return updateProductPrice(id,event.target.value,event.target.dataset.variants==='yes');});root.addEventListener('dragstart',event=>{const product=event.target.closest('[data-managed-product]'),category=event.target.closest('[data-managed-category-id]');if(product){dragging={kind:'product',id:String(product.dataset.managedProduct),category:product.closest('[data-managed-category-id]')?.dataset.managedCategoryId};product.classList.add('dragging');return;}if(category&&event.target.closest('.category-drag')&&event.target.getAttribute('draggable')==='true'){dragging={kind:'category',id:String(category.dataset.managedCategoryId)};category.classList.add('dragging');}});root.addEventListener('dragend',event=>{event.target.closest('.category-product-row,.category-accordion')?.classList.remove('dragging');dragging=null;});root.addEventListener('dragover',event=>{if(dragging)event.preventDefault();});root.addEventListener('drop',async event=>{event.preventDefault();if(!dragging)return;const targetProduct=event.target.closest('[data-managed-product]'),targetCategory=event.target.closest('[data-managed-category-id]');if(dragging.kind==='product'&&targetProduct&&String(targetProduct.dataset.managedProduct)!==dragging.id){const source=rows.find(p=>String(p.id)===dragging.id),target=rows.find(p=>String(p.id)===String(targetProduct.dataset.managedProduct));if(!source||!target||normalizedCategory(source)!==normalizedCategory(target))return;const group=rows.filter(p=>normalizedCategory(p)===normalizedCategory(source)).sort((a,b)=>(a.position??0)-(b.position??0)||a.id-b.id),from=group.indexOf(source),to=group.indexOf(target);group.splice(to,0,group.splice(from,1)[0]);group.forEach((p,index)=>p.position=index);await saveProductPositions();return;}if(dragging.kind==='category'&&targetCategory&&String(targetCategory.dataset.managedCategoryId)!==dragging.id){const list=sortedCategories(),from=list.findIndex(c=>String(c.id)===dragging.id),to=list.findIndex(c=>String(c.id)===String(targetCategory.dataset.managedCategoryId));if(from<0||to<0||systemCategory(list[from])||systemCategory(list[to]))return;list.splice(to,0,list.splice(from,1)[0]);await saveCategoryPositions(list);}});document.querySelectorAll('aside [data-view="products"]').forEach(button=>button.addEventListener('click',()=>setTimeout(render,100)));db.channel('grouped-product-manager').on('postgres_changes',{event:'*',schema:'public',table:'products'},render).on('postgres_changes',{event:'*',schema:'public',table:'categories'},render).on('postgres_changes',{event:'*',schema:'public',table:'product_variants'},render).subscribe();render();}
-  window.addEventListener('load',()=>setTimeout(setup,120));
+  document.head.insertAdjacentHTML("beforeend", `<style>${css}</style>`);
+  const systemCategory = (category) =>
+    category?.name === "未分类" || category?.is_system;
+  const normalizedCategory = (product) =>
+    categoryRows.some((c) => c.name === product.type) ? product.type : "未分类";
+  const sortedCategories = () =>
+    [...categoryRows].sort(
+      (a, b) => (a.position ?? 0) - (b.position ?? 0) || a.id - b.id,
+    );
+  const productVariants = (id) =>
+    variantRows.filter((v) => v.product_id === id);
+  function productCard(product) {
+    const variants = productVariants(product.id),
+      deleted = product.is_active === false,
+      start = variants.length
+        ? Math.min(...variants.map((v) => Number(v.price || 0)))
+        : Number(product.price || 0),
+      categoryOptions = sortedCategories()
+        .map(
+          (c) =>
+            `<option value="${esc(c.name)}" ${normalizedCategory(product) === c.name ? "selected" : ""}>${esc(c.name)}</option>`,
+        )
+        .join("");
+    return `<article class="category-product-row ${deleted ? "is-deleted" : ""}" draggable="true" data-managed-product="${product.id}"><i class="drag-handle" title="拖拽排序">⋮⋮</i><div class="product-thumb" style="background:${esc(product.color || "#eee")} ">${product.image ? `<img src="${esc(product.image)}" alt="">` : esc(product.icon || "🍪")}</div><div><h3>${esc(product.name)}${deleted ? " <small>已下架</small>" : ""}</h3><p>${esc(product.note || "")}${variants.length ? ` · ${variants.length} 个规格组合` : ` · 库存 ${product.stock ?? 0}`}</p></div><select class="quick-category" data-managed-category="${product.id}" ${deleted ? "disabled" : ""} aria-label="${esc(product.name)} 的分类">${categoryOptions}</select><input class="price-editor" data-managed-price="${product.id}" data-variants="${variants.length ? "yes" : "no"}" type="number" min="0" step="0.01" value="${start.toFixed(2)}" ${deleted ? "disabled" : ""} aria-label="${esc(product.name)} 的${variants.length ? "统一规格" : "价格"}"> <button data-managed-edit="${product.id}">编辑</button><button data-managed-delete="${product.id}" ${deleted ? "hidden" : ""}>删除</button><button data-managed-restore="${product.id}" ${deleted ? "" : "hidden"}>上架</button></article>`;
+  }
+  function categoryCard(category) {
+    const name = category.name,
+      products = rows
+        .filter((p) => normalizedCategory(p) === name)
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.id - b.id),
+      isOpen = expanded.has(String(category.id)),
+      system = systemCategory(category),
+      menu = system
+        ? '<button type="button" class="category-menu-toggle" data-category-menu="' +
+          category.id +
+          '" aria-label="分类说明">⋯</button><div class="category-popover" data-category-popover="' +
+          category.id +
+          '" hidden><button type="button" disabled>系统固定分类</button></div>'
+        : '<button type="button" class="category-menu-toggle" data-category-menu="' +
+          category.id +
+          '" aria-label="管理分类">⋯</button><div class="category-popover" data-category-popover="' +
+          category.id +
+          '" hidden><button type="button" data-category-rename="' +
+          category.id +
+          '">重命名分类</button><button type="button" data-category-move="up" data-category-id="' +
+          category.id +
+          '">上移分类</button><button type="button" data-category-move="down" data-category-id="' +
+          category.id +
+          '">下移分类</button><button type="button" class="danger" data-category-delete="' +
+          category.id +
+          '">删除分类</button></div>';
+    return `<section class="category-accordion ${isOpen ? "open" : ""}" data-managed-category-id="${category.id}" data-category-name="${esc(name)}"><div class="category-accordion-head"><button class="category-drag" draggable="${!system}" type="button" title="拖拽排序">⋮⋮</button><button class="category-title-button" type="button" data-category-toggle="${category.id}"><b>${esc(name)}</b><small>${system ? "系统分类 · " : ""}${products.length} 个商品</small></button><div class="category-actions"><button class="category-add-product" type="button" data-category-add-product="${esc(name)}">+ <span>添加商品</span></button>${menu}<button class="category-chevron" type="button" data-category-toggle="${category.id}" aria-label="展开或收起">⌄</button></div></div><div class="category-product-body">${products.length ? products.map(productCard).join("") : '<p class="category-empty">这个分类还没有商品。</p>'}</div></section>`;
+  }
+  async function fetchData() {
+    const [categories, products, variants] = await Promise.all([
+      db.from("categories").select("*").order("position").order("id"),
+      db.from("products").select("*").order("position").order("id"),
+      db.from("product_variants").select("*"),
+    ]);
+    if (categories.error || products.error || variants.error) {
+      notify((categories.error || products.error || variants.error).message);
+      return false;
+    }
+    categoryRows = categories.data || [];
+    if (!categoryRows.some((c) => c.name === "未分类"))
+      categoryRows.push({
+        id: "uncategorized",
+        name: "未分类",
+        position: 999999,
+        is_system: true,
+      });
+    rows = products.data || [];
+    variantRows = variants.data || [];
+    return true;
+  }
+  async function render() {
+    if (!(await fetchData())) return;
+    const root = $("#categoryProductList");
+    if (root) root.innerHTML = sortedCategories().map(categoryCard).join("");
+  }
+  async function openNewProduct(category) {
+    if (typeof window.openProduct !== "function")
+      return notify("商品编辑器正在加载，请稍后再试");
+    await window.openProduct();
+    const type = $("#productType");
+    if (type) {
+      type.value = category;
+      type.dispatchEvent(new Event("change"));
+    }
+  }
+  async function addCategory(name) {
+    name = name.trim();
+    if (!name) return notify("请输入分类名称");
+    if (name === "未分类" || categoryRows.some((c) => c.name === name))
+      return notify("该分类已存在");
+    const { error } = await db.from("categories").insert({
+      name,
+      position:
+        Math.max(
+          -1,
+          ...categoryRows
+            .filter((c) => !systemCategory(c))
+            .map((c) => Number(c.position) || 0),
+        ) + 1,
+    });
+    if (error) return notify(error.message);
+    $("#categoryAddDialog")?.close();
+    notify("分类已添加");
+    render();
+  }
+  async function saveCategoryPositions(list) {
+    const updates = list.map((category, index) =>
+      db.from("categories").update({ position: index }).eq("id", category.id),
+    );
+    const result = await Promise.all(updates),
+      failed = result.find((x) => x.error);
+    if (failed) return notify(failed.error.message);
+    notify("分类排序已同步到顾客网站");
+    render();
+  }
+  async function saveProductPositions() {
+    const groups = sortedCategories().map((c) =>
+        rows
+          .filter((p) => normalizedCategory(p) === c.name)
+          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.id - b.id),
+      ),
+      flat = groups.flat();
+    const results = await Promise.all(
+        flat.map((product, index) =>
+          db
+            .from("products")
+            .update({ position: index, updated_at: new Date().toISOString() })
+            .eq("id", product.id),
+        ),
+      ),
+      failed = results.find((x) => x.error);
+    if (failed) return notify(failed.error.message);
+    notify("商品排序已同步到顾客网站");
+    render();
+  }
+  async function updateProductPrice(id, value, variants) {
+    const price = Number(value);
+    if (!Number.isFinite(price) || price < 0)
+      return notify("请输入有效的商品价格");
+    if (variants) {
+      const { error } = await db
+        .from("product_variants")
+        .update({ price, updated_at: new Date().toISOString() })
+        .eq("product_id", id);
+      if (error) return notify(error.message);
+    }
+    const { error } = await db
+      .from("products")
+      .update({ price, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) return notify(error.message);
+    notify(variants ? "所有规格组合价格已统一更新" : "商品价格已保存");
+    render();
+  }
+  async function moveCategory(id, direction) {
+    const movable = sortedCategories().filter((c) => !systemCategory(c)),
+      index = movable.findIndex((c) => String(c.id) === String(id)),
+      target = index + (direction === "up" ? -1 : 1);
+    if (index < 0 || target < 0 || target >= movable.length) return;
+    [movable[index], movable[target]] = [movable[target], movable[index]];
+    await saveCategoryPositions([
+      ...movable,
+      ...sortedCategories().filter(systemCategory),
+    ]);
+  }
+  function addCategoryDialog() {
+    if ($("#categoryAddDialog")) return;
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      '<dialog class="category-add-dialog" id="categoryAddDialog"><button class="close" type="button" data-category-dialog-close>×</button><p class="eyebrow">NEW CATEGORY</p><h2>添加分类</h2><form id="categoryAddForm"><label>分类名称<input id="categoryAddName" required placeholder="例如：辣味零食"></label><div class="category-dialog-actions"><button class="text-btn" type="button" data-category-dialog-close>取消</button><button class="primary">添加分类</button></div></form></dialog>',
+    );
+    $("#categoryAddForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      addCategory($("#categoryAddName").value);
+    });
+    $("#categoryAddDialog").addEventListener("click", (event) => {
+      if (
+        event.target.matches("[data-category-dialog-close]") ||
+        event.target === $("#categoryAddDialog")
+      )
+        $("#categoryAddDialog").close();
+    });
+  }
+  function renameCategoryDialog() {
+    if ($("#categoryRenameDialog")) return;
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      '<dialog class="category-add-dialog" id="categoryRenameDialog"><button class="close" type="button" data-category-rename-close>×</button><p class="eyebrow">RENAME CATEGORY</p><h2>重命名分类</h2><form id="categoryRenameForm"><label>新的分类名称<input id="categoryRenameName" required></label><div class="category-dialog-actions"><button class="text-btn" type="button" data-category-rename-close>取消</button><button class="primary">保存名称</button></div></form></dialog>',
+    );
+    const dialog = $("#categoryRenameDialog");
+    $("#categoryRenameForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const category = categoryRows.find(
+          (c) => String(c.id) === String(dialog.dataset.categoryId),
+        ),
+        next = $("#categoryRenameName").value.trim();
+      if (!category || !next) return notify("请输入分类名称");
+      if (next === category.name) {
+        dialog.close();
+        return;
+      }
+      if (next === "未分类" || categoryRows.some((c) => c.name === next))
+        return notify("该分类名称已存在");
+      const productUpdate = await db
+        .from("products")
+        .update({ type: next, updated_at: new Date().toISOString() })
+        .eq("type", category.name);
+      if (productUpdate.error) return notify(productUpdate.error.message);
+      const { error } = await db
+        .from("categories")
+        .update({ name: next })
+        .eq("id", category.id);
+      if (error) return notify(error.message);
+      dialog.close();
+      notify("分类已重命名");
+      render();
+    });
+    dialog.addEventListener("click", (event) => {
+      if (
+        event.target.matches("[data-category-rename-close]") ||
+        event.target === dialog
+      )
+        dialog.close();
+    });
+  }
+  function openRenameCategory(category) {
+    if (!category) return;
+    const dialog = $("#categoryRenameDialog"),
+      input = $("#categoryRenameName");
+    dialog.dataset.categoryId = category.id;
+    input.value = category.name;
+    dialog.showModal();
+    setTimeout(() => input.select(), 0);
+  }
+  function setup() {
+    if (
+      !window.supabase ||
+      !window.TINGS_SUPABASE ||
+      !$("#products") ||
+      !$("#newProduct")
+    )
+      return setTimeout(setup, 120);
+    db = window.supabase.createClient(
+      window.TINGS_SUPABASE.url,
+      window.TINGS_SUPABASE.anonKey,
+    );
+    const navCategory = $('aside [data-view="categories"]'),
+      categoryView = $("#categories"),
+      panel = $("#products .panel"),
+      originalList = $("#productsList"),
+      oldButton = $("#newProduct");
+    if (navCategory) navCategory.remove();
+    if (categoryView) categoryView.remove();
+    if (!$("#categoryProductList")) {
+      panel.querySelector("h2").textContent = "商品管理";
+      originalList.hidden = true;
+      originalList.insertAdjacentHTML(
+        "afterend",
+        '<div class="category-product-list" id="categoryProductList"></div>',
+      );
+      const newButton = oldButton.cloneNode(true);
+      newButton.id = "newCategory";
+      newButton.textContent = "+ 添加分类";
+      oldButton.replaceWith(newButton);
+      newButton.addEventListener("click", () => {
+        addCategoryDialog();
+        $("#categoryAddName").value = "";
+        $("#categoryAddDialog").showModal();
+      });
+    }
+    addCategoryDialog();
+    renameCategoryDialog();
+    const root = $("#categoryProductList");
+    root.addEventListener("click", async (event) => {
+      const target = event.target.closest("button");
+      if (!target) return;
+      const toggle = target.dataset.categoryToggle;
+      if (toggle) {
+        const key = String(toggle);
+        expanded.has(key) ? expanded.delete(key) : expanded.add(key);
+        render();
+        return;
+      }
+      if (target.dataset.categoryAddProduct)
+        return openNewProduct(target.dataset.categoryAddProduct);
+      if (target.dataset.categoryMenu) {
+        const menu = $(
+          `[data-category-popover="${target.dataset.categoryMenu}"]`,
+        );
+        document.querySelectorAll(".category-popover").forEach((p) => {
+          if (p !== menu) p.hidden = true;
+        });
+        if (menu) menu.hidden = !menu.hidden;
+        return;
+      }
+      if (target.dataset.categoryRename) {
+        openRenameCategory(
+          categoryRows.find(
+            (c) => String(c.id) === String(target.dataset.categoryRename),
+          ),
+        );
+        return;
+      }
+      if (target.dataset.categoryDelete) {
+        const category = categoryRows.find(
+          (c) => String(c.id) === String(target.dataset.categoryDelete),
+        );
+        if (
+          !category ||
+          !confirm(
+            `删除“${category.name}”后，商品会自动归入“未分类”。确定删除吗？`,
+          )
+        )
+          return;
+        const productUpdate = await db
+          .from("products")
+          .update({ type: "未分类", updated_at: new Date().toISOString() })
+          .eq("type", category.name);
+        if (productUpdate.error) return notify(productUpdate.error.message);
+        const { error } = await db
+          .from("categories")
+          .delete()
+          .eq("id", category.id);
+        if (error) return notify(error.message);
+        notify("分类已删除，商品已归入未分类");
+        render();
+        return;
+      }
+      if (target.dataset.categoryMove)
+        return moveCategory(
+          target.dataset.categoryId,
+          target.dataset.categoryMove,
+        );
+      const product = rows.find(
+        (p) =>
+          String(p.id) ===
+          String(
+            target.dataset.managedEdit ||
+              target.dataset.managedDelete ||
+              target.dataset.managedRestore,
+          ),
+      );
+      if (!product) return;
+      if (target.dataset.managedEdit) return window.openProduct?.(product);
+      if (target.dataset.managedDelete) {
+        if (
+          !confirm(
+            "删除后商品不再显示在顾客网站，历史订单会完整保留。确定删除吗？",
+          )
+        )
+          return;
+        const { error } = await db
+          .from("products")
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .eq("id", product.id);
+        if (error) return notify(error.message);
+        notify("商品已删除");
+        render();
+      }
+      if (target.dataset.managedRestore) {
+        const { error } = await db
+          .from("products")
+          .update({ is_active: true, updated_at: new Date().toISOString() })
+          .eq("id", product.id);
+        if (error) return notify(error.message);
+        notify("商品已重新上架");
+        render();
+      }
+    });
+    root.addEventListener("change", async (event) => {
+      const id =
+        event.target.dataset.managedCategory ||
+        event.target.dataset.managedPrice;
+      if (!id) return;
+      if (event.target.dataset.managedCategory) {
+        const { error } = await db
+          .from("products")
+          .update({
+            type: event.target.value || "未分类",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id);
+        if (error) return notify(error.message);
+        notify("商品分类已保存");
+        return render();
+      }
+      return updateProductPrice(
+        id,
+        event.target.value,
+        event.target.dataset.variants === "yes",
+      );
+    });
+    root.addEventListener("dragstart", (event) => {
+      const product = event.target.closest("[data-managed-product]"),
+        category = event.target.closest("[data-managed-category-id]");
+      if (product) {
+        dragging = {
+          kind: "product",
+          id: String(product.dataset.managedProduct),
+          category: product.closest("[data-managed-category-id]")?.dataset
+            .managedCategoryId,
+        };
+        product.classList.add("dragging");
+        return;
+      }
+      if (
+        category &&
+        event.target.closest(".category-drag") &&
+        event.target.getAttribute("draggable") === "true"
+      ) {
+        dragging = {
+          kind: "category",
+          id: String(category.dataset.managedCategoryId),
+        };
+        category.classList.add("dragging");
+      }
+    });
+    root.addEventListener("dragend", (event) => {
+      event.target
+        .closest(".category-product-row,.category-accordion")
+        ?.classList.remove("dragging");
+      dragging = null;
+    });
+    root.addEventListener("dragover", (event) => {
+      if (dragging) event.preventDefault();
+    });
+    root.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      if (!dragging) return;
+      const targetProduct = event.target.closest("[data-managed-product]"),
+        targetCategory = event.target.closest("[data-managed-category-id]");
+      if (
+        dragging.kind === "product" &&
+        targetProduct &&
+        String(targetProduct.dataset.managedProduct) !== dragging.id
+      ) {
+        const source = rows.find((p) => String(p.id) === dragging.id),
+          target = rows.find(
+            (p) =>
+              String(p.id) === String(targetProduct.dataset.managedProduct),
+          );
+        if (
+          !source ||
+          !target ||
+          normalizedCategory(source) !== normalizedCategory(target)
+        )
+          return;
+        const group = rows
+            .filter((p) => normalizedCategory(p) === normalizedCategory(source))
+            .sort(
+              (a, b) => (a.position ?? 0) - (b.position ?? 0) || a.id - b.id,
+            ),
+          from = group.indexOf(source),
+          to = group.indexOf(target);
+        group.splice(to, 0, group.splice(from, 1)[0]);
+        group.forEach((p, index) => (p.position = index));
+        await saveProductPositions();
+        return;
+      }
+      if (
+        dragging.kind === "category" &&
+        targetCategory &&
+        String(targetCategory.dataset.managedCategoryId) !== dragging.id
+      ) {
+        const list = sortedCategories(),
+          from = list.findIndex((c) => String(c.id) === dragging.id),
+          to = list.findIndex(
+            (c) =>
+              String(c.id) === String(targetCategory.dataset.managedCategoryId),
+          );
+        if (
+          from < 0 ||
+          to < 0 ||
+          systemCategory(list[from]) ||
+          systemCategory(list[to])
+        )
+          return;
+        list.splice(to, 0, list.splice(from, 1)[0]);
+        await saveCategoryPositions(list);
+      }
+    });
+    document
+      .querySelectorAll('aside [data-view="products"]')
+      .forEach((button) =>
+        button.addEventListener("click", () => setTimeout(render, 100)),
+      );
+    db.channel("grouped-product-manager")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        render,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "categories" },
+        render,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "product_variants" },
+        render,
+      )
+      .subscribe();
+    render();
+  }
+  window.addEventListener("load", () => setTimeout(setup, 120));
 })();
 
 /* Expanding a category is a local view change, not a database reload. */
-document.addEventListener('click',event=>{
-  const toggle=event.target.closest?.('#categoryProductList [data-category-toggle]');
-  if(!toggle)return;
-  const card=toggle.closest('[data-managed-category-id]');
-  if(!card)return;
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  card.classList.toggle('open');
-},true);
+document.addEventListener(
+  "click",
+  (event) => {
+    const toggle = event.target.closest?.(
+      "#categoryProductList [data-category-toggle]",
+    );
+    if (!toggle) return;
+    const card = toggle.closest("[data-managed-category-id]");
+    if (!card) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    card.classList.toggle("open");
+  },
+  true,
+);
 
 /* Match the store-settings disclosure control: right-facing at rest, down when open. */
-document.head.insertAdjacentHTML('beforeend','<style id="categoryChevronStyle">.category-chevron{width:32px;height:32px;padding:0!important;display:inline-grid;place-items:center;color:transparent!important;font-size:0!important;line-height:1!important;transform:none!important}.category-chevron::after{content:"›";display:block;color:#59665e;font-size:17px;line-height:1;transition:transform .18s}.category-accordion.open .category-chevron{transform:none!important}.category-accordion.open .category-chevron::after{transform:rotate(90deg)}</style>');
+document.head.insertAdjacentHTML(
+  "beforeend",
+  '<style id="categoryChevronStyle">.category-chevron{width:32px;height:32px;padding:0!important;display:inline-grid;place-items:center;color:transparent!important;font-size:0!important;line-height:1!important;transform:none!important}.category-chevron::after{content:"›";display:block;color:#59665e;font-size:17px;line-height:1;transition:transform .18s}.category-accordion.open .category-chevron{transform:none!important}.category-accordion.open .category-chevron::after{transform:rotate(90deg)}</style>',
+);
 
 /* The original editor still reads this hidden list when opening a product. */
-setTimeout(()=>{if(!document.querySelector('#categoryList'))document.body.insertAdjacentHTML('beforeend','<div hidden aria-hidden="true"><div id="categoryList"></div></div>');},400);
+setTimeout(() => {
+  if (!document.querySelector("#categoryList"))
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      '<div hidden aria-hidden="true"><div id="categoryList"></div></div>',
+    );
+}, 400);

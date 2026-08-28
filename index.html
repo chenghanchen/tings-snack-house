@@ -2,122 +2,413 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no"
+    />
     <title id="documentTitle">婷婷的零食屋｜Ting’s Snack House</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css?v=20260825t" />
-    <style>.order-amounts .fee-value b{grid-column:2;min-width:52px;text-align:right;font-size:12px;font-weight:400;color:inherit}</style>
     <style>
-      .hero { position:relative; display:block; min-height:620px; overflow:hidden; }
-      .hero-copy { position:relative; z-index:4; width:min(54%,650px); min-height:620px; display:flex; flex-direction:column; justify-content:center; padding:92px max(7vw,42px); }
-      #heroArt { position:absolute; inset:0; width:100%; min-height:100%; background-image:url("hero-snack-illustration-v1.png"); background-size: cover; background-position: center; }
-      #heroArt.photo-hero > :not(#heroIllustration) { display:none; }
-      #heroIllustration { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:3; pointer-events:none; }
-      #heroIllustration[hidden] { display:none; }
-      #story { min-height:440px; background-color:#f5e8cd; background-image:url("footer-snack-illustration-v1.png"); background-size:cover; background-position:center; }
-      #story.footer-composite { min-height:0; width:100%; margin:0; aspect-ratio:8/3; padding:0; display:block; background-image:url("footer-composite-v1.png") !important; background-size:100% 100%; background-position:center; }
-      #story.footer-composite > * { display:none; }
-      .delivery-info:has(+ #story.footer-composite) { margin-bottom:0; }
-      #story .story-mark { color:#ae4c38; border-color:#ae4c38aa; background:#fffdf899; }
-      #story > div:last-child { max-width:470px; padding:18px; background:#fffdf874; }
-      @media (max-width:780px) { .hero { min-height:560px; } .hero-copy { width:100%; min-height:560px; padding:60px 8vw; background:linear-gradient(90deg,#f8f3e8ee 0%,#f8f3e8b8 58%,#f8f3e800 100%); } #heroArt { min-height:100%; } }
+      .order-amounts .fee-value b {
+        grid-column: 2;
+        min-width: 52px;
+        text-align: right;
+        font-size: 12px;
+        font-weight: 400;
+        color: inherit;
+      }
+    </style>
+    <style>
+      .hero {
+        position: relative;
+        display: block;
+        min-height: 620px;
+        overflow: hidden;
+      }
+      .hero-copy {
+        position: relative;
+        z-index: 4;
+        width: min(54%, 650px);
+        min-height: 620px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 92px max(7vw, 42px);
+      }
+      #heroArt {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        min-height: 100%;
+        background-image: url("hero-snack-illustration-v1.png");
+        background-size: cover;
+        background-position: center;
+      }
+      #heroArt.photo-hero > :not(#heroIllustration) {
+        display: none;
+      }
+      #heroIllustration {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        z-index: 3;
+        pointer-events: none;
+      }
+      #heroIllustration[hidden] {
+        display: none;
+      }
+      #story {
+        min-height: 440px;
+        background-color: #f5e8cd;
+        background-image: url("footer-snack-illustration-v1.png");
+        background-size: cover;
+        background-position: center;
+      }
+      #story.footer-composite {
+        min-height: 0;
+        width: 100%;
+        margin: 0;
+        aspect-ratio: 8/3;
+        padding: 0;
+        display: block;
+        background-image: url("footer-composite-v1.png") !important;
+        background-size: 100% 100%;
+        background-position: center;
+      }
+      #story.footer-composite > * {
+        display: none;
+      }
+      .delivery-info:has(+ #story.footer-composite) {
+        margin-bottom: 0;
+      }
+      #story .story-mark {
+        color: #ae4c38;
+        border-color: #ae4c38aa;
+        background: #fffdf899;
+      }
+      #story > div:last-child {
+        max-width: 470px;
+        padding: 18px;
+        background: #fffdf874;
+      }
+      @media (max-width: 780px) {
+        .hero {
+          min-height: 560px;
+        }
+        .hero-copy {
+          width: 100%;
+          min-height: 560px;
+          padding: 60px 8vw;
+          background: linear-gradient(
+            90deg,
+            #f8f3e8ee 0%,
+            #f8f3e8b8 58%,
+            #f8f3e800 100%
+          );
+        }
+        #heroArt {
+          min-height: 100%;
+        }
+      }
     </style>
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="#top" aria-label="婷婷的零食屋首页"><span id="brandName">婷婷</span><small id="brandEnglish">Ting’s Snack House</small></a>
-      <nav><a href="#snacks">逛零食</a><a href="#story">小店故事</a><a href="#" id="openOrderLookup">查询订单</a></nav>
-      <button class="order-lookup-button" id="openOrderLookupMobile" type="button">查订单</button>
-      <button class="bag-button" id="openCart" aria-label="打开购物篮">购物篮 <b id="cartCount">0</b></button>
+      <a class="brand" href="#top" aria-label="婷婷的零食屋首页"
+        ><span id="brandName">婷婷</span
+        ><small id="brandEnglish">Ting’s Snack House</small></a
+      >
+      <nav>
+        <a href="#snacks">逛零食</a><a href="#story">小店故事</a
+        ><a href="#" id="openOrderLookup">查询订单</a>
+      </nav>
+      <button
+        class="order-lookup-button"
+        id="openOrderLookupMobile"
+        type="button"
+      >
+        查订单
+      </button>
+      <button class="bag-button" id="openCart" aria-label="打开购物篮">
+        购物篮 <b id="cartCount">0</b>
+      </button>
     </header>
 
     <main id="top">
       <section class="hero">
         <div class="hero-copy">
           <p class="eyebrow" id="heroEyebrow">今日の小さなごほうび</p>
-          <h1><span id="heroTitle">把喜欢的零食，</span><br /><em id="heroEmphasis">装进日常里。</em></h1>
-          <p class="intro" id="heroIntro">从童年味道到新鲜人气款，挑一袋让心情变好的中国零食。下单即为您预留，无需在线付款。</p>
-          <a class="primary-button" href="#snacks"><span id="heroButton">开始挑选</span> <span>→</span></a>
+          <h1>
+            <span id="heroTitle">把喜欢的零食，</span><br /><em
+              id="heroEmphasis"
+              >装进日常里。</em
+            >
+          </h1>
+          <p class="intro" id="heroIntro">
+            从童年味道到新鲜人气款，挑一袋让心情变好的中国零食。下单即为您预留，无需在线付款。
+          </p>
+          <a class="primary-button" href="#snacks"
+            ><span id="heroButton">开始挑选</span> <span>→</span></a
+          >
         </div>
         <div class="hero-art photo-hero" id="heroArt" aria-label="零食插画">
-          <div class="sun"></div><div class="cloud cloud-a"></div><div class="cloud cloud-b"></div>
-          <div class="mountain back"></div><div class="mountain front"></div>
-          <div class="snack-card rice"><span id="heroCardOneIcon">米</span><small id="heroCardOneText">锅巴</small></div>
-          <div class="snack-card peach"><span id="heroCardTwoIcon">桃</span><small id="heroCardTwoText">果干</small></div>
-          <div class="hero-label"><span id="heroBadgeTop">おやつ</span><br /><i id="heroBadgeBottom">TIME</i></div>
+          <div class="sun"></div>
+          <div class="cloud cloud-a"></div>
+          <div class="cloud cloud-b"></div>
+          <div class="mountain back"></div>
+          <div class="mountain front"></div>
+          <div class="snack-card rice">
+            <span id="heroCardOneIcon">米</span
+            ><small id="heroCardOneText">锅巴</small>
+          </div>
+          <div class="snack-card peach">
+            <span id="heroCardTwoIcon">桃</span
+            ><small id="heroCardTwoText">果干</small>
+          </div>
+          <div class="hero-label">
+            <span id="heroBadgeTop">おやつ</span><br /><i id="heroBadgeBottom"
+              >TIME</i
+            >
+          </div>
           <img id="heroIllustration" alt="" hidden />
         </div>
       </section>
 
       <section class="benefits" aria-label="服务特色">
-        <p><b>01</b> 精选好味道</p><p><b>02</b> 芝加哥可配送</p><p><b>03</b> 下单即留货</p>
+        <p><b>01</b> 精选好味道</p>
+        <p><b>02</b> 芝加哥可配送</p>
+        <p><b>03</b> 下单即留货</p>
       </section>
 
       <section class="shop" id="snacks">
-        <div class="section-heading"><div><p class="eyebrow">Snack Selection</p><h2>今日零食铺</h2></div><p>慢慢挑，喜欢的都可以带走。</p></div>
-        <div class="product-search"><input id="productSearch" type="search" placeholder="搜索商品、分类或规格" aria-label="搜索商品、分类或规格" /></div>
-        <div class="filters" id="filters">
-          <button class="active" data-filter="全部">全部</button><button data-filter="甜味">甜味</button><button data-filter="咸香">咸香</button><button data-filter="饮品">饮品</button><button data-filter="童年回忆">童年回忆</button><button data-filter="促销">促销</button>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Snack Selection</p>
+            <h2>今日零食铺</h2>
+          </div>
+          <p>慢慢挑，喜欢的都可以带走。</p>
         </div>
-        <div class="product-grid product-grid-loading" id="productGrid" aria-live="polite"><p class="catalog-loading">正在准备今日零食…</p></div>
+        <div class="product-search">
+          <input
+            id="productSearch"
+            type="search"
+            placeholder="搜索商品、分类或规格"
+            aria-label="搜索商品、分类或规格"
+          />
+        </div>
+        <div class="filters" id="filters">
+          <button class="active" data-filter="全部">全部</button
+          ><button data-filter="甜味">甜味</button
+          ><button data-filter="咸香">咸香</button
+          ><button data-filter="饮品">饮品</button
+          ><button data-filter="童年回忆">童年回忆</button
+          ><button data-filter="促销">促销</button>
+        </div>
+        <div
+          class="product-grid product-grid-loading"
+          id="productGrid"
+          aria-live="polite"
+        >
+          <p class="catalog-loading">正在准备今日零食…</p>
+        </div>
       </section>
 
       <section class="delivery-info" id="deliveryInfo" aria-label="配送说明">
-        <span class="delivery-stamp" id="deliveryStamp"><span id="deliveryStampTop">DELIVERY</span><br /><i id="deliveryStampBottom">CHICAGO</i><img id="deliveryStampImage" alt="" hidden /></span>
-        <div><p class="eyebrow" id="deliveryEyebrow">LOCAL DELIVERY</p><h2 id="deliveryTitle">把零食送到你身边</h2><p id="deliveryDescription">配送费 $5.00；商品小计满 $50.00 免费配送。</p></div>
+        <span class="delivery-stamp" id="deliveryStamp"
+          ><span id="deliveryStampTop">DELIVERY</span><br /><i
+            id="deliveryStampBottom"
+            >CHICAGO</i
+          ><img id="deliveryStampImage" alt="" hidden
+        /></span>
+        <div>
+          <p class="eyebrow" id="deliveryEyebrow">LOCAL DELIVERY</p>
+          <h2 id="deliveryTitle">把零食送到你身边</h2>
+          <p id="deliveryDescription">
+            配送费 $5.00；商品小计满 $50.00 免费配送。
+          </p>
+        </div>
       </section>
 
-      <section class="story footer-composite" id="story" role="img" aria-label="婷婷的零食屋故事、服务与联系方式">
+      <section
+        class="story footer-composite"
+        id="story"
+        role="img"
+        aria-label="婷婷的零食屋故事、服务与联系方式"
+      >
         <div class="story-mark" id="storyMark">小<br />町</div>
-        <div><p class="eyebrow" id="storyEyebrow">About Komachi</p><h2><span id="storyTitle">一间认真挑选</span><br /><span id="storySubtitle">小快乐的零食屋</span></h2><p id="storyText">我们相信，零食是平凡日子里的小仪式感。每一件上架的商品，都希望让你想起某个温暖的下午。</p><p class="signature" id="storySignature">おいしい時間を、どうぞ。</p></div>
+        <div>
+          <p class="eyebrow" id="storyEyebrow">About Komachi</p>
+          <h2>
+            <span id="storyTitle">一间认真挑选</span><br /><span
+              id="storySubtitle"
+              >小快乐的零食屋</span
+            >
+          </h2>
+          <p id="storyText">
+            我们相信，零食是平凡日子里的小仪式感。每一件上架的商品，都希望让你想起某个温暖的下午。
+          </p>
+          <p class="signature" id="storySignature">おいしい時間を、どうぞ。</p>
+        </div>
       </section>
     </main>
 
-    <footer><span><span id="footerName">婷婷的零食屋</span> © <span id="footerYear">2026</span></span><span id="footerHours">营业时间：每日 10:00 – 21:00</span></footer>
+    <footer>
+      <span
+        ><span id="footerName">婷婷的零食屋</span> ©
+        <span id="footerYear">2026</span></span
+      ><span id="footerHours">营业时间：每日 10:00 – 21:00</span>
+    </footer>
 
     <aside class="cart" id="cart" aria-label="购物篮" aria-hidden="true">
-      <div class="cart-header"><h2>购物篮</h2><button id="closeCart" aria-label="关闭购物篮">×</button></div>
+      <div class="cart-header">
+        <h2>购物篮</h2>
+        <button id="closeCart" aria-label="关闭购物篮">×</button>
+      </div>
       <div class="cart-items" id="cartItems"></div>
       <div class="cart-footer">
-        <div class="cart-total"><span>商品小计（<b id="totalCount">0 件</b>）</span><b id="cartSubtotal">$0.00</b></div>
-        <div class="cart-actions"><button class="continue-shopping" id="continueShopping">继续挑选</button><button class="primary-button checkout" id="checkout" disabled>我挑好啦！ <span>→</span></button></div>
+        <div class="cart-total">
+          <span>商品小计（<b id="totalCount">0 件</b>）</span
+          ><b id="cartSubtotal">$0.00</b>
+        </div>
+        <div class="cart-actions">
+          <button class="continue-shopping" id="continueShopping">
+            继续挑选</button
+          ><button class="primary-button checkout" id="checkout" disabled>
+            我挑好啦！ <span>→</span>
+          </button>
+        </div>
       </div>
     </aside>
     <div class="overlay" id="overlay"></div>
 
     <dialog id="orderDialog">
       <button class="dialog-close" id="closeDialog" aria-label="关闭">×</button>
-      <div id="orderFormWrap"><p class="eyebrow">Reserve Your Snacks</p><h2>为您留好零食</h2><p class="dialog-note">提交后我们会根据您留下的信息联系您确认取货。无需在线付款。</p>
+      <div id="orderFormWrap">
+        <p class="eyebrow">Reserve Your Snacks</p>
+        <h2>为您留好零食</h2>
+        <p class="dialog-note">
+          提交后我们会根据您留下的信息联系您确认取货。无需在线付款。
+        </p>
         <form id="orderForm">
-          <label>您的姓名<input required name="name" placeholder="请输入姓名" autocomplete="name" /></label>
-          <label>手机号码<input required name="phone" type="tel" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" title="请输入 10 位数字电话号码" placeholder="请输入10位电话号码" autocomplete="tel" /></label>
-          <label>电子邮箱（选填）<input name="email" type="email" placeholder="例如 name@example.com" autocomplete="email" /></label>
-          <label class="order-note-field">订单备注（选填）<textarea name="note" maxlength="300" rows="3" placeholder="例如：“请放门口”“到了打电话”"></textarea><small class="order-note-count" id="orderNoteCount">0 / 300</small></label>
-          <section class="promotion-choice" id="promotionChoice"><label>优惠券或推荐码（选填）<input name="coupon_code" id="couponCodeInput" placeholder="输入一张优惠券兑换码或推荐码"></label></section>
-          <label>取货方式<select required name="fulfillment" id="fulfillment"><option value="delivery">配送到家</option><option value="pickup">到店自取</option></select></label>
-          <label id="addressField">配送地址<input name="address" id="address" required placeholder="请输入街道、门牌号和邮编" autocomplete="street-address" /></label>
-          <p class="delivery-note" id="deliveryNote">Chinatown 附近免费配送；10 英里以内满 $50 免费配送。我们会电话确认配送安排。</p>
+          <label
+            >您的姓名<input
+              required
+              name="name"
+              placeholder="请输入姓名"
+              autocomplete="name"
+          /></label>
+          <label
+            >手机号码<input
+              required
+              name="phone"
+              type="tel"
+              inputmode="numeric"
+              pattern="[0-9]{10}"
+              minlength="10"
+              maxlength="10"
+              title="请输入 10 位数字电话号码"
+              placeholder="请输入10位电话号码"
+              autocomplete="tel"
+          /></label>
+          <label
+            >电子邮箱（选填）<input
+              name="email"
+              type="email"
+              placeholder="例如 name@example.com"
+              autocomplete="email"
+          /></label>
+          <label class="order-note-field"
+            >订单备注（选填）<textarea
+              name="note"
+              maxlength="300"
+              rows="3"
+              placeholder="例如：“请放门口”“到了打电话”"
+            ></textarea
+            ><small class="order-note-count" id="orderNoteCount"
+              >0 / 300</small
+            ></label
+          >
+          <section class="promotion-choice" id="promotionChoice">
+            <label
+              >优惠券或推荐码（选填）<input
+                name="coupon_code"
+                id="couponCodeInput"
+                placeholder="输入一张优惠券兑换码或推荐码"
+            /></label>
+          </section>
+          <label
+            >取货方式<select required name="fulfillment" id="fulfillment">
+              <option value="delivery">配送到家</option>
+              <option value="pickup">到店自取</option>
+            </select></label
+          >
+          <label id="addressField"
+            >配送地址<input
+              name="address"
+              id="address"
+              required
+              placeholder="请输入街道、门牌号和邮编"
+              autocomplete="street-address"
+          /></label>
+          <p class="delivery-note" id="deliveryNote">
+            Chinatown 附近免费配送；10 英里以内满 $50
+            免费配送。我们会电话确认配送安排。
+          </p>
           <div class="order-summary" id="orderSummary"></div>
-          <button class="primary-button submit" type="submit">确认提交订单 <span>→</span></button>
+          <button class="primary-button submit" type="submit">
+            确认提交订单 <span>→</span>
+          </button>
         </form>
       </div>
-      <div class="success" id="successMessage" hidden><div>✓</div><p class="eyebrow">Arigatō</p><h2>已为您提交</h2><p>订单号：<b id="submittedOrderNumber"></b><br />请保存订单号；可用订单号或手机号码查询订单。</p><button class="primary-button" id="done">继续逛逛 <span>→</span></button></div>
+      <div class="success" id="successMessage" hidden>
+        <div>✓</div>
+        <p class="eyebrow">Arigatō</p>
+        <h2>已为您提交</h2>
+        <p>
+          订单号：<b id="submittedOrderNumber"></b
+          ><br />请保存订单号；可用订单号或手机号码查询订单。
+        </p>
+        <button class="primary-button" id="done">
+          继续逛逛 <span>→</span>
+        </button>
+      </div>
     </dialog>
     <dialog id="orderLookupDialog">
-      <button class="dialog-close" id="closeOrderLookup" aria-label="关闭">×</button>
-      <div id="orderLookupFormWrap"><p class="eyebrow">Order Lookup</p><h2>查询您的订单</h2><p class="dialog-note">输入订单号或 10 位手机号码，即可查询订单。</p>
-        <form id="orderLookupForm"><label>订单号或手机号码<input id="lookupQuery" required placeholder="例如 TSH-260824-A7K3P 或 3128261821" autocomplete="off" /></label><button class="primary-button submit" type="submit">查询订单 <span>→</span></button></form>
+      <button class="dialog-close" id="closeOrderLookup" aria-label="关闭">
+        ×
+      </button>
+      <div id="orderLookupFormWrap">
+        <p class="eyebrow">Order Lookup</p>
+        <h2>查询您的订单</h2>
+        <p class="dialog-note">输入订单号或 10 位手机号码，即可查询订单。</p>
+        <form id="orderLookupForm">
+          <label
+            >订单号或手机号码<input
+              id="lookupQuery"
+              required
+              placeholder="例如 TSH-260824-A7K3P 或 3128261821"
+              autocomplete="off" /></label
+          ><button class="primary-button submit" type="submit">
+            查询订单 <span>→</span>
+          </button>
+        </form>
       </div>
       <div id="lookupResult" hidden></div>
     </dialog>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js"></script>
-    <script src="app.js?v=20260827b"></script>
-    <script src="activity-announcement.js?v=20260820c"></script>
-    <script src="site-appearance.js?v=20260820a"></script>
-    <script src="footer-contact-overlay.js?v=20260820e"></script>
-    <script src="store-order-rules.js?v=20260822c"></script>
+    <script src="supabase-config.js?v=20260827c"></script>
+    <script src="app.js?v=20260827c"></script>
+    <script src="activity-announcement.js?v=20260827c"></script>
+    <script src="site-appearance.js?v=20260827c"></script>
+    <script src="footer-contact-overlay.js?v=20260827c"></script>
+    <script src="store-order-rules.js?v=20260827c"></script>
   </body>
 </html>

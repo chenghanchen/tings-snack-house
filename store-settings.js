@@ -1,79 +1,448 @@
 /* Operational store settings: desktop side navigation and mobile drill-down pages. */
-(()=>{
-  const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const dayRows=[['mon','周一'],['tue','周二'],['wed','周三'],['thu','周四'],['fri','周五'],['sat','周六'],['sun','周日']];
-  const defaultConfig={profile:{phone:'',email:'',address:'',intro:''},hours:{days:Object.fromEntries(dayRows.map(([id])=>[id,{open:true,start:'10:00',end:'22:00'}])),special:[]},delivery:{minDelivery:30},order:{minOrder:20,required:{name:true,phone:true,address:true,email:false},allowNotes:true,allowSchedule:true,maxAdvance:7},notifications:{sound:true}};
-  const deepMerge=(base,extra)=>Object.fromEntries(Object.entries(base).map(([key,value])=>[key,value&&typeof value==='object'&&!Array.isArray(value)?deepMerge(value,extra?.[key]||{}):extra?.[key]??value]));
-  let config=deepMerge(defaultConfig,{}),db;
-  const toast=message=>{const node=$('#toast');if(!node)return;node.textContent=message;node.classList.add('show');setTimeout(()=>node.classList.remove('show'),2800);};
+(() => {
+  const $ = (s) => document.querySelector(s),
+    esc = (v) =>
+      String(v ?? "").replace(
+        /[&<>"']/g,
+        (c) =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          })[c],
+      );
+  const dayRows = [
+    ["mon", "周一"],
+    ["tue", "周二"],
+    ["wed", "周三"],
+    ["thu", "周四"],
+    ["fri", "周五"],
+    ["sat", "周六"],
+    ["sun", "周日"],
+  ];
+  const defaultConfig = {
+    profile: { phone: "", email: "", address: "", intro: "" },
+    hours: {
+      days: Object.fromEntries(
+        dayRows.map(([id]) => [
+          id,
+          { open: true, start: "10:00", end: "22:00" },
+        ]),
+      ),
+      special: [],
+    },
+    delivery: { minDelivery: 30 },
+    order: {
+      minOrder: 20,
+      required: { name: true, phone: true, address: true, email: false },
+      allowNotes: true,
+      allowSchedule: true,
+      maxAdvance: 7,
+    },
+    notifications: { sound: true },
+  };
+  const deepMerge = (base, extra) =>
+    Object.fromEntries(
+      Object.entries(base).map(([key, value]) => [
+        key,
+        value && typeof value === "object" && !Array.isArray(value)
+          ? deepMerge(value, extra?.[key] || {})
+          : (extra?.[key] ?? value),
+      ]),
+    );
+  let config = deepMerge(defaultConfig, {}),
+    db;
+  const toast = (message) => {
+    const node = $("#toast");
+    if (!node) return;
+    node.textContent = message;
+    node.classList.add("show");
+    setTimeout(() => node.classList.remove("show"), 2800);
+  };
 
-  const pane=(id,icon,title,help,body)=>`<section class="store-settings-pane" data-store-pane="${id}"><div class="store-pane-heading"><button class="store-mobile-back" type="button" data-store-back>← 店铺设置</button><p class="eyebrow">${icon} STORE SETTINGS</p><h3>${title}</h3><p class="muted">${help}</p></div>${body}<button class="primary store-save" type="submit">保存${title}</button></section>`;
-  const label=(title,id,type='text',hint='')=>`<label>${title}<input id="${id}" type="${type}" ${hint}></label>`;
+  const pane = (id, icon, title, help, body) =>
+    `<section class="store-settings-pane" data-store-pane="${id}"><div class="store-pane-heading"><button class="store-mobile-back" type="button" data-store-back>← 店铺设置</button><p class="eyebrow">${icon} STORE SETTINGS</p><h3>${title}</h3><p class="muted">${help}</p></div>${body}<button class="primary store-save" type="submit">保存${title}</button></section>`;
+  const label = (title, id, type = "text", hint = "") =>
+    `<label>${title}<input id="${id}" type="${type}" ${hint}></label>`;
 
-  function injectStyle(){if($('#storeSettingsStyles'))return;document.head.insertAdjacentHTML('beforeend',`<style id="storeSettingsStyles">
+  function injectStyle() {
+    if ($("#storeSettingsStyles")) return;
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      `<style id="storeSettingsStyles">
     #settings .panel.narrow{width:100%;max-width:1120px!important}.store-settings-layout{margin-top:22px}.store-settings-pane{display:none}.store-settings-pane.active{display:block}.store-pane-heading{margin-bottom:19px}.store-pane-heading h3{font:700 23px "Noto Serif SC",serif;margin:0}.store-pane-heading .muted{margin:7px 0 0}.store-settings-pane label{display:block;margin:14px 0;font-size:12px;font-weight:700}.store-settings-pane input,.store-settings-pane textarea,.store-settings-pane select{width:100%;margin-top:7px}.store-settings-pane textarea{min-height:74px;resize:vertical}.store-settings-row,.order-rule-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.store-settings-row label{min-width:0}.store-settings-pane[data-store-pane="order"]{font-size:14px}.store-settings-pane[data-store-pane="order"] label,.store-settings-pane[data-store-pane="order"] .rule-switch{font-size:14px}.store-settings-pane[data-store-pane="order"] h4{font-size:14px}.store-save{margin-top:18px}.store-mobile-back{display:none}#settingsForm>.store-legacy-source{display:none!important}.hours-table{width:100%;border-collapse:collapse;margin:15px 0}.hours-table th,.hours-table td{border-bottom:1px solid #eee9df;padding:6px 8px;text-align:left;font-size:14px}.hours-table th{color:#6d7972;font-size:14px}.hours-table label{margin:0;font-size:14px;line-height:1.25}.hours-table input[type="checkbox"],.rule-switch input{width:auto;margin:0 7px 0 0}.hours-table input[type="time"]{display:inline-block;width:108px;margin:0;padding:6px 7px;font-size:14px}.special-hours{display:grid;gap:8px;margin-top:10px}.special-hour-row{display:grid;grid-template-columns:135px 90px 1fr 1fr minmax(120px,1.4fr) auto;gap:7px;align-items:end;padding:9px;border:1px solid #e7e0d4;background:#fffdf8}.special-hour-row input,.special-hour-row select{margin:0;padding:8px}.special-hour-row button{border:0;background:transparent;color:var(--red);cursor:pointer;padding:8px}.add-special{margin-top:10px}.rule-list{display:grid;gap:6px;margin:10px 0}.rule-switch{display:flex;align-items:center;gap:3px;padding:6px 10px;border:1px solid var(--line);background:#fffdf8;font-size:12px;cursor:pointer}.store-settings-pane .rule-switch{margin:0}.rule-switch small{margin-left:auto;color:#758077;font-weight:400}.settings-inline-note{margin:8px 0 0;font-size:11px;color:#728077;line-height:1.7}.store-proxy-label{margin:0}.store-settings-pane .two{margin:0}.notification-test{margin-top:10px;border:1px solid var(--line);background:#fffdf8;color:var(--red);padding:8px 11px;cursor:pointer}.store-settings-submenu{display:none;gap:3px;margin:-3px 0 4px 12px;padding-left:10px;border-left:1px solid #ffffff2b}.store-settings-submenu.open{display:grid}.store-settings-submenu button{font-size:12px!important;padding:9px 10px!important}.store-settings-submenu button.active{background:#ffffff16;color:#fff}.settings-parent-toggle{position:relative;padding-right:32px!important}.settings-parent-toggle::after{content:'›';position:absolute;right:12px;font-size:17px;line-height:1;transition:transform .18s}.settings-parent-toggle.expanded::after{transform:rotate(90deg)}
     @media(max-width:720px){.store-settings-layout{margin-top:16px}.store-settings-row,.order-rule-row{grid-template-columns:1fr}.special-hour-row{grid-template-columns:1fr 1fr;gap:8px}.special-hour-row input[name="specialNote"]{grid-column:1/-1}.special-hour-row button{grid-column:2;justify-self:end}.hours-table{display:block;overflow:auto}.hours-table th,.hours-table td{white-space:nowrap;padding:6px 5px}.hours-table input[type="time"]{width:92px}.store-save{width:100%}.store-settings-submenu{margin:0 0 4px 5px}.store-settings-submenu button{padding:8px 10px!important}}
-  </style>`);}
-
-  function screen(id){const layout=$('#storeSettingsLayout');if(!layout)return;document.querySelectorAll('[data-store-pane]').forEach(node=>node.classList.toggle('active',node.dataset.storePane===id));document.querySelectorAll('[data-store-section]').forEach(node=>node.classList.toggle('active',node.dataset.storeSection===id));}
-  function setupSidebar(){const nav=$('aside nav'),settingsButton=$('[data-view="settings"]');if(!nav||!settingsButton)return;settingsButton.classList.add('settings-parent-toggle');settingsButton.setAttribute('aria-expanded','false');let submenu=$('#storeSettingsSubmenu');if(!submenu){settingsButton.insertAdjacentHTML('afterend','<div class="store-settings-submenu" id="storeSettingsSubmenu"><button type="button" data-store-section="profile">🏪 店铺资料</button><button type="button" data-store-section="hours">🕐 营业时间</button><button type="button" data-store-section="delivery">🚚 配送与自取</button><button type="button" data-store-section="order">🛒 下单设置</button><button type="button" data-store-section="notifications">🔔 通知设置</button></div>');submenu=$('#storeSettingsSubmenu');}
-    settingsButton.addEventListener('click',()=>{const open=!submenu.classList.contains('open');submenu.classList.toggle('open',open);settingsButton.classList.toggle('expanded',open);settingsButton.setAttribute('aria-expanded',String(open));});
-    submenu.addEventListener('click',event=>{const button=event.target.closest('[data-store-section]');if(!button)return;event.preventDefault();document.querySelectorAll('aside nav button,.view').forEach(node=>node.classList.remove('active'));settingsButton.classList.add('active');$('#settings')?.classList.add('active');$('#pageTitle').textContent='店铺设置';screen(button.dataset.storeSection);submenu.querySelectorAll('button').forEach(node=>node.classList.toggle('active',node===button));});
+  </style>`,
+    );
   }
-  function specialRow(row={date:'',open:false,start:'10:00',end:'22:00',note:''}){return`<div class="special-hour-row"><input name="specialDate" type="date" value="${esc(row.date)}"><select name="specialOpen"><option value="open" ${row.open?'selected':''}>营业</option><option value="closed" ${row.open?'':'selected'}>休息</option></select><input name="specialStart" type="time" value="${esc(row.start||'10:00')}"><input name="specialEnd" type="time" value="${esc(row.end||'22:00')}"><input name="specialNote" placeholder="说明（选填）" value="${esc(row.note)}"><button type="button" data-remove-special>删除</button></div>`;}
-  function hoursMarkup(){return`<table class="hours-table"><thead><tr><th>星期</th><th>状态</th><th>营业时间</th></tr></thead><tbody>${dayRows.map(([id,name])=>`<tr><td>${name}</td><td><label><input type="checkbox" data-hours-open="${id}">营业</label></td><td><input type="time" data-hours-start="${id}"> <span>–</span> <input type="time" data-hours-end="${id}"></td></tr>`).join('')}</tbody></table><h4>特殊营业时间／节假日</h4><p class="settings-inline-note">可单独设置某一天营业或休息，无需修改正常营业时间。</p><div class="special-hours" id="specialHours"></div><button type="button" class="text-btn add-special" data-add-special>＋ 添加特殊日期</button>`;}
 
-  function hideLegacySource(form){
-    Array.from(form.children).forEach(node=>{
-      if(node.id!=='storeSettingsLayout')node.classList.add('store-legacy-source');
+  function screen(id) {
+    const layout = $("#storeSettingsLayout");
+    if (!layout) return;
+    document
+      .querySelectorAll("[data-store-pane]")
+      .forEach((node) =>
+        node.classList.toggle("active", node.dataset.storePane === id),
+      );
+    document
+      .querySelectorAll("[data-store-section]")
+      .forEach((node) =>
+        node.classList.toggle("active", node.dataset.storeSection === id),
+      );
+  }
+  function setupSidebar() {
+    const nav = $("aside nav"),
+      settingsButton = $('[data-view="settings"]');
+    if (!nav || !settingsButton) return;
+    settingsButton.classList.add("settings-parent-toggle");
+    settingsButton.setAttribute("aria-expanded", "false");
+    let submenu = $("#storeSettingsSubmenu");
+    if (!submenu) {
+      settingsButton.insertAdjacentHTML(
+        "afterend",
+        '<div class="store-settings-submenu" id="storeSettingsSubmenu"><button type="button" data-store-section="profile">🏪 店铺资料</button><button type="button" data-store-section="hours">🕐 营业时间</button><button type="button" data-store-section="delivery">🚚 配送与自取</button><button type="button" data-store-section="order">🛒 下单设置</button><button type="button" data-store-section="notifications">🔔 通知设置</button></div>',
+      );
+      submenu = $("#storeSettingsSubmenu");
+    }
+    settingsButton.addEventListener("click", () => {
+      const open = !submenu.classList.contains("open");
+      submenu.classList.toggle("open", open);
+      settingsButton.classList.toggle("expanded", open);
+      settingsButton.setAttribute("aria-expanded", String(open));
+    });
+    submenu.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-store-section]");
+      if (!button) return;
+      event.preventDefault();
+      document
+        .querySelectorAll("aside nav button,.view")
+        .forEach((node) => node.classList.remove("active"));
+      settingsButton.classList.add("active");
+      $("#settings")?.classList.add("active");
+      $("#pageTitle").textContent = "店铺设置";
+      screen(button.dataset.storeSection);
+      submenu
+        .querySelectorAll("button")
+        .forEach((node) => node.classList.toggle("active", node === button));
+    });
+  }
+  function specialRow(
+    row = { date: "", open: false, start: "10:00", end: "22:00", note: "" },
+  ) {
+    return `<div class="special-hour-row"><input name="specialDate" type="date" value="${esc(row.date)}"><select name="specialOpen"><option value="open" ${row.open ? "selected" : ""}>营业</option><option value="closed" ${row.open ? "" : "selected"}>休息</option></select><input name="specialStart" type="time" value="${esc(row.start || "10:00")}"><input name="specialEnd" type="time" value="${esc(row.end || "22:00")}"><input name="specialNote" placeholder="说明（选填）" value="${esc(row.note)}"><button type="button" data-remove-special>删除</button></div>`;
+  }
+  function hoursMarkup() {
+    return `<table class="hours-table"><thead><tr><th>星期</th><th>状态</th><th>营业时间</th></tr></thead><tbody>${dayRows.map(([id, name]) => `<tr><td>${name}</td><td><label><input type="checkbox" data-hours-open="${id}">营业</label></td><td><input type="time" data-hours-start="${id}"> <span>–</span> <input type="time" data-hours-end="${id}"></td></tr>`).join("")}</tbody></table><h4>特殊营业时间／节假日</h4><p class="settings-inline-note">可单独设置某一天营业或休息，无需修改正常营业时间。</p><div class="special-hours" id="specialHours"></div><button type="button" class="text-btn add-special" data-add-special>＋ 添加特殊日期</button>`;
+  }
+
+  function hideLegacySource(form) {
+    Array.from(form.children).forEach((node) => {
+      if (node.id !== "storeSettingsLayout")
+        node.classList.add("store-legacy-source");
     });
   }
 
-  function build(){
-    const form=$('#settingsForm'),settings=$('#settings'),shopName=$('#shopName')?.closest('label'),shopEnglish=$('#shopEnglish')?.closest('label'),fee=$('#deliveryFeeInput')?.closest('label'),free=$('#freeDeliveryInput')?.closest('label'),tax=$('#taxRateInput')?.closest('label'),low=$('#lowStockInput')?.closest('label'),pickup=$('#pickupSettings'),alerts=$('#newOrderAlertSettings');
-    if(!form||!settings||!shopName||!shopEnglish||!fee||!free||!tax||!low||!pickup||!alerts)return false;
+  function build() {
+    const form = $("#settingsForm"),
+      settings = $("#settings"),
+      shopName = $("#shopName")?.closest("label"),
+      shopEnglish = $("#shopEnglish")?.closest("label"),
+      fee = $("#deliveryFeeInput")?.closest("label"),
+      free = $("#freeDeliveryInput")?.closest("label"),
+      tax = $("#taxRateInput")?.closest("label"),
+      low = $("#lowStockInput")?.closest("label"),
+      pickup = $("#pickupSettings"),
+      alerts = $("#newOrderAlertSettings");
+    if (
+      !form ||
+      !settings ||
+      !shopName ||
+      !shopEnglish ||
+      !fee ||
+      !free ||
+      !tax ||
+      !low ||
+      !pickup ||
+      !alerts
+    )
+      return false;
     injectStyle();
-    settings.querySelector('h2').textContent='店铺设置';const intro=settings.querySelector('.panel > .muted');if(intro)intro.textContent='管理店铺资料、营业时间、配送、下单规则与通知。';
-    if(!$('#storeSettingsLayout')){
-      const oldSave=form.querySelector('#legacySettingsSaveAnchor')||form.querySelector('button.primary')||document.createElement('button');
-      oldSave.id='legacySettingsSaveAnchor';oldSave.type='submit';oldSave.className='primary legacy-settings-save-anchor';oldSave.textContent='保存店铺设置';
-      form.insertAdjacentElement('afterbegin',oldSave);
-      oldSave.insertAdjacentHTML('afterend',`<div class="store-settings-layout" id="storeSettingsLayout"><div class="store-settings-pages"><div id="storeProfileSlot"></div><div id="storeHoursSlot"></div><div id="storeDeliverySlot"></div><div id="storeOrderSlot"></div><div id="storeNotificationSlot"></div></div></div>`);
-      $('#storeProfileSlot').innerHTML=pane('profile','🏪','店铺资料','用于店主后台与顾客网站的基础联系信息。',`<div class="store-settings-row" id="storeNameRow"></div><div class="store-settings-row">${label('店铺电话','storePhoneInput','tel')}${label('店铺邮箱','storeEmailInput','email')}</div>${label('店铺地址','storeAddressInput')}<label>店铺简介<textarea id="storeIntroInput" placeholder="向顾客介绍您的店铺"></textarea></label>`);
-      $('#storeHoursSlot').innerHTML=pane('hours','🕐','营业时间','逐日设置正常营业时间；特殊日期可覆盖当天规则。',hoursMarkup());
-      $('#storeDeliverySlot').innerHTML=pane('delivery','🚚','配送与自取','设置配送门槛、配送说明及到店自取信息。',`<div class="store-settings-row">${label('最低消费金额（美元）','minOrderInput','number','min="0" step="0.01"')}${label('最低配送金额（美元）','minDeliveryInput','number','min="0" step="0.01"')}</div><div class="two" id="deliveryPriceSlot"></div><label class="store-proxy-label">配送说明<textarea id="deliveryCopyInput" rows="3"></textarea></label><div id="pickupSlot"></div>`);
-      $('#storeOrderSlot').innerHTML=pane('order','🛒','下单设置','控制顾客下单时的资料、备注与预约规则。',`<h4>顾客下单必须提供</h4><div class="rule-list" id="requiredFieldRules"></div><h4>订单设置</h4><div class="order-rule-row"><label class="rule-switch"><input id="allowNotesInput" type="checkbox">允许顾客备注</label><label class="rule-switch"><input id="allowScheduleInput" type="checkbox">允许预约订单</label></div>${label('最长提前预约（天）','maxAdvanceInput','number','min="0" max="90" step="1"')}<div class="two" id="orderPriceSlot"></div>`);
-      $('#storeNotificationSlot').innerHTML=pane('notifications','🔔','通知设置','选择新订单到达时的提醒方式。',`<div id="alertsSlot"></div><div class="rule-list"><label class="rule-switch"><input id="notificationSoundInput" type="checkbox">播放新订单提示音</label></div><button class="notification-test" type="button" data-test-notification>测试通知</button>`);
-      const renameField=(field,title)=>{const input=field.querySelector('input');field.replaceChildren(document.createTextNode(title),input);return field;};
-      $('#storeNameRow').append(renameField(shopName,'中文店名'),renameField(shopEnglish,'英文店名'));shopName.querySelector('input').id='shopName';shopEnglish.querySelector('input').id='shopEnglish';
-      $('#deliveryPriceSlot').append(fee,free);$('#pickupSlot').append(pickup);$('#orderPriceSlot').append(tax,low);$('#alertsSlot').append(alerts);form.querySelectorAll(':scope > .two,:scope > hr').forEach(node=>{if(node.tagName==='HR'||!node.children.length)node.remove();});
-      const originalDelivery=$('#deliveryText')?.closest('label');if(originalDelivery)originalDelivery.hidden=true;
-      const footerHours=$('#footerHoursInput')?.closest('label');if(footerHours)footerHours.hidden=true;
-      const rules=[['name','姓名','顾客姓名'],['address','配送地址','仅配送订单显示'],['phone','手机号','用于订单查询与联系'],['email','邮箱','用于邮件联系']],ruleMarkup=([id,name,note])=>`<label class="rule-switch"><input type="checkbox" data-required-field="${id}">${name}<small>${note}</small></label>`;$('#requiredFieldRules').innerHTML=`<div class="order-rule-row">${rules.slice(0,2).map(ruleMarkup).join('')}</div><div class="order-rule-row">${rules.slice(2).map(ruleMarkup).join('')}</div>`;
-      form.addEventListener('click',event=>{if(event.target.closest('[data-add-special]'))return $('#specialHours').insertAdjacentHTML('beforeend',specialRow());if(event.target.closest('[data-remove-special]'))return event.target.closest('.special-hour-row').remove();if(event.target.closest('[data-test-notification]'))return testNotification();});
+    settings.querySelector("h2").textContent = "店铺设置";
+    const intro = settings.querySelector(".panel > .muted");
+    if (intro)
+      intro.textContent = "管理店铺资料、营业时间、配送、下单规则与通知。";
+    if (!$("#storeSettingsLayout")) {
+      const oldSave =
+        form.querySelector("#legacySettingsSaveAnchor") ||
+        form.querySelector("button.primary") ||
+        document.createElement("button");
+      oldSave.id = "legacySettingsSaveAnchor";
+      oldSave.type = "submit";
+      oldSave.className = "primary legacy-settings-save-anchor";
+      oldSave.textContent = "保存店铺设置";
+      form.insertAdjacentElement("afterbegin", oldSave);
+      oldSave.insertAdjacentHTML(
+        "afterend",
+        `<div class="store-settings-layout" id="storeSettingsLayout"><div class="store-settings-pages"><div id="storeProfileSlot"></div><div id="storeHoursSlot"></div><div id="storeDeliverySlot"></div><div id="storeOrderSlot"></div><div id="storeNotificationSlot"></div></div></div>`,
+      );
+      $("#storeProfileSlot").innerHTML = pane(
+        "profile",
+        "🏪",
+        "店铺资料",
+        "用于店主后台与顾客网站的基础联系信息。",
+        `<div class="store-settings-row" id="storeNameRow"></div><div class="store-settings-row">${label("店铺电话", "storePhoneInput", "tel")}${label("店铺邮箱", "storeEmailInput", "email")}</div>${label("店铺地址", "storeAddressInput")}<label>店铺简介<textarea id="storeIntroInput" placeholder="向顾客介绍您的店铺"></textarea></label>`,
+      );
+      $("#storeHoursSlot").innerHTML = pane(
+        "hours",
+        "🕐",
+        "营业时间",
+        "逐日设置正常营业时间；特殊日期可覆盖当天规则。",
+        hoursMarkup(),
+      );
+      $("#storeDeliverySlot").innerHTML = pane(
+        "delivery",
+        "🚚",
+        "配送与自取",
+        "设置配送门槛、配送说明及到店自取信息。",
+        `<div class="store-settings-row">${label("最低消费金额（美元）", "minOrderInput", "number", 'min="0" step="0.01"')}${label("最低配送金额（美元）", "minDeliveryInput", "number", 'min="0" step="0.01"')}</div><div class="two" id="deliveryPriceSlot"></div><label class="store-proxy-label">配送说明<textarea id="deliveryCopyInput" rows="3"></textarea></label><div id="pickupSlot"></div>`,
+      );
+      $("#storeOrderSlot").innerHTML = pane(
+        "order",
+        "🛒",
+        "下单设置",
+        "控制顾客下单时的资料、备注与预约规则。",
+        `<h4>顾客下单必须提供</h4><div class="rule-list" id="requiredFieldRules"></div><h4>订单设置</h4><div class="order-rule-row"><label class="rule-switch"><input id="allowNotesInput" type="checkbox">允许顾客备注</label><label class="rule-switch"><input id="allowScheduleInput" type="checkbox">允许预约订单</label></div>${label("最长提前预约（天）", "maxAdvanceInput", "number", 'min="0" max="90" step="1"')}<div class="two" id="orderPriceSlot"></div>`,
+      );
+      $("#storeNotificationSlot").innerHTML = pane(
+        "notifications",
+        "🔔",
+        "通知设置",
+        "选择新订单到达时的提醒方式。",
+        `<div id="alertsSlot"></div><div class="rule-list"><label class="rule-switch"><input id="notificationSoundInput" type="checkbox">播放新订单提示音</label></div><button class="notification-test" type="button" data-test-notification>测试通知</button>`,
+      );
+      const renameField = (field, title) => {
+        const input = field.querySelector("input");
+        field.replaceChildren(document.createTextNode(title), input);
+        return field;
+      };
+      $("#storeNameRow").append(
+        renameField(shopName, "中文店名"),
+        renameField(shopEnglish, "英文店名"),
+      );
+      shopName.querySelector("input").id = "shopName";
+      shopEnglish.querySelector("input").id = "shopEnglish";
+      $("#deliveryPriceSlot").append(fee, free);
+      $("#pickupSlot").append(pickup);
+      $("#orderPriceSlot").append(tax, low);
+      $("#alertsSlot").append(alerts);
+      form.querySelectorAll(":scope > .two,:scope > hr").forEach((node) => {
+        if (node.tagName === "HR" || !node.children.length) node.remove();
+      });
+      const originalDelivery = $("#deliveryText")?.closest("label");
+      if (originalDelivery) originalDelivery.hidden = true;
+      const footerHours = $("#footerHoursInput")?.closest("label");
+      if (footerHours) footerHours.hidden = true;
+      const rules = [
+          ["name", "姓名", "顾客姓名"],
+          ["address", "配送地址", "仅配送订单显示"],
+          ["phone", "手机号", "用于订单查询与联系"],
+          ["email", "邮箱", "用于邮件联系"],
+        ],
+        ruleMarkup = ([id, name, note]) =>
+          `<label class="rule-switch"><input type="checkbox" data-required-field="${id}">${name}<small>${note}</small></label>`;
+      $("#requiredFieldRules").innerHTML =
+        `<div class="order-rule-row">${rules.slice(0, 2).map(ruleMarkup).join("")}</div><div class="order-rule-row">${rules.slice(2).map(ruleMarkup).join("")}</div>`;
+      form.addEventListener("click", (event) => {
+        if (event.target.closest("[data-add-special]"))
+          return $("#specialHours").insertAdjacentHTML(
+            "beforeend",
+            specialRow(),
+          );
+        if (event.target.closest("[data-remove-special]"))
+          return event.target.closest(".special-hour-row").remove();
+        if (event.target.closest("[data-test-notification]"))
+          return testNotification();
+      });
       hideLegacySource(form);
-      new MutationObserver(()=>hideLegacySource(form)).observe(form,{childList:true});
+      new MutationObserver(() => hideLegacySource(form)).observe(form, {
+        childList: true,
+      });
       setupSidebar();
     }
     return true;
   }
 
-  function populate(){
-    $('#storePhoneInput').value=config.profile.phone||'';$('#storeEmailInput').value=config.profile.email||'';$('#storeAddressInput').value=config.profile.address||'';$('#storeIntroInput').value=config.profile.intro||'';
-    $('#minDeliveryInput').value=config.delivery.minDelivery;$('#minOrderInput').value=config.order.minOrder;$('#deliveryCopyInput').value=$('#deliveryText')?.value||'';$('#notificationSoundInput').checked=config.notifications.sound!==false;window.storeNotificationSoundEnabled=config.notifications.sound!==false;$('#allowNotesInput').checked=config.order.allowNotes!==false;$('#allowScheduleInput').checked=config.order.allowSchedule!==false;$('#maxAdvanceInput').value=config.order.maxAdvance;
-    dayRows.forEach(([id])=>{const row=config.hours.days[id]||defaultConfig.hours.days[id];$(`[data-hours-open="${id}"]`).checked=row.open!==false;$(`[data-hours-start="${id}"]`).value=row.start||'10:00';$(`[data-hours-end="${id}"]`).value=row.end||'22:00';});
-    $('#specialHours').innerHTML=(config.hours.special||[]).map(specialRow).join('');document.querySelectorAll('[data-required-field]').forEach(input=>input.checked=config.order.required[input.dataset.requiredField]!==false);
+  function populate() {
+    $("#storePhoneInput").value = config.profile.phone || "";
+    $("#storeEmailInput").value = config.profile.email || "";
+    $("#storeAddressInput").value = config.profile.address || "";
+    $("#storeIntroInput").value = config.profile.intro || "";
+    $("#minDeliveryInput").value = config.delivery.minDelivery;
+    $("#minOrderInput").value = config.order.minOrder;
+    $("#deliveryCopyInput").value = $("#deliveryText")?.value || "";
+    $("#notificationSoundInput").checked = config.notifications.sound !== false;
+    window.storeNotificationSoundEnabled = config.notifications.sound !== false;
+    $("#allowNotesInput").checked = config.order.allowNotes !== false;
+    $("#allowScheduleInput").checked = config.order.allowSchedule !== false;
+    $("#maxAdvanceInput").value = config.order.maxAdvance;
+    dayRows.forEach(([id]) => {
+      const row = config.hours.days[id] || defaultConfig.hours.days[id];
+      $(`[data-hours-open="${id}"]`).checked = row.open !== false;
+      $(`[data-hours-start="${id}"]`).value = row.start || "10:00";
+      $(`[data-hours-end="${id}"]`).value = row.end || "22:00";
+    });
+    $("#specialHours").innerHTML = (config.hours.special || [])
+      .map(specialRow)
+      .join("");
+    document
+      .querySelectorAll("[data-required-field]")
+      .forEach(
+        (input) =>
+          (input.checked =
+            config.order.required[input.dataset.requiredField] !== false),
+      );
   }
-  function readConfig(){
-    const next=deepMerge(defaultConfig,config);next.profile={phone:$('#storePhoneInput').value.trim(),email:$('#storeEmailInput').value.trim(),address:$('#storeAddressInput').value.trim(),intro:$('#storeIntroInput').value.trim()};next.delivery.minDelivery=Math.max(0,Number($('#minDeliveryInput').value||0));next.order.minOrder=Math.max(0,Number($('#minOrderInput').value||0));next.order.allowNotes=$('#allowNotesInput').checked;next.order.allowSchedule=$('#allowScheduleInput').checked;next.order.maxAdvance=Math.max(0,Number($('#maxAdvanceInput').value||0));next.notifications.sound=$('#notificationSoundInput').checked;next.order.required={};document.querySelectorAll('[data-required-field]').forEach(input=>next.order.required[input.dataset.requiredField]=input.checked);next.hours.days={};dayRows.forEach(([id])=>next.hours.days[id]={open:$(`[data-hours-open="${id}"]`).checked,start:$(`[data-hours-start="${id}"]`).value||'10:00',end:$(`[data-hours-end="${id}"]`).value||'22:00'});next.hours.special=Array.from(document.querySelectorAll('.special-hour-row')).map(row=>({date:row.querySelector('[name="specialDate"]').value,open:row.querySelector('[name="specialOpen"]').value==='open',start:row.querySelector('[name="specialStart"]').value||'10:00',end:row.querySelector('[name="specialEnd"]').value||'22:00',note:row.querySelector('[name="specialNote"]').value.trim()})).filter(row=>row.date);return next;}
-  function syncLegacy(next){const copy=$('#deliveryCopyInput').value.trim();if($('#deliveryText'))$('#deliveryText').value=copy;const days=Object.values(next.hours.days),same=days.every(day=>day.open&&day.start===days[0].start&&day.end===days[0].end);if($('#footerHoursInput'))$('#footerHoursInput').value=same?`营业时间：每日 ${days[0].start}–${days[0].end}`:'营业时间：请查看店铺营业时间';}
-  async function saveExtra(){const next=readConfig();config=next;window.storeNotificationSoundEnabled=next.notifications.sound!==false;syncLegacy(next);const {data:current}=await db.from('shop_settings').select('content').eq('id',1).maybeSingle();const {error}=await db.from('shop_settings').update({content:{...(current?.content||{}),storeSettings:next},updated_at:new Date().toISOString()}).eq('id',1);if(error)toast(error.message);else toast('店铺设置已保存');}
-  function wrapSubmit(){const form=$('#settingsForm');if(!form||form.dataset.storeSettingsBound)return;form.dataset.storeSettingsBound='true';const base=form.onsubmit;form.onsubmit=async event=>{syncLegacy(readConfig());await base.call(form,event);await saveExtra();};}
-  async function testNotification(){try{if('Notification'in window){if(Notification.permission==='default')await Notification.requestPermission();if(Notification.permission==='granted')new Notification('婷婷的零食屋｜测试通知',{body:'新订单提醒已正常工作。'});}if($('#notificationSoundInput')?.checked){const C=window.AudioContext||window.webkitAudioContext,ctx=new C(),osc=ctx.createOscillator(),gain=ctx.createGain();osc.frequency.value=880;gain.gain.setValueAtTime(.08,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.25);osc.connect(gain).connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+.26);}toast('已发送测试通知');}catch{toast('浏览器未允许通知或声音提示');}}
-  async function setup(){
-    if(!window.supabase||!window.TINGS_SUPABASE||!build())return setTimeout(setup,180);
-    db??=window.supabase.createClient(window.TINGS_SUPABASE.url,window.TINGS_SUPABASE.anonKey);
-    if(!$('#storeSettingsLayout').dataset.loaded){const {data}=await db.from('shop_settings').select('content').eq('id',1).maybeSingle();config=deepMerge(defaultConfig,data?.content?.storeSettings||{});populate();$('#storeSettingsLayout').dataset.loaded='true';wrapSubmit();screen('profile');}
+  function readConfig() {
+    const next = deepMerge(defaultConfig, config);
+    next.profile = {
+      phone: $("#storePhoneInput").value.trim(),
+      email: $("#storeEmailInput").value.trim(),
+      address: $("#storeAddressInput").value.trim(),
+      intro: $("#storeIntroInput").value.trim(),
+    };
+    next.delivery.minDelivery = Math.max(
+      0,
+      Number($("#minDeliveryInput").value || 0),
+    );
+    next.order.minOrder = Math.max(0, Number($("#minOrderInput").value || 0));
+    next.order.allowNotes = $("#allowNotesInput").checked;
+    next.order.allowSchedule = $("#allowScheduleInput").checked;
+    next.order.maxAdvance = Math.max(
+      0,
+      Number($("#maxAdvanceInput").value || 0),
+    );
+    next.notifications.sound = $("#notificationSoundInput").checked;
+    next.order.required = {};
+    document
+      .querySelectorAll("[data-required-field]")
+      .forEach(
+        (input) =>
+          (next.order.required[input.dataset.requiredField] = input.checked),
+      );
+    next.hours.days = {};
+    dayRows.forEach(
+      ([id]) =>
+        (next.hours.days[id] = {
+          open: $(`[data-hours-open="${id}"]`).checked,
+          start: $(`[data-hours-start="${id}"]`).value || "10:00",
+          end: $(`[data-hours-end="${id}"]`).value || "22:00",
+        }),
+    );
+    next.hours.special = Array.from(
+      document.querySelectorAll(".special-hour-row"),
+    )
+      .map((row) => ({
+        date: row.querySelector('[name="specialDate"]').value,
+        open: row.querySelector('[name="specialOpen"]').value === "open",
+        start: row.querySelector('[name="specialStart"]').value || "10:00",
+        end: row.querySelector('[name="specialEnd"]').value || "22:00",
+        note: row.querySelector('[name="specialNote"]').value.trim(),
+      }))
+      .filter((row) => row.date);
+    return next;
   }
-  window.addEventListener('load',()=>setTimeout(setup,300));
+  function syncLegacy(next) {
+    const copy = $("#deliveryCopyInput").value.trim();
+    if ($("#deliveryText")) $("#deliveryText").value = copy;
+    const days = Object.values(next.hours.days),
+      same = days.every(
+        (day) =>
+          day.open && day.start === days[0].start && day.end === days[0].end,
+      );
+    if ($("#footerHoursInput"))
+      $("#footerHoursInput").value = same
+        ? `营业时间：每日 ${days[0].start}–${days[0].end}`
+        : "营业时间：请查看店铺营业时间";
+  }
+  async function saveExtra() {
+    const next = readConfig();
+    config = next;
+    window.storeNotificationSoundEnabled = next.notifications.sound !== false;
+    syncLegacy(next);
+    const { data: current } = await db
+      .from("shop_settings")
+      .select("content")
+      .eq("id", 1)
+      .maybeSingle();
+    const { error } = await db
+      .from("shop_settings")
+      .update({
+        content: { ...(current?.content || {}), storeSettings: next },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", 1);
+    if (error) toast(error.message);
+    else toast("店铺设置已保存");
+  }
+  function wrapSubmit() {
+    const form = $("#settingsForm");
+    if (!form || form.dataset.storeSettingsBound) return;
+    form.dataset.storeSettingsBound = "true";
+    const base = form.onsubmit;
+    form.onsubmit = async (event) => {
+      syncLegacy(readConfig());
+      await base.call(form, event);
+      await saveExtra();
+    };
+  }
+  async function testNotification() {
+    try {
+      if ("Notification" in window) {
+        if (Notification.permission === "default")
+          await Notification.requestPermission();
+        if (Notification.permission === "granted")
+          new Notification("婷婷的零食屋｜测试通知", {
+            body: "新订单提醒已正常工作。",
+          });
+      }
+      if ($("#notificationSoundInput")?.checked) {
+        const C = window.AudioContext || window.webkitAudioContext,
+          ctx = new C(),
+          osc = ctx.createOscillator(),
+          gain = ctx.createGain();
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.26);
+      }
+      toast("已发送测试通知");
+    } catch {
+      toast("浏览器未允许通知或声音提示");
+    }
+  }
+  async function setup() {
+    if (!window.supabase || !window.TINGS_SUPABASE || !build())
+      return setTimeout(setup, 180);
+    db ??= window.supabase.createClient(
+      window.TINGS_SUPABASE.url,
+      window.TINGS_SUPABASE.anonKey,
+    );
+    if (!$("#storeSettingsLayout").dataset.loaded) {
+      const { data } = await db
+        .from("shop_settings")
+        .select("content")
+        .eq("id", 1)
+        .maybeSingle();
+      config = deepMerge(defaultConfig, data?.content?.storeSettings || {});
+      populate();
+      $("#storeSettingsLayout").dataset.loaded = "true";
+      wrapSubmit();
+      screen("profile");
+    }
+  }
+  window.addEventListener("load", () => setTimeout(setup, 300));
 })();
