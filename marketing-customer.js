@@ -12,7 +12,7 @@
     if (x.kind === "full_reduction")
       return `满 ${money(x.threshold)} 减 ${money(x.amount)}`;
     return x.discount_kind === "percent"
-      ? `指定商品 ${x.amount}% 折扣`
+      ? `指定商品 ${Number(x.amount || 0)}% Off`
       : `指定商品减 ${money(x.amount)}`;
   }
   async function start() {

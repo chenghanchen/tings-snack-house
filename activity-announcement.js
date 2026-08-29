@@ -26,7 +26,7 @@
       : item.kind === "free_shipping"
         ? "配送费全免"
         : item.discount_kind === "percent"
-          ? `${Math.max(0, 10 - Number(item.amount || 0) / 10)} 折`
+          ? `${Number(item.amount || 0)}% Off`
           : `每件减 ${money(item.amount)}`;
   function addStyle() {
     if (document.querySelector("#activityAnnouncementStyles")) return;

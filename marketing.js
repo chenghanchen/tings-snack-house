@@ -64,7 +64,7 @@
       amount: "",
       threshold: "",
       discountMode: "percent",
-      fold: "8",
+      fold: "20",
       quantity: 100,
       customerScope: "all",
       targetMode: type === "product_special" ? "products" : "all",
@@ -208,7 +208,7 @@
     if (item.kind === "full_reduction")
       return `满 ${money(item.threshold)} 立减 ${money(item.amount)}`;
     return item.discount_kind === "percent"
-      ? `商品 ${Math.max(0, 10 - Number(item.amount || 0) / 10)} 折`
+      ? `商品 ${Number(item.amount || 0)}% Off`
       : `每件立减 ${money(item.amount)}`;
   }
   function timeText(item) {
@@ -308,7 +308,7 @@
     if (w.type === "free_shipping")
       return `<div class="wizard-form"><h3>配送费全免</h3><p class="muted">仅配送到家的订单可享受；到店自取不会显示配送费。</p>${field("活动名称", input("wizName", w.name, 'required placeholder="例如：周末免配送"'))}</div>`;
     const full = w.type === "full_reduction";
-    return `<div class="wizard-form"><h3>${full ? "设置满减优惠" : "设置折扣"}</h3>${field("活动名称", input("wizName", w.name, `required placeholder="例如：${full ? "周末零食节" : "夏日饮料折扣"}"`))}${full ? `<div class="two">${field("消费满（美元）", input("wizThreshold", w.threshold, 'type="number" min="0" step="0.01" required placeholder="50"'))}${field("优惠（美元）", input("wizAmount", w.amount, 'type="number" min="0.01" step="0.01" required placeholder="8"'))}</div>` : `<div class="two">${field("优惠方式", `<select id="wizDiscountMode"><option value="percent" ${w.discountMode === "percent" ? "selected" : ""}>打折</option><option value="fixed" ${w.discountMode === "fixed" ? "selected" : ""}>每件减 $</option></select>`)}${w.discountMode === "percent" ? field("折扣（输入 8 表示 8 折）", input("wizFold", w.fold, 'type="number" min="0.1" max="10" step="0.1" required')) : field("每件优惠（美元）", input("wizAmount", w.amount, 'type="number" min="0.01" step="0.01" required'))}</div>`}</div>`;
+    return `<div class="wizard-form"><h3>${full ? "设置满减优惠" : "设置折扣"}</h3>${field("活动名称", input("wizName", w.name, `required placeholder="例如：${full ? "周末零食节" : "夏日饮料折扣"}"`))}${full ? `<div class="two">${field("消费满（美元）", input("wizThreshold", w.threshold, 'type="number" min="0" step="0.01" required placeholder="50"'))}${field("优惠（美元）", input("wizAmount", w.amount, 'type="number" min="0.01" step="0.01" required placeholder="8"'))}</div>` : `<div class="two">${field("优惠方式", `<select id="wizDiscountMode"><option value="percent" ${w.discountMode === "percent" ? "selected" : ""}>% Off</option><option value="fixed" ${w.discountMode === "fixed" ? "selected" : ""}>每件减 $</option></select>`)}${w.discountMode === "percent" ? field("优惠比例（输入 20 表示 20% Off）", input("wizFold", w.fold, 'type="number" min="0.1" max="100" step="0.1" required')) : field("每件优惠（美元）", input("wizAmount", w.amount, 'type="number" min="0.01" step="0.01" required'))}</div>`}</div>`;
   }
   function checked(set, value) {
     return set.has(String(value)) ? "checked" : "";
@@ -357,7 +357,7 @@
     if (w.type === "full_reduction")
       return `满 ${money(w.threshold || 0)} 立减 ${money(w.amount || 0)}`;
     return w.discountMode === "percent"
-      ? `指定范围商品 ${w.fold || 0} 折`
+      ? `指定范围商品 ${w.fold || 0}% Off`
       : `指定范围商品每件立减 ${money(w.amount || 0)}`;
   }
   function wizardPreview(w) {
@@ -404,7 +404,7 @@
       return wizard.type === "full_reduction"
         ? Number(wizard.threshold) >= 0 && Number(wizard.amount) > 0
         : wizard.discountMode === "percent"
-          ? Number(wizard.fold) > 0 && Number(wizard.fold) <= 10
+          ? Number(wizard.fold) > 0 && Number(wizard.fold) <= 100
           : Number(wizard.amount) > 0;
     }
     if (
@@ -429,7 +429,7 @@
             ? 0
             : fixed
               ? Number(w.amount)
-              : Math.max(0, (10 - Number(w.fold)) * 10),
+              : Math.max(0, Number(w.fold)),
       row = {
         kind,
         name: w.name.trim(),
@@ -592,8 +592,8 @@
         discountMode: item.discount_kind || "percent",
         fold:
           item.discount_kind === "percent"
-            ? (10 - Number(item.amount || 0) / 10).toString()
-            : "8",
+            ? Number(item.amount || 0).toString()
+            : "20",
         customerScope: item.customer_scope || "all",
         targetMode: asArray(item.product_ids).length
           ? "products"
