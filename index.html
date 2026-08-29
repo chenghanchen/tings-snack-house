@@ -13,7 +13,13 @@
       href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260825t" />
+    <link
+      rel="preload"
+      as="image"
+      href="hero-snack-illustration-v1.png"
+      fetchpriority="high"
+    />
+    <link rel="stylesheet" href="styles.css?v=20260829a" />
     <style>
       .order-amounts .fee-value b {
         grid-column: 2;
@@ -217,7 +223,9 @@
           id="productGrid"
           aria-live="polite"
         >
-          <p class="catalog-loading">正在准备今日零食…</p>
+          <div class="catalog-skeleton" aria-label="正在准备商品">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
         </div>
       </section>
 
@@ -405,7 +413,8 @@
     </dialog>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260827c"></script>
-    <script src="app.js?v=20260827c"></script>
+    <script src="image-optimizer.js?v=20260829a"></script>
+    <script src="app.js?v=20260829a"></script>
     <script src="activity-announcement.js?v=20260827c"></script>
     <script src="site-appearance.js?v=20260827c"></script>
     <script src="footer-contact-overlay.js?v=20260827c"></script>

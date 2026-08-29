@@ -13,6 +13,23 @@ const startAdmin = () => {
     $("#toast").classList.add("show");
     setTimeout(() => $("#toast").classList.remove("show"), 2800);
   }
+  async function readOptimizedImage(file, options = {}) {
+    if (!file) return "";
+    if (window.TingsImage?.optimizeFile) {
+      const result = await window.TingsImage.optimizeFile(file, options);
+      if (result.changed)
+        toast(
+          `图片已优化为 WebP${result.width ? `（${result.width} × ${result.height}）` : ""}`,
+        );
+      return result.dataUrl;
+    }
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("图片读取失败"));
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(file);
+    });
+  }
   async function data(table) {
     const column =
         table === "orders"
@@ -708,16 +725,19 @@ const startAdmin = () => {
       const deliveryLabel = $("#deliveryText")?.closest("label");
       if (deliveryLabel) $("#deliveryTextSlot").append(deliveryLabel);
       deliveryImageKeys.forEach((key) => {
-        $(`#${key}Upload`).onchange = (e) => {
+        $(`#${key}Upload`).onchange = async (e) => {
           const file = e.target.files[0];
           if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => {
-            form.dataset[key] = reader.result;
-            $(`#${key}Preview`).innerHTML =
-              `<img src="${reader.result}" alt="">`;
-          };
-          reader.readAsDataURL(file);
+          try {
+            const image = await readOptimizedImage(file, {
+              maxDimension: 1920,
+              quality: 0.84,
+            });
+            form.dataset[key] = image;
+            $(`#${key}Preview`).innerHTML = `<img src="${image}" alt="">`;
+          } catch (error) {
+            toast(error.message || "图片读取失败，请重新选择");
+          }
         };
       });
       $("#deliveryContentSettings").onclick = (e) => {
@@ -774,16 +794,19 @@ const startAdmin = () => {
         `<section id="imageSettings"><hr><h3>网站插画与背景图片</h3><p class="muted">下方显示的是顾客网站当前使用的图片。上传新图后点击“保存店铺设置”即可发布；删除图片会恢复默认设计。</p>${imageSettings.map(([key, label]) => `<label>${label}<input id="${key}Upload" type="file" accept="image/*"><small>建议上传清晰、体积较小的 JPG、PNG 或 WebP 图片。</small></label><div id="${key}Preview" class="image-preview"></div><button class="text-btn" type="button" data-remove-image="${key}">恢复默认图片</button>`).join("")}<button class="text-btn" type="button" id="restoreWebsiteDefaults">恢复默认内容与图片</button></section>`,
       );
       imageSettings.forEach(([key]) => {
-        $(`#${key}Upload`).onchange = (e) => {
+        $(`#${key}Upload`).onchange = async (e) => {
           const file = e.target.files[0];
           if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => {
-            form.dataset[key] = reader.result;
-            $(`#${key}Preview`).innerHTML =
-              `<img src="${reader.result}" alt="">`;
-          };
-          reader.readAsDataURL(file);
+          try {
+            const image = await readOptimizedImage(file, {
+              maxDimension: 1920,
+              quality: 0.84,
+            });
+            form.dataset[key] = image;
+            $(`#${key}Preview`).innerHTML = `<img src="${image}" alt="">`;
+          } catch (error) {
+            toast(error.message || "图片读取失败，请重新选择");
+          }
         };
       });
       $("#imageSettings").onclick = (e) => {
@@ -1045,14 +1068,18 @@ const startAdmin = () => {
       openProduct(p);
     }
   };
-  $("#productImage").onchange = (e) => {
-    const r = new FileReader();
-    if (e.target.files[0]) {
-      r.onload = () => {
-        $("#productDialog").dataset.image = r.result;
-        $("#imagePreview").innerHTML = `<img src="${r.result}">`;
-      };
-      r.readAsDataURL(e.target.files[0]);
+  $("#productImage").onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const image = await readOptimizedImage(file, {
+        maxDimension: 1200,
+        quality: 0.82,
+      });
+      $("#productDialog").dataset.image = image;
+      $("#imagePreview").innerHTML = `<img src="${image}">`;
+    } catch (error) {
+      toast(error.message || "商品图片读取失败，请重新选择");
     }
   };
   let editGroups = [],
@@ -1221,19 +1248,23 @@ const startAdmin = () => {
     }
     renderSpecs();
   };
-  $("#variantsEditor").onchange = (e) => {
+  $("#variantsEditor").onchange = async (e) => {
     const key = e.target.dataset.vimage,
       file = e.target.files?.[0];
     if (!key || !file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
+    try {
+      const image = await readOptimizedImage(file, {
+        maxDimension: 1200,
+        quality: 0.82,
+      });
       editVariants[key] = {
         ...(editVariants[key] || {}),
-        image: reader.result,
+        image,
       };
       renderSpecs();
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      toast(error.message || "规格图片读取失败，请重新选择");
+    }
   };
   $("#variantsEditor").onclick = (e) => {
     const key = e.target.dataset.removeVimage;

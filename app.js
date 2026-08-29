@@ -196,9 +196,12 @@ function applySettings(s) {
   const heroArt = $("#heroArt"),
     heroImage = $("#heroIllustration"),
     story = $("#story");
-  if (c.heroBackgroundImage)
+  if (c.heroBackgroundImage) {
+    const preload = new Image();
+    preload.fetchPriority = "high";
+    preload.src = c.heroBackgroundImage;
     heroArt.style.backgroundImage = `url("${c.heroBackgroundImage}")`;
-  else heroArt.style.removeProperty("background-image");
+  } else heroArt.style.removeProperty("background-image");
   heroImage.hidden = true;
   heroImage.removeAttribute("src");
   story.classList.add("footer-composite");
@@ -461,11 +464,15 @@ renderProducts = function (filter = "全部") {
       : base;
   $("#productGrid").innerHTML =
     list
-      .map((p) => {
+      .map((p, index) => {
         const gs = optionGroups(p.id),
           item = itemFor(p),
           all = gs.every((g) => selected[p.id]?.[g.id]),
           img = item?.image || p.image,
+          imageAttrs =
+            index < 4
+              ? 'loading="eager" fetchpriority="high" decoding="async"'
+              : 'loading="lazy" decoding="async"',
           opts = gs.length
             ? `<div class="product-options">${gs.map((g) => `<div class="option-group"><strong>${escapeHtml(g.name)}</strong>${g.values.map((v) => `<button class="option-choice ${selected[p.id]?.[g.id] === v.id ? "selected" : ""}" data-choice="${p.id}" data-group="${g.id}" data-value="${v.id}">${escapeHtml(v.name)}</button>`).join("")}</div>`).join("")}</div>`
             : "";
@@ -476,7 +483,7 @@ renderProducts = function (filter = "全部") {
               : item
                 ? qtyControl(p, item)
                 : '<button class="add" disabled>缺货</button>';
-        return `<article class="product"><div class="product-image" data-preview="${p.id}" role="button" tabindex="0" aria-label="查看 ${escapeHtml(p.name)} 大图" style="background:${p.color}">${img ? `<img src="${img}" alt="${escapeHtml(p.name)}">` : `<span class="product-icon">${escapeHtml(p.icon)}</span>`}<span class="product-tag">${escapeHtml(p.type)}</span><span class="image-zoom-hint" aria-hidden="true">⌕</span></div><h3>${escapeHtml(p.name)}</h3>${p.note ? `<p>${escapeHtml(p.note)}</p>` : ""}${opts}${item && item.out ? '<p class="stock-warning">该规格已缺货</p>' : ""}<div class="product-bottom"><b>${price}</b>${action}</div></article>`;
+        return `<article class="product"><div class="product-image" data-preview="${p.id}" role="button" tabindex="0" aria-label="查看 ${escapeHtml(p.name)} 大图" style="background:${p.color}">${img ? `<img src="${img}" alt="${escapeHtml(p.name)}" width="400" height="400" ${imageAttrs}>` : `<span class="product-icon">${escapeHtml(p.icon)}</span>`}<span class="product-tag">${escapeHtml(p.type)}</span><span class="image-zoom-hint" aria-hidden="true">⌕</span></div><h3>${escapeHtml(p.name)}</h3>${p.note ? `<p>${escapeHtml(p.note)}</p>` : ""}${opts}${item && item.out ? '<p class="stock-warning">该规格已缺货</p>' : ""}<div class="product-bottom"><b>${price}</b>${action}</div></article>`;
       })
       .join("") || '<p class="no-products">没有匹配的商品。</p>';
 };
@@ -1011,7 +1018,17 @@ refreshCartLocally = renderCart;
 /* First paint only waits for the product list; supporting catalog data follows without blocking it. */
 loadShop = async function () {
   const version = ++shopLoadVersion,
-    grid = $("#productGrid");
+    grid = $("#productGrid"),
+    settingsRequest = db
+      .from("shop_settings")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+  // Storefront copy and the hero art are independent of the catalogue. Start
+  // them immediately so they are not delayed behind all product-related data.
+  settingsRequest.then((result) => {
+    if (version === shopLoadVersion && result.data) applySettings(result.data);
+  });
   const { data: productRows, error: productError } = await db
     .from("products")
     .select("*")
@@ -1033,7 +1050,7 @@ loadShop = async function () {
   );
   const [c, s, g, v, vr, sales] = await Promise.all([
     db.from("categories").select("*").order("position").order("id"),
-    db.from("shop_settings").select("*").eq("id", 1).maybeSingle(),
+    settingsRequest,
     db.from("product_option_groups").select("*").order("position"),
     db.from("product_option_values").select("*").order("position"),
     db.from("product_variants").select("*").order("position"),

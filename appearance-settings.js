@@ -232,18 +232,23 @@
     upload.onclick = () => {
       upload.value = "";
     };
-    upload.onchange = (e) => {
+    upload.onchange = async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
       if (!file.type.startsWith("image/")) return toast("请选择图片格式的插图");
-      const reader = new FileReader();
-      reader.onerror = () => toast("插图读取失败，请重新选择图片");
-      reader.onload = () => {
-        form.dataset.activityAnnouncementImage = reader.result;
-        preview.innerHTML = `<img src="${reader.result}" alt="活动公告栏背景">`;
+      try {
+        const result = await window.TingsImage?.optimizeFile(file, {
+          maxDimension: 1920,
+          quality: 0.84,
+        });
+        const image = result?.dataUrl;
+        if (!image) throw new Error("插图读取失败，请重新选择图片");
+        form.dataset.activityAnnouncementImage = image;
+        preview.innerHTML = `<img src="${image}" alt="活动公告栏背景">`;
         toast("公告栏插图已添加，请点击“保存店铺外观”");
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        toast(error.message || "插图读取失败，请重新选择图片");
+      }
     };
     panel.addEventListener("click", (event) => {
       if (event.target.id !== "removeActivityAnnouncementImage") return;

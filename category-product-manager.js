@@ -170,6 +170,37 @@
     notify("商品排序已同步到顾客网站");
     render();
   }
+  async function optimizeCatalogImages(button) {
+    if (!window.TingsImage?.optimizeCatalogImages)
+      return notify("图片优化工具正在加载，请稍后再试");
+    if (
+      !confirm(
+        "将把现有商品主图与规格图片压缩为适合网站加载的 WebP。图片内容不会改变，但原始大图会被优化版本替换。确定继续吗？",
+      )
+    )
+      return;
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    try {
+      const summary = await window.TingsImage.optimizeCatalogImages(db, {
+        onProgress: ({ done, total }) => {
+          button.textContent = `正在优化 ${done}/${total}`;
+        },
+      });
+      const savedMB = (summary.savedBytes / 1024 / 1024).toFixed(1);
+      notify(
+        summary.total
+          ? `已优化 ${summary.converted} 张图片，节省约 ${savedMB} MB${summary.failed ? `；${summary.failed} 张未处理` : ""}`
+          : "没有需要优化的商品图片",
+      );
+      await render();
+    } catch (error) {
+      notify(error.message || "批量优化图片失败，请稍后重试");
+    } finally {
+      button.disabled = false;
+      button.textContent = originalLabel;
+    }
+  }
   async function updateProductPrice(id, value, variants) {
     const price = Number(value);
     if (!Number.isFinite(price) || price < 0)
@@ -299,6 +330,15 @@
       newButton.id = "newCategory";
       newButton.textContent = "+ 添加分类";
       oldButton.replaceWith(newButton);
+      const optimizeButton = document.createElement("button");
+      optimizeButton.id = "optimizeProductImages";
+      optimizeButton.type = "button";
+      optimizeButton.className = "text-btn";
+      optimizeButton.textContent = "优化全部商品图片";
+      newButton.before(optimizeButton);
+      optimizeButton.addEventListener("click", () =>
+        optimizeCatalogImages(optimizeButton),
+      );
       newButton.addEventListener("click", () => {
         addCategoryDialog();
         $("#categoryAddName").value = "";
