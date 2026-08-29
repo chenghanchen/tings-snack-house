@@ -739,33 +739,66 @@ function isPromotedProduct(p) {
     (c) => isActiveDirectDiscount(c, now) && campaignMatchesProduct(c, p),
   );
 }
+function bestCardDiscount(p, item) {
+  const now = new Date();
+  let best = null,
+    saving = 0;
+  for (const campaign of cardCampaigns) {
+    if (!isActiveDirectDiscount(campaign, now) || !campaignMatchesProduct(campaign, p))
+      continue;
+    const value =
+      campaign.discount_kind === "percent"
+        ? (Number(item.price || 0) * Number(campaign.amount || 0)) / 100
+        : Math.min(Number(item.price || 0), Number(campaign.amount || 0));
+    if (value > saving) {
+      saving = value;
+      best = campaign;
+    }
+  }
+  return { campaign: best, saving };
+}
+function updateProductCardOffer(card, product, item, action) {
+  const bottom = card.querySelector(".product-bottom");
+  if (!bottom) return;
+  card.querySelector(".stock-warning")?.remove();
+  const displayItem = item || { price: product.price },
+    { campaign, saving } = bestCardDiscount(product, displayItem),
+    price = saving
+      ? `<s>${dollars(displayItem.price)}</s> <span class="sale-price">${dollars(Math.max(0, Number(displayItem.price) - saving))}</span>`
+      : dollars(displayItem.price),
+    offer = campaign
+      ? campaign.discount_kind === "percent"
+        ? `${Number(campaign.amount || 0)}% Off`
+        : `每件减 ${dollars(campaign.amount)}`
+      : "",
+    lowThreshold = Math.max(0, Number(settings.low_stock_threshold ?? 5)),
+    stockNotice = item?.out
+      ? `该${item.variant ? "规格" : "商品"}已缺货`
+      : item && Number(item.stock) <= lowThreshold
+        ? `⚠️ 仅剩 ${Number(item.stock)} 件`
+        : "";
+  bottom.innerHTML = `<div class="product-price-wrap">${offer ? `<span class="promotion-badge">🔥限时优惠：${escapeHtml(offer)}</span>` : ""}<b>${price}</b></div><div class="product-action-wrap">${stockNotice ? `<p class="stock-warning">${stockNotice}</p>` : ""}${action}</div>`;
+}
 const baseProductRender = renderProducts;
 renderProducts = function (filter) {
   baseProductRender(filter);
-  const now = new Date();
   document.querySelectorAll("#productGrid .product").forEach((card) => {
     const p = products.find(
       (row) => row.name === card.querySelector("h3")?.textContent,
     );
     if (!p) return;
-    const item = itemFor(p) || { price: p.price };
-    let saving = 0;
-    for (const c of cardCampaigns) {
-      if (!isActiveDirectDiscount(c, now) || !campaignMatchesProduct(c, p))
-        continue;
-      const value =
-        c.discount_kind === "percent"
-          ? (item.price * Number(c.amount || 0)) / 100
-          : Math.min(item.price, Number(c.amount || 0));
-      saving = Math.max(saving, value);
-    }
-    if (saving > 0) {
-      const regular = dollars(item.price),
-        sale = dollars(Math.max(0, item.price - saving)),
-        price = card.querySelector(".product-bottom b");
-      if (price)
-        price.innerHTML = `<s>${regular}</s> <span class="sale-price">${sale}</span>`;
-    }
+    const groupsForProduct = optionGroups(p.id),
+      item = itemFor(p),
+      allSelected = groupsForProduct.every(
+        (group) => selected[p.id]?.[group.id],
+      ),
+      action =
+        groupsForProduct.length && !allSelected
+          ? '<button class="add" disabled>请选择规格</button>'
+          : item
+            ? qtyControl(p, item)
+            : '<button class="add" disabled>缺货</button>';
+    updateProductCardOffer(card, p, item, action);
   });
 };
 function reloadCardCampaigns() {
@@ -875,17 +908,7 @@ function refreshProductCard(productId) {
       : item
         ? qtyControl(product, item)
         : '<button class="add" disabled>缺货</button>';
-  const bottom = card.querySelector(".product-bottom");
-  if (bottom)
-    bottom.innerHTML = `<b>${item ? partialProductPrice(product, item) : dollars(product.price)}</b>${action}`;
-  let warning = card.querySelector(".stock-warning");
-  if (item?.out) {
-    if (!warning)
-      bottom?.insertAdjacentHTML(
-        "beforebegin",
-        '<p class="stock-warning">该规格已缺货</p>',
-      );
-  } else warning?.remove();
+  updateProductCardOffer(card, product, item, action);
 }
 function cartRowMarkup(item) {
   return `<div class="cart-item" data-cart-key="${escapeHtml(item.key)}"><div class="cart-thumb" style="background:${item.product.color}">${item.image ? `<img src="${item.image}" alt="">` : escapeHtml(item.product.icon)}</div><div><h3>${escapeHtml(item.product.name)}${item.label ? ` · ${escapeHtml(item.label)}` : ""}</h3><p class="cart-line">${dollars(item.price)} × ${item.qty}</p></div><div class="quantity"><button data-change="-1" data-key="${escapeHtml(item.key)}">−</button><b class="cart-qty">${item.qty}</b><button data-change="1" data-key="${escapeHtml(item.key)}" ${item.qty >= item.stock ? "disabled" : ""}>+</button></div></div>`;
