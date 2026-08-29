@@ -778,6 +778,7 @@ function updateProductCardOffer(card, product, item, action) {
         ? `⚠️ 仅剩 ${Number(item.stock)} 件`
         : "";
   bottom.classList.toggle("has-promotion", !!offer);
+  bottom.classList.toggle("has-stock-notice", !!stockNotice);
   bottom.innerHTML = `<div class="product-price-wrap">${offer ? `<span class="promotion-badge">🔥限时优惠：${escapeHtml(offer)}</span>` : ""}<b>${price}</b></div><div class="product-action-wrap">${action}${stockNotice ? `<p class="stock-warning">${stockNotice}</p>` : ""}</div>`;
 }
 const baseProductRender = renderProducts;
