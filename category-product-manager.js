@@ -173,13 +173,13 @@
   async function optimizeCatalogImages(button) {
     if (!window.TingsImage?.optimizeCatalogImages)
       return notify("图片优化工具正在加载，请稍后再试");
-    if (
-      !confirm(
-        "将把现有商品主图与规格图片压缩为适合网站加载的 WebP。图片内容不会改变，但原始大图会被优化版本替换。确定继续吗？",
-      )
-    )
+    if (button.dataset.confirmed !== "true") {
+      button.dataset.confirmed = "true";
+      button.textContent = "再次点击确认优化";
+      notify("将替换现有商品主图与规格图为优化后的 WebP；请再次点击确认");
       return;
-    const originalLabel = button.textContent;
+    }
+    const originalLabel = "优化全部商品图片";
     button.disabled = true;
     try {
       const summary = await window.TingsImage.optimizeCatalogImages(db, {
@@ -198,6 +198,7 @@
       notify(error.message || "批量优化图片失败，请稍后重试");
     } finally {
       button.disabled = false;
+      delete button.dataset.confirmed;
       button.textContent = originalLabel;
     }
   }
