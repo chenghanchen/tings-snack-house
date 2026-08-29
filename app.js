@@ -772,10 +772,16 @@ function updateProductCardOffer(card, product, item, action) {
         : `每件减 ${dollars(campaign.amount)}`
       : "",
     lowThreshold = Math.max(0, Number(settings.low_stock_threshold ?? 5)),
+    cartQuantity = item
+      ? Number(cart.find((row) => row.key === item.key)?.qty || 0)
+      : 0,
+    remainingStock = item
+      ? Math.max(0, Number(item.stock) - cartQuantity)
+      : 0,
     stockNotice = item?.out
       ? `该${item.variant ? "规格" : "商品"}已缺货`
-      : item && Number(item.stock) <= lowThreshold
-        ? `⚠️ 仅剩 ${Number(item.stock)} 件`
+      : item && remainingStock <= lowThreshold
+        ? `⚠️ 仅剩 ${remainingStock} 件`
         : "";
   bottom.classList.toggle("has-promotion", !!offer);
   bottom.classList.toggle("has-stock-notice", !!stockNotice);
