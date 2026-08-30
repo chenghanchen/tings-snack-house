@@ -776,6 +776,7 @@ function previewOffer() {
       let codeDiscount = 0,
         codeName = "",
         selectedCoupon = null,
+        isReferralCode = false,
         message = campaignName ? `已自动享受${campaignName}。` : "";
       if (code) {
         const referral = (refs || []).find((x) => x.referral_code === code);
@@ -787,6 +788,7 @@ function previewOffer() {
               Math.max(0, t.subtotal - campaignDiscount),
             );
             codeName = "推荐码优惠";
+            isReferralCode = true;
           }
         } else {
           const coupon = (coupons || []).find(
@@ -826,7 +828,9 @@ function previewOffer() {
           return;
         }
         message = codeDiscount
-          ? `${message}${message ? " " : " "}已使用${codeName}，立减 ${dollars(codeDiscount)}。`
+          ? isReferralCode
+            ? "已使用推荐码，下单即可获得奖励券"
+            : `${message}${message ? " " : " "}已使用${codeName}，立减 ${dollars(codeDiscount)}。`
           : `${message}${message ? " " : " "}兑换码无效或暂不符合使用条件。`;
       }
       offerPreview = {
