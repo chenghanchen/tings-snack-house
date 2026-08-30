@@ -25,6 +25,7 @@ let products = [],
   settings = {},
   selected = {},
   productSales = {},
+  cardCampaigns = [],
   shopLoadVersion = 0,
   catalogDetailsReady = false;
 /* This is also read by the separately-loaded checkout rules script. */
@@ -101,7 +102,18 @@ function qtyControl(p, item) {
   return `<div class="card-quantity"><button data-card-change="-1" data-id="${p.id}">−</button><b>${c.qty}</b><button data-card-change="1" data-id="${p.id}" ${c.qty >= item.stock ? "disabled" : ""}>+</button></div>`;
 }
 function totals() {
-  const subtotal = cart.reduce((s, x) => s + x.qty * x.price, 0),
+  const pricing = cart.map((item) => ({ item, ...cartPriceInfo(item) })),
+    rawSubtotal = pricing.reduce(
+      (sum, row) => sum + row.rawPrice * row.item.qty,
+      0,
+    ),
+    autoDiscount = pricing.reduce(
+      (sum, row) => sum + row.saving * row.item.qty,
+      0,
+    ),
+    subtotal = +pricing
+      .reduce((sum, row) => sum + row.unitPrice * row.item.qty, 0)
+      .toFixed(2),
     delivery =
       $("#fulfillment")?.value === "pickup"
         ? 0
@@ -111,11 +123,18 @@ function totals() {
     tax = +((subtotal * Number(settings.tax_rate || 10.5)) / 100).toFixed(2);
   return {
     count: cart.reduce((s, x) => s + x.qty, 0),
+    rawSubtotal: +rawSubtotal.toFixed(2),
+    autoDiscount: +autoDiscount.toFixed(2),
     subtotal,
     delivery,
     tax,
     total: +(subtotal + delivery + tax).toFixed(2),
   };
+}
+function updateCartSavings(autoDiscount) {
+  const savings = $("#cartSavings");
+  if (savings)
+    savings.textContent = `本单已优惠 ${dollars(Math.max(0, autoDiscount))}`;
 }
 function updateCartProgressNotice(subtotal, count) {
   const notice = $("#cartProgressNotice");
@@ -148,11 +167,12 @@ function renderCart() {
   $("#cartCount").textContent = t.count;
   $("#totalCount").textContent = `${t.count} 件`;
   $("#cartSubtotal").textContent = dollars(t.subtotal);
+  updateCartSavings(t.autoDiscount);
   updateCartProgressNotice(t.subtotal, t.count);
   $("#cartItems").innerHTML = cart
     .map(
       (x) =>
-        `<div class="cart-item"><div class="cart-thumb" style="background:${x.product.color}">${x.image ? `<img src="${x.image}" alt="">` : escapeHtml(x.product.icon)}</div><div><h3>${escapeHtml(x.product.name)}${x.label ? ` · ${escapeHtml(x.label)}` : ""}</h3><p>${dollars(x.price)} × ${x.qty}</p></div><div class="quantity"><button data-change="-1" data-key="${x.key}">−</button><b>${x.qty}</b><button data-change="1" data-key="${x.key}" ${x.qty >= x.stock ? "disabled" : ""}>+</button></div></div>`,
+        `<div class="cart-item"><div class="cart-thumb" style="background:${x.product.color}">${x.image ? `<img src="${x.image}" alt="">` : escapeHtml(x.product.icon)}</div><div><h3>${escapeHtml(x.product.name)}${x.label ? ` · ${escapeHtml(x.label)}` : ""}</h3><p>${dollars(cartPriceInfo(x).unitPrice)} × ${x.qty}</p></div><div class="quantity"><button data-change="-1" data-key="${x.key}">−</button><b>${x.qty}</b><button data-change="1" data-key="${x.key}" ${x.qty >= x.stock ? "disabled" : ""}>+</button></div></div>`,
     )
     .join("");
   checkout.disabled = !t.count || !accepting;
@@ -323,6 +343,11 @@ $("#continueShopping").onclick = () => {
 $("#overlay").onclick = () => toggleCart(false);
 $("#checkout").onclick = () => {
   if (settings.is_accepting_orders === false) return;
+  if (
+    typeof window.validateCartBeforeCheckout === "function" &&
+    !window.validateCartBeforeCheckout()
+  )
+    return;
   syncFulfillment();
   toggleCart(false);
   $("#orderDialog").showModal();
@@ -628,6 +653,9 @@ function previewOffer() {
           (c.customer_scope === "new" && !isNew)
         )
           continue;
+        /* Direct product/category reductions already feed into cartPriceInfo(). */
+        if (["product_discount", "category_discount"].includes(c.kind))
+          continue;
         const eligible =
           !c.product_ids?.length && !c.category_names?.length
             ? cart
@@ -740,7 +768,6 @@ function previewOffer() {
 }
 
 /* Show the best active item/category price reduction directly on product cards. */
-let cardCampaigns = [];
 function isActiveDirectDiscount(c, now = new Date()) {
   return !!(
     c?.active &&
@@ -780,6 +807,17 @@ function bestCardDiscount(p, item) {
     }
   }
   return { campaign: best, saving };
+}
+function cartPriceInfo(item) {
+  const rawPrice = Number(item?.price || 0),
+    { saving, campaign } = bestCardDiscount(item?.product, item || {}),
+    safeSaving = Math.min(rawPrice, Math.max(0, Number(saving || 0)));
+  return {
+    rawPrice,
+    saving: safeSaving,
+    unitPrice: Math.max(0, rawPrice - safeSaving),
+    campaign,
+  };
 }
 function updateProductCardOffer(card, product, item, action) {
   const bottom = card.querySelector(".product-bottom");
@@ -842,6 +880,7 @@ function reloadCardCampaigns() {
       renderProducts(
         document.querySelector("#filters .active")?.dataset.filter || "全部",
       );
+      refreshCartLocally();
     });
 }
 reloadCardCampaigns();
@@ -945,7 +984,7 @@ function refreshProductCard(productId) {
 let revealedCartKey = null;
 function cartRowMarkup(item) {
   const isRevealed = item.key === revealedCartKey;
-  return `<div class="cart-item${isRevealed ? " remove-revealed" : ""}" data-cart-key="${escapeHtml(item.key)}"><div class="cart-thumb" style="background:${item.product.color}">${item.image ? `<img src="${item.image}" alt="">` : escapeHtml(item.product.icon)}</div><div><h3>${escapeHtml(item.product.name)}${item.label ? ` · ${escapeHtml(item.label)}` : ""}</h3><p class="cart-line">${dollars(item.price)} × ${item.qty}</p></div><div class="cart-quantity-wrap"><div class="quantity"><button data-change="-1" data-key="${escapeHtml(item.key)}">−</button><b class="cart-qty">${item.qty}</b><button data-change="1" data-key="${escapeHtml(item.key)}" ${item.qty >= item.stock ? "disabled" : ""}>+</button></div><button class="cart-remove" type="button" data-remove-key="${escapeHtml(item.key)}">移除</button></div></div>`;
+  return `<div class="cart-item${isRevealed ? " remove-revealed" : ""}" data-cart-key="${escapeHtml(item.key)}"><div class="cart-thumb" style="background:${item.product.color}">${item.image ? `<img src="${item.image}" alt="">` : escapeHtml(item.product.icon)}</div><div><h3>${escapeHtml(item.product.name)}${item.label ? ` · ${escapeHtml(item.label)}` : ""}</h3><p class="cart-line">${dollars(cartPriceInfo(item).unitPrice)} × ${item.qty}</p></div><div class="cart-quantity-wrap"><div class="quantity"><button data-change="-1" data-key="${escapeHtml(item.key)}">−</button><b class="cart-qty">${item.qty}</b><button data-change="1" data-key="${escapeHtml(item.key)}" ${item.qty >= item.stock ? "disabled" : ""}>+</button></div><button class="cart-remove" type="button" data-remove-key="${escapeHtml(item.key)}">移除</button></div></div>`;
 }
 function refreshCartLocally() {
   const totalsNow = totals(),
@@ -956,6 +995,7 @@ function refreshCartLocally() {
   $("#cartCount").textContent = totalsNow.count;
   $("#totalCount").textContent = `${totalsNow.count} 件`;
   $("#cartSubtotal").textContent = dollars(totalsNow.subtotal);
+  updateCartSavings(totalsNow.autoDiscount);
   updateCartProgressNotice(totalsNow.subtotal, totalsNow.count);
   const beforeScroll = list.scrollTop,
     liveKeys = new Set(cart.map((item) => item.key));
@@ -975,7 +1015,7 @@ function refreshCartLocally() {
     }
     if (!node) continue;
     node.querySelector(".cart-line").textContent =
-      `${dollars(item.price)} × ${item.qty}`;
+      `${dollars(cartPriceInfo(item).unitPrice)} × ${item.qty}`;
     node.querySelector(".cart-qty").textContent = item.qty;
     node.querySelector('[data-change="1"]').disabled = item.qty >= item.stock;
     node.classList.toggle("remove-revealed", item.key === revealedCartKey);
@@ -1003,7 +1043,7 @@ function refreshCartLocally() {
     cart
       .map(
         (item) =>
-          `${escapeHtml(item.product.name)}${item.label ? ` · ${escapeHtml(item.label)}` : ""} × ${item.qty}　${dollars(item.price * item.qty)}`,
+          `${escapeHtml(item.product.name)}${item.label ? ` · ${escapeHtml(item.label)}` : ""} × ${item.qty}　${dollars(cartPriceInfo(item).unitPrice * item.qty)}`,
       )
       .join("<br>") +
     `<hr><div class="order-amounts"><div><span>商品小计</span><span>${dollars(totalsNow.subtotal)}</span></div>${feeRow}<div><span>税（${Number(settings.tax_rate || 10.5)}%）</span><span>${dollars(totalsNow.tax)}</span></div><div><b>最终应付金额</b><b>${dollars(totalsNow.total)}</b></div></div>`;

@@ -68,7 +68,7 @@
   function showNotice(message) {
     let notice = $("#orderRuleToast");
     if (!notice) {
-      ($("#orderDialog") || document.body).insertAdjacentHTML(
+      document.body.insertAdjacentHTML(
         "beforeend",
         '<button type="button" class="order-rule-toast" id="orderRuleToast" hidden></button>',
       );
@@ -121,17 +121,26 @@
     }
     $("#orderRuleNotice")?.remove();
   }
-  function validOrder() {
-    const t = totals(),
-      delivery = $("#fulfillment")?.value === "delivery",
-      minimum = Math.max(
-        Number(rules.order.minOrder || 0),
-        delivery ? Number(rules.delivery.minDelivery || 0) : 0,
+  function validMinimum(delivery) {
+    const subtotal = totals().subtotal,
+      minOrder = Number(rules.order.minOrder || 0),
+      minDelivery = Math.max(
+        minOrder,
+        Number(rules.delivery.minDelivery || 0),
       );
-    if (t.subtotal < minimum) {
-      showNotice(`没有达到最低消费${cash(minimum)}哦！请再挑一些吧！`);
+    if (subtotal < minOrder) {
+      showNotice(`没有达到最低消费${cash(minOrder)}哦！请再挑一些吧！`);
       return false;
     }
+    if (delivery && subtotal < minDelivery) {
+      showNotice(`没有达到最低配送${cash(minDelivery)}哦！请再挑一些吧！`);
+      return false;
+    }
+    return true;
+  }
+  function validOrder() {
+    const delivery = $("#fulfillment")?.value === "delivery";
+    if (!validMinimum(delivery)) return false;
     const scheduled = $("#scheduledFor")?.value;
     if (scheduled) {
       const date = new Date(scheduled),
@@ -151,6 +160,10 @@
     }
     return true;
   }
+  window.validateCartBeforeCheckout = () => {
+    applyRules();
+    return validMinimum(false);
+  };
   function wrapSubmit() {
     if (!form || form.dataset.rulesBound) return;
     form.dataset.rulesBound = "true";
