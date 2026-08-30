@@ -26,6 +26,7 @@ let products = [],
   selected = {},
   productSales = {},
   cardCampaigns = [],
+  excludedCampaignIds = new Set(),
   shopLoadVersion = 0,
   catalogDetailsReady = false;
 /* This is also read by the separately-loaded checkout rules script. */
@@ -375,6 +376,7 @@ $("#orderForm").onsubmit = async (e) => {
     p_promotion_id: null,
     p_coupon_code: f.get("coupon_code") || null,
     p_referral_value: null,
+    p_excluded_campaign_ids: Array.from(excludedCampaignIds),
   });
   if (error) return alert(error.message || "订单暂时无法提交");
   $("#submittedOrderNumber").textContent = data.order_number;
@@ -585,6 +587,70 @@ function drawOfferPreview() {
 }
 
 /* Keep checkout preview aligned with the marketing wizard's publish, audience and stack rules. */
+let pendingStackConflicts = [],
+  stackChoiceKey = "";
+function isEnabledCampaign(c, now = new Date()) {
+  return !!(
+    c?.active &&
+    !excludedCampaignIds.has(String(c.id)) &&
+    (!c.status || c.status === "published") &&
+    (!c.starts_at || new Date(c.starts_at) <= now) &&
+    (!c.ends_at || new Date(c.ends_at) >= now)
+  );
+}
+function nonStackableCampaigns(campaigns, t, now = new Date()) {
+  const delivery = $("#fulfillment")?.value === "delivery";
+  return (campaigns || []).filter((campaign) => {
+    if (!isEnabledCampaign(campaign, now) || campaign.allow_coupon_stack !== false)
+      return false;
+    if (["product_discount", "category_discount"].includes(campaign.kind))
+      return cart.some((item) => campaignMatchesProduct(campaign, item.product));
+    if (campaign.kind === "full_reduction")
+      return t.subtotal >= Number(campaign.threshold || 0);
+    return campaign.kind === "free_shipping" && delivery && t.delivery > 0;
+  });
+}
+function refreshCampaignPricing() {
+  renderProducts(
+    document.querySelector("#filters .active")?.dataset.filter || "全部",
+  );
+  refreshCartLocally();
+}
+function showCampaignStackChoice(conflicts, code) {
+  const key = `${code}:${conflicts.map((campaign) => campaign.id).sort().join(",")}`;
+  if (stackChoiceKey === key) return;
+  stackChoiceKey = key;
+  pendingStackConflicts = conflicts;
+  const names = conflicts.map((campaign) => campaign.name || "该活动").join("、");
+  $("#campaignStackMessage").textContent = `优惠券/推荐码不能与${names}活动同时参加使用`;
+  $("#campaignStackDialog").hidden = false;
+}
+function closeCampaignStackChoice() {
+  $("#campaignStackDialog").hidden = true;
+  pendingStackConflicts = [];
+  stackChoiceKey = "";
+}
+$("#keepCouponCode").onclick = () => {
+  pendingStackConflicts.forEach((campaign) =>
+    excludedCampaignIds.add(String(campaign.id)),
+  );
+  closeCampaignStackChoice();
+  refreshCampaignPricing();
+};
+$("#clearCouponCode").onclick = () => {
+  $("#couponCodeInput").value = "";
+  closeCampaignStackChoice();
+  previewOffer();
+};
+$("#couponCodeInput").addEventListener("input", () => {
+  if (excludedCampaignIds.size) {
+    excludedCampaignIds.clear();
+    refreshCampaignPricing();
+    return;
+  }
+  stackChoiceKey = "";
+  previewOffer();
+});
 function previewOffer() {
   if (previewTimer) clearTimeout(previewTimer);
   previewTimer = setTimeout(async () => {
@@ -642,14 +708,10 @@ function previewOffer() {
       let bestBenefit = 0,
         campaignDiscount = 0,
         campaignName = "",
-        freeShipping = false,
-        allowCouponStack = true;
+        freeShipping = false;
       for (const c of campaigns || []) {
         if (
-          !c.active ||
-          (c.status && c.status !== "published") ||
-          (c.starts_at && new Date(c.starts_at) > now) ||
-          (c.ends_at && new Date(c.ends_at) < now) ||
+          !isEnabledCampaign(c, now) ||
           (c.customer_scope === "new" && !isNew)
         )
           continue;
@@ -698,49 +760,61 @@ function previewOffer() {
           campaignDiscount = discount;
           campaignName = c.name || "活动优惠";
           freeShipping = c.kind === "free_shipping";
-          allowCouponStack = c.allow_coupon_stack !== false;
         }
       }
       let codeDiscount = 0,
         codeName = "",
         message = campaignName ? `已自动享受${campaignName}。` : "";
       if (code) {
-        if (campaignName && !allowCouponStack) {
-          message = `${message} 当前活动不可与优惠券或推荐码叠加。`;
-        } else {
-          const referral = (refs || []).find((x) => x.referral_code === code);
-          if (referral) {
-            const r = reward || { amount: 5, min_spend: 35 };
-            if (isNew && t.subtotal >= Number(r.min_spend || 0)) {
-              codeDiscount = Math.min(
-                Number(r.amount || 0),
-                Math.max(0, t.subtotal - campaignDiscount),
-              );
-              codeName = "推荐码优惠";
-            }
-          } else {
-            const coupon = (coupons || []).find(
-              (x) =>
-                x.code === code &&
-                x.active &&
-                (!x.status || x.status === "published") &&
-                (!x.starts_at || new Date(x.starts_at) <= now) &&
-                (!x.ends_at || new Date(x.ends_at) >= now) &&
-                (!x.recipient_phone || x.recipient_phone === phone) &&
-                (!(x.customer_scope === "new") || isNew),
+        const referral = (refs || []).find((x) => x.referral_code === code);
+        if (referral) {
+          const r = reward || { amount: 5, min_spend: 35 };
+          if (isNew && t.subtotal >= Number(r.min_spend || 0)) {
+            codeDiscount = Math.min(
+              Number(r.amount || 0),
+              Math.max(0, t.subtotal - campaignDiscount),
             );
-            if (coupon && t.subtotal >= Number(coupon.min_spend || 0)) {
-              codeDiscount = Math.min(
-                Number(coupon.amount || 0),
-                Math.max(0, t.subtotal - campaignDiscount),
-              );
-              codeName = coupon.name || "优惠券优惠";
-            }
+            codeName = "推荐码优惠";
           }
-          message = codeDiscount
-            ? `${message}${message ? " " : " "}已使用${codeName}，立减 ${dollars(codeDiscount)}。`
-            : `${message}${message ? " " : " "}兑换码无效或暂不符合使用条件。`;
+        } else {
+          const coupon = (coupons || []).find(
+            (x) =>
+              x.code === code &&
+              x.active &&
+              (!x.status || x.status === "published") &&
+              (!x.starts_at || new Date(x.starts_at) <= now) &&
+              (!x.ends_at || new Date(x.ends_at) >= now) &&
+              (!x.recipient_phone || x.recipient_phone === phone) &&
+              (!(x.customer_scope === "new") || isNew),
+          );
+          if (coupon && t.subtotal >= Number(coupon.min_spend || 0)) {
+            codeDiscount = Math.min(
+              Number(coupon.amount || 0),
+              Math.max(0, t.subtotal - campaignDiscount),
+            );
+            codeName = coupon.name || "优惠券优惠";
+          }
         }
+        const conflicts = codeDiscount
+          ? nonStackableCampaigns(campaigns, t, now)
+          : [];
+        if (conflicts.length) {
+          offerPreview = {
+            campaignDiscount,
+            campaignName,
+            codeDiscount: 0,
+            codeName: "",
+            freeShipping,
+            message: "请确认活动与优惠券／推荐码的使用方式。",
+            valid: false,
+          };
+          drawOfferPreview();
+          showCampaignStackChoice(conflicts, code);
+          return;
+        }
+        message = codeDiscount
+          ? `${message}${message ? " " : " "}已使用${codeName}，立减 ${dollars(codeDiscount)}。`
+          : `${message}${message ? " " : " "}兑换码无效或暂不符合使用条件。`;
       }
       offerPreview = {
         campaignDiscount,
@@ -770,10 +844,7 @@ function previewOffer() {
 /* Show the best active item/category price reduction directly on product cards. */
 function isActiveDirectDiscount(c, now = new Date()) {
   return !!(
-    c?.active &&
-    (!c.status || c.status === "published") &&
-    (!c.starts_at || new Date(c.starts_at) <= now) &&
-    (!c.ends_at || new Date(c.ends_at) >= now) &&
+    isEnabledCampaign(c, now) &&
     ["product_discount", "category_discount"].includes(c.kind)
   );
 }

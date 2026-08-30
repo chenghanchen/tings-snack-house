@@ -19,7 +19,7 @@
       href="hero-snack-illustration-v1.png"
       fetchpriority="high"
     />
-    <link rel="stylesheet" href="styles.css?v=20260830b" />
+    <link rel="stylesheet" href="styles.css?v=20260830c" />
     <style>
       .order-amounts .fee-value b {
         grid-column: 2;
@@ -390,6 +390,15 @@
         </button>
       </div>
     </dialog>
+    <div class="campaign-stack-dialog" id="campaignStackDialog" hidden role="dialog" aria-modal="true" aria-labelledby="campaignStackMessage">
+      <div class="campaign-stack-card">
+        <p id="campaignStackMessage"></p>
+        <div class="campaign-stack-actions">
+          <button class="primary-button" id="keepCouponCode" type="button">继续使用</button>
+          <button class="campaign-stack-cancel" id="clearCouponCode" type="button">不使用</button>
+        </div>
+      </div>
+    </div>
     <dialog id="orderLookupDialog">
       <button class="dialog-close" id="closeOrderLookup" aria-label="关闭">
         ×
@@ -415,7 +424,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260827c"></script>
     <script src="image-optimizer.js?v=20260829a"></script>
-    <script src="app.js?v=20260830b"></script>
+    <script src="app.js?v=20260830c"></script>
     <script src="activity-announcement.js?v=20260827c"></script>
     <script src="site-appearance.js?v=20260827c"></script>
     <script src="footer-contact-overlay.js?v=20260827c"></script>

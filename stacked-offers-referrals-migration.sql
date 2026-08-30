@@ -19,7 +19,8 @@ create policy "admin manages referrals" on public.customer_referrals for all to 
 create or replace function public.submit_shop_order(
   p_customer_name text, p_phone text, p_email text, p_fulfillment text,
   p_address text, p_note text, p_items jsonb, p_promotion_id uuid default null,
-  p_coupon_code text default null, p_referral_value text default null
+  p_coupon_code text default null, p_referral_value text default null,
+  p_excluded_campaign_ids uuid[] default '{}'::uuid[]
 ) returns jsonb language plpgsql security definer set search_path=public as $$
 declare
   line jsonb; product_row record; variant_row record; campaign record; coupon record; referral_owner record;
@@ -29,7 +30,7 @@ declare
   order_id uuid; order_number text; selected_campaign_name text:=null; selected_campaign_kind text:=null; selected_campaign_id uuid:=null;
   selected_campaign_benefit numeric(10,2):=0; candidate_benefit numeric(10,2); candidate_discount numeric(10,2); selected_free_shipping boolean:=false;
   selected_code_name text:=null; selected_code_kind text:=null; selected_coupon_id uuid:=null; entered_code text:=null; coupon_uses integer:=0;
-  prior_orders integer:=0; referral_amount numeric(10,2); referral_min numeric(10,2); referral_days integer; reward_ends_at timestamptz; taxable numeric(10,2);
+  prior_orders integer:=0; referral_amount numeric(10,2); referral_min numeric(10,2); referral_days integer; reward_ends_at timestamptz; taxable numeric(10,2); blocked_campaign_names text;
 begin
   if p_phone !~ '^[0-9]{10}$' then raise exception '请输入 10 位数字电话号码'; end if;
   if p_fulfillment not in ('delivery','pickup') then raise exception '取货方式无效'; end if;
@@ -60,6 +61,7 @@ begin
       select max(case when c.discount_kind='percent' then round((x->>'price')::numeric*c.amount/100,2) else c.amount end)
       from public.marketing_campaigns c
       where c.active=true and (c.status is null or c.status='published')
+        and not (c.id=any(coalesce(p_excluded_campaign_ids,'{}'::uuid[])))
         and c.kind in ('product_discount','category_discount')
         and (c.starts_at is null or c.starts_at<=now()) and (c.ends_at is null or c.ends_at>=now())
         and (cardinality(c.product_ids)=0 and cardinality(c.category_names)=0
@@ -73,7 +75,7 @@ begin
   if current_subtotal<min_order then raise exception '没有达到最低消费$%哦！请再挑一些吧！',to_char(min_order,'FM999999990.00'); end if;
   if p_fulfillment='delivery' and current_subtotal<min_delivery then raise exception '没有达到最低配送$%哦！请再挑一些吧！',to_char(min_delivery,'FM999999990.00'); end if;
   fee:=case when p_fulfillment='pickup' or current_subtotal>=free_at then 0 else base_fee end;
-  for campaign in select * from public.marketing_campaigns where active=true and kind in ('full_reduction','free_shipping') and (status is null or status='published') and (starts_at is null or starts_at<=now()) and (ends_at is null or ends_at>=now()) order by created_at,id loop
+  for campaign in select * from public.marketing_campaigns where active=true and kind in ('full_reduction','free_shipping') and (status is null or status='published') and not (id=any(coalesce(p_excluded_campaign_ids,'{}'::uuid[]))) and (starts_at is null or starts_at<=now()) and (ends_at is null or ends_at>=now()) order by created_at,id loop
     candidate_benefit:=0; candidate_discount:=0;
     if campaign.kind='full_reduction' and current_subtotal>=campaign.threshold then
       candidate_discount:=least(campaign.amount,current_subtotal); candidate_benefit:=candidate_discount;
@@ -101,6 +103,25 @@ begin
   if selected_free_shipping then fee:=0; end if;
   entered_code:=upper(trim(coalesce(nullif(p_coupon_code,''),nullif(p_referral_value,''))));
   if entered_code is not null and entered_code<>'' then
+    select string_agg(c.name,'、' order by c.created_at,c.id) into blocked_campaign_names
+    from public.marketing_campaigns c
+    where c.active=true and (c.status is null or c.status='published')
+      and coalesce(c.allow_coupon_stack,true)=false
+      and not (c.id=any(coalesce(p_excluded_campaign_ids,'{}'::uuid[])))
+      and (c.starts_at is null or c.starts_at<=now()) and (c.ends_at is null or c.ends_at>=now())
+      and (
+        (c.kind in ('product_discount','category_discount') and exists (
+          select 1 from jsonb_array_elements(lines) x
+          where (cardinality(c.product_ids)=0 and cardinality(c.category_names)=0)
+            or (cardinality(c.product_ids)>0 and (x->>'product_id')::bigint=any(c.product_ids))
+            or (cardinality(c.category_names)>0 and (x->>'category')=any(c.category_names))
+        ))
+        or (c.kind='full_reduction' and current_subtotal>=c.threshold)
+        or (c.kind='free_shipping' and p_fulfillment='delivery' and fee>0)
+      );
+    if blocked_campaign_names is not null then
+      raise exception '优惠券/推荐码不能与%活动同时参加使用',blocked_campaign_names;
+    end if;
     select * into referral_owner from public.customer_referrals where referral_code=entered_code;
     if found then
       select count(*) into prior_orders from public.orders where phone=p_phone;
@@ -136,4 +157,4 @@ begin
   end if;
   return jsonb_build_object('id',order_id,'order_number',order_number,'subtotal',current_subtotal,'discount_amount',total_discount,'promotion_name',concat_ws(' + ',case when direct_discount>0 then '商品／分类优惠' end,selected_campaign_name,selected_code_name),'tax_rate',store_tax,'tax_amount',tax,'delivery_fee',fee,'total_amount',total);
 end $$;
-grant execute on function public.submit_shop_order(text,text,text,text,text,text,jsonb,uuid,text,text) to anon, authenticated;
+grant execute on function public.submit_shop_order(text,text,text,text,text,text,jsonb,uuid,text,text,uuid[]) to anon, authenticated;
