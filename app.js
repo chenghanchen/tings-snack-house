@@ -199,7 +199,7 @@ function renderCart() {
           `${escapeHtml(x.product.name)}${x.label ? ` · ${escapeHtml(x.label)}` : ""} × ${x.qty}　${dollars(x.price * x.qty)}`,
       )
       .join("<br>") +
-    `<hr><div class="order-amounts"><div><span>商品小计</span><span>${dollars(t.subtotal)}</span></div>${feeRow}<div><span>税（${Number(settings.tax_rate || 10.5)}%）</span><span>${dollars(t.tax)}</span></div><div><b>最终应付金额</b><b>${dollars(t.total)}</b></div></div>`;
+    `<hr><div class="order-amounts"><div><span>商品小计</span><span>${dollars(t.subtotal)}</span></div>${t.autoDiscount > 0 ? `<div><span>商品活动优惠（已计入小计）</span><span>−${dollars(t.autoDiscount)}</span></div>` : ""}${feeRow}<div><span>税（${Number(settings.tax_rate || 10.5)}%）</span><span>${dollars(t.tax)}</span></div><div><b>最终应付金额</b><b>${dollars(t.total)}</b></div></div>`;
 }
 function applySettings(s) {
   settings = s || {};
@@ -586,7 +586,7 @@ function drawOfferPreview() {
   const hint = offerPreview.message
     ? `<div class="offer-preview ${offerPreview.valid ? "valid" : ""}">${escapeHtml(offerPreview.message)}</div>`
     : "";
-  rows.innerHTML = `<div><span>商品小计</span><span>${dollars(t.subtotal)}</span></div>${hint}${campaign ? `<div><span>${escapeHtml(offerPreview.campaignName || "活动优惠")}</span><span>−${dollars(campaign)}</span></div>` : ""}${code ? `<div><span>${escapeHtml(offerPreview.codeName || "优惠券／推荐码优惠")}</span><span>−${dollars(code)}</span></div>` : ""}${pickup ? "" : `<div><span>配送费</span><span class="fee-value">${fee === 0 ? "<small>（已减免）</small>" : ""}<b>${dollars(fee)}</b></span></div>`}<div><span>税（${Number(settings.tax_rate || 10.5)}%）</span><span>${dollars(tax)}</span></div><div><b>最终应付金额</b><b>${dollars(total)}</b></div>`;
+  rows.innerHTML = `<div><span>商品小计</span><span>${dollars(t.subtotal)}</span></div>${t.autoDiscount > 0 ? `<div><span>商品活动优惠（已计入小计）</span><span>−${dollars(t.autoDiscount)}</span></div>` : ""}${hint}${campaign ? `<div><span>${escapeHtml(offerPreview.campaignName || "活动优惠")}</span><span>−${dollars(campaign)}</span></div>` : ""}${code ? `<div><span>${escapeHtml(offerPreview.codeName || "优惠券／推荐码优惠")}</span><span>−${dollars(code)}</span></div>` : ""}${pickup ? "" : `<div><span>配送费</span><span class="fee-value">${fee === 0 ? "<small>（已减免）</small>" : ""}<b>${dollars(fee)}</b></span></div>`}<div><span>税（${Number(settings.tax_rate || 10.5)}%）</span><span>${dollars(tax)}</span></div><div><b>最终应付金额</b><b>${dollars(total)}</b></div>`;
 }
 
 /* Keep checkout preview aligned with the marketing wizard's publish, audience and stack rules. */
@@ -1126,7 +1126,7 @@ function refreshCartLocally() {
           `${escapeHtml(item.product.name)}${item.label ? ` · ${escapeHtml(item.label)}` : ""} × ${item.qty}　${dollars(cartPriceInfo(item).unitPrice * item.qty)}`,
       )
       .join("<br>") +
-    `<hr><div class="order-amounts"><div><span>商品小计</span><span>${dollars(totalsNow.subtotal)}</span></div>${feeRow}<div><span>税（${Number(settings.tax_rate || 10.5)}%）</span><span>${dollars(totalsNow.tax)}</span></div><div><b>最终应付金额</b><b>${dollars(totalsNow.total)}</b></div></div>`;
+    `<hr><div class="order-amounts"><div><span>商品小计</span><span>${dollars(totalsNow.subtotal)}</span></div>${totalsNow.autoDiscount > 0 ? `<div><span>商品活动优惠（已计入小计）</span><span>−${dollars(totalsNow.autoDiscount)}</span></div>` : ""}${feeRow}<div><span>税（${Number(settings.tax_rate || 10.5)}%）</span><span>${dollars(totalsNow.tax)}</span></div><div><b>最终应付金额</b><b>${dollars(totalsNow.total)}</b></div></div>`;
   drawOfferPreview();
   previewOffer();
 }
