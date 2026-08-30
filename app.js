@@ -662,6 +662,19 @@ $("#couponCodeInput").addEventListener("input", () => {
   stackChoiceKey = "";
   previewOffer();
 });
+const revalidateOfferForPhone = () => {
+  if (!$("#couponCodeInput")?.value.trim()) return;
+  stackChoiceKey = "";
+  closeCampaignStackChoice();
+  if (excludedCampaignIds.size) {
+    excludedCampaignIds.clear();
+    refreshCampaignPricing();
+    return;
+  }
+  previewOffer();
+};
+$("[name='phone']").addEventListener("input", revalidateOfferForPhone);
+$("[name='phone']").addEventListener("change", revalidateOfferForPhone);
 function previewOffer() {
   if (previewTimer) clearTimeout(previewTimer);
   previewTimer = setTimeout(async () => {
