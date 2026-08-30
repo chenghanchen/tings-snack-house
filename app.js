@@ -134,8 +134,11 @@ function totals() {
 }
 function updateCartSavings(autoDiscount) {
   const savings = $("#cartSavings");
-  if (savings)
+  if (savings) {
+    const hasSavings = Number(autoDiscount) > 0;
+    savings.hidden = !hasSavings;
     savings.textContent = `本单已优惠 ${dollars(Math.max(0, autoDiscount))}`;
+  }
 }
 function updateCartProgressNotice(subtotal, count) {
   const notice = $("#cartProgressNotice");
