@@ -1072,7 +1072,14 @@ function hideCartRemove() {
     .forEach((row) => row.classList.remove("remove-revealed"));
 }
 function revealCartRemove(key) {
-  if (revealedCartKey === key) return;
+  if (revealedCartKey === key) {
+    hideCartRemove();
+    return;
+  }
+  if (revealedCartKey) {
+    hideCartRemove();
+    return;
+  }
   revealedCartKey = key;
   document.querySelectorAll("#cartItems .cart-item").forEach((row) =>
     row.classList.toggle("remove-revealed", row.dataset.cartKey === key),
