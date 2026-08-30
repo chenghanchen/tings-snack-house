@@ -918,8 +918,10 @@ function refreshProductCard(productId) {
         : '<button class="add" disabled>缺货</button>';
   updateProductCardOffer(card, product, item, action);
 }
+let revealedCartKey = null;
 function cartRowMarkup(item) {
-  return `<div class="cart-item" data-cart-key="${escapeHtml(item.key)}"><div class="cart-thumb" style="background:${item.product.color}">${item.image ? `<img src="${item.image}" alt="">` : escapeHtml(item.product.icon)}</div><div><h3>${escapeHtml(item.product.name)}${item.label ? ` · ${escapeHtml(item.label)}` : ""}</h3><p class="cart-line">${dollars(item.price)} × ${item.qty}</p></div><div class="quantity"><button data-change="-1" data-key="${escapeHtml(item.key)}">−</button><b class="cart-qty">${item.qty}</b><button data-change="1" data-key="${escapeHtml(item.key)}" ${item.qty >= item.stock ? "disabled" : ""}>+</button></div></div>`;
+  const isRevealed = item.key === revealedCartKey;
+  return `<div class="cart-item${isRevealed ? " remove-revealed" : ""}" data-cart-key="${escapeHtml(item.key)}"><div class="cart-thumb" style="background:${item.product.color}">${item.image ? `<img src="${item.image}" alt="">` : escapeHtml(item.product.icon)}</div><div><h3>${escapeHtml(item.product.name)}${item.label ? ` · ${escapeHtml(item.label)}` : ""}</h3><p class="cart-line">${dollars(item.price)} × ${item.qty}</p></div><div class="cart-quantity-wrap"><div class="quantity"><button data-change="-1" data-key="${escapeHtml(item.key)}">−</button><b class="cart-qty">${item.qty}</b><button data-change="1" data-key="${escapeHtml(item.key)}" ${item.qty >= item.stock ? "disabled" : ""}>+</button></div><button class="cart-remove" type="button" data-remove-key="${escapeHtml(item.key)}">移除</button></div></div>`;
 }
 function refreshCartLocally() {
   const totalsNow = totals(),
@@ -935,6 +937,7 @@ function refreshCartLocally() {
   list.querySelectorAll(".cart-item").forEach((node) => {
     if (!liveKeys.has(node.dataset.cartKey)) node.remove();
   });
+  if (revealedCartKey && !liveKeys.has(revealedCartKey)) revealedCartKey = null;
   for (const item of cart) {
     let node = Array.from(list.querySelectorAll(".cart-item")).find(
       (row) => row.dataset.cartKey === item.key,
@@ -950,6 +953,7 @@ function refreshCartLocally() {
       `${dollars(item.price)} × ${item.qty}`;
     node.querySelector(".cart-qty").textContent = item.qty;
     node.querySelector('[data-change="1"]').disabled = item.qty >= item.stock;
+    node.classList.toggle("remove-revealed", item.key === revealedCartKey);
   }
   let encouragement = list.querySelector(".cart-encouragement");
   if (cart.length) {
@@ -1023,6 +1027,129 @@ $("#productGrid").onclick = (event) => {
     }
   }
 };
+
+/* Short taps keep the existing one-step behavior. A hold starts repeating only
+   after a brief delay, and the synthetic click after a hold is ignored. */
+let quantityHold = null;
+let ignoreQuantityClickUntil = 0;
+function stopQuantityHold() {
+  if (!quantityHold) return;
+  clearTimeout(quantityHold.delay);
+  clearInterval(quantityHold.repeat);
+  if (quantityHold.didRepeat)
+    ignoreQuantityClickUntil = Date.now() + 350;
+  quantityHold = null;
+}
+function changeWhileHeld(key, delta) {
+  const item = cart.find((row) => row.key === key);
+  if (!item || (delta > 0 && item.qty >= item.stock) || (delta < 0 && item.qty <= 1)) {
+    stopQuantityHold();
+    return;
+  }
+  change(key, delta);
+}
+function beginQuantityHold(event, button, key, delta) {
+  if (button.disabled || (event.pointerType === "mouse" && event.button !== 0)) return;
+  stopQuantityHold();
+  quantityHold = {
+    delay: setTimeout(() => {
+      if (!quantityHold) return;
+      quantityHold.didRepeat = true;
+      changeWhileHeld(key, delta);
+      if (quantityHold)
+        quantityHold.repeat = setInterval(() => changeWhileHeld(key, delta), 120);
+    }, 400),
+    repeat: null,
+    didRepeat: false,
+    bounds: button.getBoundingClientRect(),
+  };
+}
+function hideCartRemove() {
+  if (!revealedCartKey) return;
+  revealedCartKey = null;
+  document
+    .querySelectorAll("#cartItems .cart-item.remove-revealed")
+    .forEach((row) => row.classList.remove("remove-revealed"));
+}
+function revealCartRemove(key) {
+  if (revealedCartKey === key) return;
+  revealedCartKey = key;
+  document.querySelectorAll("#cartItems .cart-item").forEach((row) =>
+    row.classList.toggle("remove-revealed", row.dataset.cartKey === key),
+  );
+}
+
+$("#productGrid").addEventListener("pointerdown", (event) => {
+  const button = event.target.closest("[data-card-change]");
+  if (!button) return;
+  const product = products.find((row) => row.id === Number(button.dataset.id));
+  const item = product && itemFor(product);
+  if (item) beginQuantityHold(event, button, item.key, Number(button.dataset.cardChange));
+});
+$("#cartItems").addEventListener("pointerdown", (event) => {
+  const button = event.target.closest("[data-change]");
+  if (!button) return;
+  hideCartRemove();
+  beginQuantityHold(event, button, button.dataset.key, Number(button.dataset.change));
+});
+document.addEventListener("pointerup", stopQuantityHold);
+document.addEventListener("pointercancel", stopQuantityHold);
+document.addEventListener("lostpointercapture", stopQuantityHold);
+document.addEventListener("pointermove", (event) => {
+  if (!quantityHold?.didRepeat) return;
+  const { left, right, top, bottom } = quantityHold.bounds;
+  const padding = 12;
+  if (
+    event.clientX < left - padding ||
+    event.clientX > right + padding ||
+    event.clientY < top - padding ||
+    event.clientY > bottom + padding
+  )
+    stopQuantityHold();
+});
+document.addEventListener(
+  "click",
+  (event) => {
+    if (
+      Date.now() < ignoreQuantityClickUntil &&
+      event.target.closest("[data-card-change], [data-change]")
+    ) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  },
+  true,
+);
+
+/* This overrides the legacy cart handler so rows can reveal their own remove
+   control without affecting the rest of the cart. */
+$("#cartItems").onclick = (event) => {
+  if (Date.now() < ignoreQuantityClickUntil) {
+    event.preventDefault();
+    return;
+  }
+  const removeButton = event.target.closest("[data-remove-key]");
+  if (removeButton) {
+    const item = cart.find((row) => row.key === removeButton.dataset.removeKey);
+    if (!item) return;
+    cart = cart.filter((row) => row.key !== item.key);
+    revealedCartKey = null;
+    refreshProductCard(item.product.id);
+    refreshCartLocally();
+    return;
+  }
+  const quantityButton = event.target.closest("[data-change]");
+  if (quantityButton) {
+    hideCartRemove();
+    change(quantityButton.dataset.key, Number(quantityButton.dataset.change));
+    return;
+  }
+  const row = event.target.closest(".cart-item");
+  if (row) revealCartRemove(row.dataset.cartKey);
+};
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#cartItems .cart-item")) hideCartRemove();
+});
 renderCart = refreshCartLocally;
 $("#productGrid").addEventListener("click", (event) => {
   if (event.target.closest("[data-retry-catalog]")) loadShop();
