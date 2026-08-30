@@ -29,6 +29,14 @@
         font-weight: 400;
         color: inherit;
       }
+      .coupon-code-hint {
+        margin: 6px 0 0;
+        color: #9b6255;
+        font-size: 11px;
+        line-height: 1.55;
+      }
+      .coupon-code-hint.valid { color: #4d8255; }
+      .coupon-code-hint[hidden] { display: none !important; }
     </style>
     <style>
       .hero {
@@ -352,6 +360,7 @@
                 id="couponCodeInput"
                 placeholder="输入一张优惠券兑换码或推荐码"
             /></label>
+            <p class="coupon-code-hint" id="couponCodeHint" hidden></p>
           </section>
           <label
             >取货方式<select required name="fulfillment" id="fulfillment">
