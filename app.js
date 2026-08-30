@@ -712,10 +712,11 @@ function previewOffer() {
         { data: refs },
         { data: reward },
         orderCheck,
+        referralUseCheck,
       ] = await Promise.all([
         db.from("marketing_campaigns").select("*"),
         db.from("marketing_coupons").select("*"),
-        db.from("customer_referrals").select("referral_code"),
+        db.from("customer_referrals").select("referral_code,created_at"),
         db
           .from("referral_reward_settings")
           .select("*")
@@ -727,6 +728,12 @@ function previewOffer() {
               .select("id", { count: "exact", head: true })
               .eq("phone", phone)
           : Promise.resolve({ count: 1 }),
+        code
+          ? db
+              .from("orders")
+              .select("id", { count: "exact", head: true })
+              .eq("coupon_code", code)
+          : Promise.resolve({ count: 0 }),
       ]);
       const isNew = !!phone && Number(orderCheck.count || 0) === 0;
       let bestBenefit = 0,
@@ -792,12 +799,28 @@ function previewOffer() {
         isReferralCode = false,
         message = campaignName ? `已自动享受${campaignName}。` : "";
       if (code) {
-        const referral = (refs || []).find((x) => x.referral_code === code);
+        const referral = (refs || []).find((x) => x.referral_code === code),
+          referralUses = Number(referralUseCheck.count || 0);
         if (referral) {
           const r = reward || { amount: 5, min_spend: 35 };
-          if (isNew && t.subtotal >= Number(r.min_spend || 0)) {
+          const amount = Number(r.referral_amount ?? r.amount ?? 5),
+            minSpend = Number(r.referral_min_spend ?? r.min_spend ?? 35),
+            validDays = Number(r.referral_valid_days ?? r.valid_days ?? 0),
+            maxUses = Number(r.referral_max_uses ?? 0),
+            expiresAt =
+              validDays > 0 && referral.created_at
+                ? new Date(referral.created_at).getTime() + validDays * 86400000
+                : 0,
+            isExpired = expiresAt && expiresAt <= Date.now(),
+            isExhausted = maxUses > 0 && referralUses >= maxUses;
+          if (
+            isNew &&
+            !isExpired &&
+            !isExhausted &&
+            t.subtotal >= minSpend
+          ) {
             codeDiscount = Math.min(
-              Number(r.amount || 0),
+              amount,
               Math.max(0, t.subtotal - campaignDiscount),
             );
             codeName = "推荐码优惠";
