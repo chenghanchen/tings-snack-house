@@ -25,6 +25,19 @@ set referral_amount=coalesce(referral_amount,amount),
     reward_min_spend=coalesce(reward_min_spend,min_spend),
     reward_valid_days=coalesce(reward_valid_days,valid_days)
 where id=1;
+-- 推荐码在生成时保存自己的规则快照，后续调整默认规则不影响已生成推荐码。
+alter table public.customer_referrals
+  add column if not exists referral_amount numeric(10,2),
+  add column if not exists referral_min_spend numeric(10,2),
+  add column if not exists referral_valid_days integer,
+  add column if not exists referral_max_uses integer;
+update public.customer_referrals r
+set referral_amount=coalesce(r.referral_amount,s.referral_amount,s.amount),
+    referral_min_spend=coalesce(r.referral_min_spend,s.referral_min_spend,s.min_spend),
+    referral_valid_days=coalesce(r.referral_valid_days,s.referral_valid_days,s.valid_days),
+    referral_max_uses=coalesce(r.referral_max_uses,s.referral_max_uses,0)
+from public.referral_reward_settings s
+where s.id=1 and (r.referral_amount is null or r.referral_min_spend is null or r.referral_valid_days is null or r.referral_max_uses is null);
 alter table public.referral_reward_settings enable row level security;
 drop policy if exists "owner manages referral reward settings" on public.referral_reward_settings;
 drop policy if exists "admin manages referral reward settings" on public.referral_reward_settings;
@@ -148,7 +161,7 @@ begin
     if found then
       select count(*) into prior_orders from public.orders where phone=p_phone;
       if prior_orders>0 then raise exception '推荐码仅限新顾客首单使用'; end if;
-      select coalesce(s.referral_amount,s.amount),coalesce(s.referral_min_spend,s.min_spend),coalesce(s.referral_valid_days,s.valid_days),coalesce(s.referral_max_uses,0),coalesce(s.reward_amount,s.amount),coalesce(s.reward_min_spend,s.min_spend),coalesce(s.reward_valid_days,s.valid_days)
+      select coalesce(referral_owner.referral_amount,s.referral_amount,s.amount),coalesce(referral_owner.referral_min_spend,s.referral_min_spend,s.min_spend),coalesce(referral_owner.referral_valid_days,s.referral_valid_days,s.valid_days),coalesce(referral_owner.referral_max_uses,s.referral_max_uses,0),coalesce(s.reward_amount,s.amount),coalesce(s.reward_min_spend,s.min_spend),coalesce(s.reward_valid_days,s.valid_days)
       into referral_amount,referral_min,referral_days,referral_max_uses,reward_amount,reward_min,reward_days
       from public.referral_reward_settings s where s.id=1;
       if referral_days>0 and referral_owner.created_at+make_interval(days=>referral_days)<=now() then raise exception '推荐码已过期'; end if;
@@ -195,11 +208,18 @@ begin
   if selected_code_kind='referral' then
     reward_ends_at:=case when reward_days>0 then now()+make_interval(days=>reward_days) else null end;
     update public.orders set referral_source=referral_owner.phone where id=order_id;
-    insert into public.customer_referrals(phone,referral_code,referred_by_phone) values(p_phone,'TSHREF-'||upper(substr(md5(p_phone||clock_timestamp()::text),1,8)),referral_owner.phone) on conflict(phone) do nothing;
+    -- 新顾客在本次下单后获得的新推荐码，使用下单当刻的最新默认规则。
+    select coalesce(s.referral_amount,s.amount),coalesce(s.referral_min_spend,s.min_spend),coalesce(s.referral_valid_days,s.valid_days),coalesce(s.referral_max_uses,0)
+    into referral_amount,referral_min,referral_days,referral_max_uses
+    from public.referral_reward_settings s where s.id=1;
+    insert into public.customer_referrals(phone,referral_code,referred_by_phone,referral_amount,referral_min_spend,referral_valid_days,referral_max_uses) values(p_phone,'TSHREF-'||upper(substr(md5(p_phone||clock_timestamp()::text),1,8)),referral_owner.phone,referral_amount,referral_min,referral_days,referral_max_uses) on conflict(phone) do nothing;
     insert into public.marketing_coupons(code,name,amount,min_spend,total_quantity,per_phone_limit,recipient_phone,is_referral_reward,ends_at)
     values('REF-'||upper(substr(md5(order_id::text||'new'),1,8)),'推荐新客奖励',reward_amount,reward_min,1,1,p_phone,true,reward_ends_at),('REF-'||upper(substr(md5(order_id::text||'old'),1,8)),'推荐新客奖励',reward_amount,reward_min,1,1,referral_owner.phone,true,reward_ends_at);
   else
-    insert into public.customer_referrals(phone,referral_code) values(p_phone,'TSHREF-'||upper(substr(md5(p_phone||clock_timestamp()::text),1,8))) on conflict(phone) do nothing;
+    select coalesce(s.referral_amount,s.amount),coalesce(s.referral_min_spend,s.min_spend),coalesce(s.referral_valid_days,s.valid_days),coalesce(s.referral_max_uses,0)
+    into referral_amount,referral_min,referral_days,referral_max_uses
+    from public.referral_reward_settings s where s.id=1;
+    insert into public.customer_referrals(phone,referral_code,referral_amount,referral_min_spend,referral_valid_days,referral_max_uses) values(p_phone,'TSHREF-'||upper(substr(md5(p_phone||clock_timestamp()::text),1,8)),referral_amount,referral_min,referral_days,referral_max_uses) on conflict(phone) do nothing;
   end if;
   return jsonb_build_object('id',order_id,'order_number',order_number,'subtotal',current_subtotal,'discount_amount',total_discount,'promotion_name',concat_ws(' + ',case when direct_discount>0 then '商品／分类优惠' end,selected_campaign_name,selected_code_name),'tax_rate',store_tax,'tax_amount',tax,'delivery_fee',fee,'total_amount',total);
 end $$;

@@ -275,7 +275,7 @@
         .filter((x) => !isRunning(x))
         .map((x) => offerCard(x, !!x._coupon))
         .join("") || '<p class="muted empty-offer">还没有草稿或历史活动。</p>'
-    }</div></section><section class="panel referral-summary"><div><p class="eyebrow">REFERRAL REWARD</p><h2>推荐奖励</h2><p>推荐码：新客首单立减 <b>${money(referralAmount)}</b>，满 <b>${money(referralMin)}</b> 可用${Number(referralDays) ? `，有效期 ${referralDays} 天` : "，长期有效"}${Number(rewards?.referral_max_uses || 0) ? `，每码最多 ${rewards.referral_max_uses} 次` : "，不限次数"}。推荐奖励券：双方各获 <b>${money(rewardAmount)}</b> 券，满 <b>${money(rewardMin)}</b> 可用${Number(rewardDays) ? `，有效期 ${rewardDays} 天` : "，长期有效"}，每券限用一次。</p></div><div><b>${referrals.length}</b><small>已生成推荐码</small><div class="referral-summary-actions"><div><button class="text-btn" data-show-referral-codes>查看推荐码</button><button class="text-btn" data-create-referral-code>调整推荐码</button></div><div><button class="text-btn" data-show-referral-rewards>查看推荐奖励券</button><button class="text-btn" data-create-referral>调整推荐券</button></div></div></div></section></div>${wizard ? wizardView() : ""}`;
+    }</div></section><section class="panel referral-summary"><div><p class="eyebrow">REFERRAL REWARD</p><h2>推荐奖励</h2><p>新生成推荐码：新客首单立减 <b>${money(referralAmount)}</b>，满 <b>${money(referralMin)}</b> 可用${Number(referralDays) ? `，有效期 ${referralDays} 天` : "，长期有效"}${Number(rewards?.referral_max_uses || 0) ? `，每码最多 ${rewards.referral_max_uses} 次` : "，不限次数"}。新生成推荐奖励券：双方各获 <b>${money(rewardAmount)}</b> 券，满 <b>${money(rewardMin)}</b> 可用${Number(rewardDays) ? `，有效期 ${rewardDays} 天` : "，长期有效"}，每券限用一次。调整不会影响已经生成的推荐码或推荐券。</p></div><div><b>${referrals.length}</b><small>已生成推荐码</small><div class="referral-summary-actions"><div><button class="text-btn" data-show-referral-codes>查看推荐码</button><button class="text-btn" data-create-referral-code>调整推荐码</button></div><div><button class="text-btn" data-show-referral-rewards>查看推荐奖励券</button><button class="text-btn" data-create-referral>调整推荐券</button></div></div></div></section></div>${wizard ? wizardView() : ""}`;
     bind();
   }
   function choice(type, icon, title, note) {
@@ -322,9 +322,9 @@
     if (w.type === "coupon")
       return `<div class="wizard-form"><h3>创建优惠券</h3><p class="muted">顾客会在结账页输入兑换码使用。</p>${field("活动名称", input("wizName", w.name, 'required placeholder="例如：开学零食券"'))}<div class="two">${field("兑换码", input("wizCode", w.code, 'required placeholder="例如：WELCOME5" style="text-transform:uppercase"'))}${field("立减金额（美元）", input("wizAmount", w.amount, 'type="number" min="0.01" step="0.01" required placeholder="5"'))}</div><div class="two">${field("最低消费（美元）", input("wizThreshold", w.threshold, 'type="number" min="0" step="0.01" placeholder="35"'))}${field("总数量", input("wizQuantity", w.quantity, 'type="number" min="1" step="1" required'))}</div></div>`;
     if (w.type === "referral")
-      return `<div class="wizard-form"><h3>设置推荐奖励券</h3><p class="muted">新顾客成功使用推荐码后，新顾客和推荐人各获得一张奖励券；每张奖励券固定只能使用一次。</p><div class="two">${field("奖励券满减金额（美元）", input("wizRewardAmount", w.rewardAmount, 'type="number" min="0.01" step="0.01" required'))}${field("奖励券最低消费（美元）", input("wizRewardMin", w.rewardMin, 'type="number" min="0" step="0.01" required'))}</div>${field("奖励券有效期（天）", input("wizRewardDays", w.rewardDays, 'type="number" min="0" step="1"'), "填写 0 代表长期有效；调整会用于之后生成的奖励券。")}</div>`;
+      return `<div class="wizard-form"><h3>设置推荐奖励券</h3><p class="muted">新顾客成功使用推荐码后，新顾客和推荐人各获得一张奖励券；每张奖励券固定只能使用一次。</p><div class="two">${field("奖励券满减金额（美元）", input("wizRewardAmount", w.rewardAmount, 'type="number" min="0.01" step="0.01" required'))}${field("奖励券最低消费（美元）", input("wizRewardMin", w.rewardMin, 'type="number" min="0" step="0.01" required'))}</div>${field("奖励券有效期（天）", input("wizRewardDays", w.rewardDays, 'type="number" min="0" step="1"'), "填写 0 代表长期有效；只用于之后生成的奖励券。")}</div>`;
     if (w.type === "referral_code")
-      return `<div class="wizard-form"><h3>设置推荐码</h3><p class="muted">规则会立即应用到所有已经生成和之后生成的推荐码。</p><div class="two">${field("推荐码满减金额（美元）", input("wizReferralAmount", w.referralAmount, 'type="number" min="0.01" step="0.01" required'))}${field("推荐码最低消费（美元）", input("wizReferralMin", w.referralMin, 'type="number" min="0" step="0.01" required'))}</div><div class="two">${field("推荐码有效期（天）", input("wizReferralDays", w.referralDays, 'type="number" min="0" step="1"'), "填写 0 代表长期有效。")}${field("每个推荐码可成功使用次数", input("wizReferralUseLimit", w.referralUseLimit, 'type="number" min="0" step="1"'), "填写 0 代表不限次数；达到次数后立即失效。")}</div></div>`;
+      return `<div class="wizard-form"><h3>设置推荐码</h3><p class="muted">规则只会应用到之后新生成的推荐码，已生成推荐码会保留各自生成时的规则。</p><div class="two">${field("推荐码满减金额（美元）", input("wizReferralAmount", w.referralAmount, 'type="number" min="0.01" step="0.01" required'))}${field("推荐码最低消费（美元）", input("wizReferralMin", w.referralMin, 'type="number" min="0" step="0.01" required'))}</div><div class="two">${field("推荐码有效期（天）", input("wizReferralDays", w.referralDays, 'type="number" min="0" step="1"'), "填写 0 代表长期有效。")}${field("每个推荐码可成功使用次数", input("wizReferralUseLimit", w.referralUseLimit, 'type="number" min="0" step="1"'), "填写 0 代表不限次数；达到次数后立即失效。")}</div></div>`;
     if (w.type === "free_shipping")
       return `<div class="wizard-form"><h3>配送费全免</h3><p class="muted">仅配送到家的订单可享受；到店自取不会显示配送费。</p>${field("活动名称", input("wizName", w.name, 'required placeholder="例如：周末免配送"'))}</div>`;
     const full = w.type === "full_reduction";
@@ -338,7 +338,7 @@
   }
   function wizardAudience(w) {
     if (w.type === "referral" || w.type === "referral_code")
-      return `<div class="wizard-form"><h3>确认${w.type === "referral_code" ? "推荐码" : "推荐奖励券"}设置</h3><p class="muted">${w.type === "referral_code" ? "保存后会立即重新校验所有已生成推荐码。" : "保存后会用于之后生成的推荐奖励券。"}</p></div>`;
+      return `<div class="wizard-form"><h3>确认${w.type === "referral_code" ? "推荐码" : "推荐奖励券"}设置</h3><p class="muted">保存后只会用于之后生成的${w.type === "referral_code" ? "推荐码" : "推荐奖励券"}。</p></div>`;
     const coupon = w.type === "coupon",
       shipping = w.type === "free_shipping",
       target =
@@ -560,7 +560,7 @@
       error
         ? error.message
         : wizard.type === "referral_code"
-          ? "推荐码规则已保存，并立即影响已生成推荐码"
+          ? "推荐码规则已保存，只用于之后生成的推荐码"
           : "推荐奖励券设置已保存",
     );
     if (!error) {
@@ -606,14 +606,18 @@
               const uses = orders.filter(
                   (order) => order.coupon_code === row.referral_code,
                 ).length,
+                rowAmount = Number(row.referral_amount ?? rewards?.referral_amount ?? rewards?.amount ?? 0),
+                rowMin = Number(row.referral_min_spend ?? rewards?.referral_min_spend ?? rewards?.min_spend ?? 0),
+                rowValidity = Number(row.referral_valid_days ?? validity),
+                rowMaxUses = Number(row.referral_max_uses ?? maxUses),
                 expiresAt =
-                  validity > 0 && row.created_at
-                    ? new Date(row.created_at).getTime() + validity * 86400000
+                  rowValidity > 0 && row.created_at
+                    ? new Date(row.created_at).getTime() + rowValidity * 86400000
                     : 0,
                 expired = expiresAt && expiresAt <= Date.now(),
-                exhausted = maxUses > 0 && uses >= maxUses,
+                exhausted = rowMaxUses > 0 && uses >= rowMaxUses,
                 state = expired ? "已过期" : exhausted ? "已用完" : "可用";
-              return `<div class="referral-code-row"><div class="referral-code-main"><b>${esc(row.referral_code || "—")}</b><small>手机号：${esc(row.phone || "—")}</small><div class="referral-code-meta"><span class="referral-code-status">${state}</span><span>有效期：${validity > 0 ? `${validity} 天` : "长期有效"}</span><span>已用 ${uses}${maxUses > 0 ? ` / ${maxUses}` : " 次（不限）"}</span><span>立减：${money(rewards?.referral_amount ?? rewards?.amount)}</span><span>满 ${money(rewards?.referral_min_spend ?? rewards?.min_spend)} 可用</span><span>生成：${esc(chicagoTime(row.created_at) || "—")}</span></div></div><button class="text-btn" type="button" data-referral-copy="${esc(row.referral_code || "")}">复制</button></div>`;
+              return `<div class="referral-code-row"><div class="referral-code-main"><b>${esc(row.referral_code || "—")}</b><small>手机号：${esc(row.phone || "—")}</small><div class="referral-code-meta"><span class="referral-code-status">${state}</span><span>有效期：${rowValidity > 0 ? `${rowValidity} 天` : "长期有效"}</span><span>已用 ${uses}${rowMaxUses > 0 ? ` / ${rowMaxUses}` : " 次（不限）"}</span><span>立减：${money(rowAmount)}</span><span>满 ${money(rowMin)} 可用</span><span>生成：${esc(chicagoTime(row.created_at) || "—")}</span></div></div><button class="text-btn" type="button" data-referral-copy="${esc(row.referral_code || "")}">复制</button></div>`;
             },
           )
           .join("")

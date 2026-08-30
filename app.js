@@ -716,7 +716,9 @@ function previewOffer() {
       ] = await Promise.all([
         db.from("marketing_campaigns").select("*"),
         db.from("marketing_coupons").select("*"),
-        db.from("customer_referrals").select("referral_code,created_at"),
+        db
+          .from("customer_referrals")
+          .select("referral_code,created_at,referral_amount,referral_min_spend,referral_valid_days,referral_max_uses"),
         db
           .from("referral_reward_settings")
           .select("*")
@@ -803,10 +805,10 @@ function previewOffer() {
           referralUses = Number(referralUseCheck.count || 0);
         if (referral) {
           const r = reward || { amount: 5, min_spend: 35 };
-          const amount = Number(r.referral_amount ?? r.amount ?? 5),
-            minSpend = Number(r.referral_min_spend ?? r.min_spend ?? 35),
-            validDays = Number(r.referral_valid_days ?? r.valid_days ?? 0),
-            maxUses = Number(r.referral_max_uses ?? 0),
+          const amount = Number(referral.referral_amount ?? r.referral_amount ?? r.amount ?? 5),
+            minSpend = Number(referral.referral_min_spend ?? r.referral_min_spend ?? r.min_spend ?? 35),
+            validDays = Number(referral.referral_valid_days ?? r.referral_valid_days ?? r.valid_days ?? 0),
+            maxUses = Number(referral.referral_max_uses ?? r.referral_max_uses ?? 0),
             expiresAt =
               validDays > 0 && referral.created_at
                 ? new Date(referral.created_at).getTime() + validDays * 86400000
