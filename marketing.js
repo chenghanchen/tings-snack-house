@@ -71,6 +71,7 @@
       productIds: new Set(),
       categoryNames: new Set(),
       allowCouponStack: true,
+      allowCampaignStack: true,
       startsAt: "",
       endsAt: "",
       rewardAmount: rewards?.amount ?? 5,
@@ -238,7 +239,7 @@
   function offerCard(item, coupon = false) {
     const status = statusLabel(item),
       used = coupon
-        ? `已用 ${redemptions.filter((x) => x.coupon_id === item.id).length}/${item.total_quantity}`
+        ? `已用 ${redemptions.filter((x) => x.coupon_id === item.id).length}/${item.total_quantity} · ${item.allow_campaign_stack === false ? "不可与活动叠加" : "可与活动叠加"}`
         : item.allow_coupon_stack === false
           ? "不可与优惠券叠加"
           : "可与优惠券叠加";
@@ -346,7 +347,10 @@
                   )
                 : ""
             }</div>`;
-    return `<div class="wizard-form"><h3>适用范围</h3><div class="wizard-target-options"><b>适用顾客</b><div class="segment-control"><button data-customer-scope="all" class="${w.customerScope === "all" ? "selected" : ""}">所有顾客</button><button data-customer-scope="new" class="${w.customerScope === "new" ? "selected" : ""}">仅新顾客</button></div></div>${target}${!coupon ? `<label class="stack-choice"><input id="wizStack" type="checkbox" ${w.allowCouponStack ? "checked" : ""}><span><b>允许与优惠券／推荐码叠加</b><small>取消勾选后，顾客使用这个活动时不能同时使用兑换码。</small></span></label>` : ""}</div>`;
+    const stackChoice = coupon
+      ? `<label class="stack-choice"><input id="wizStack" type="checkbox" ${w.allowCampaignStack ? "checked" : ""}><span><b>允许与活动叠加</b><small>取消勾选后，顾客使用此优惠券时不能同时使用活动优惠。</small></span></label>`
+      : `<label class="stack-choice"><input id="wizStack" type="checkbox" ${w.allowCouponStack ? "checked" : ""}><span><b>允许与优惠券／推荐码叠加</b><small>取消勾选后，顾客使用这个活动时不能同时使用兑换码。</small></span></label>`;
+    return `<div class="wizard-form"><h3>适用范围</h3><div class="wizard-target-options"><b>适用顾客</b><div class="segment-control"><button data-customer-scope="all" class="${w.customerScope === "all" ? "selected" : ""}">所有顾客</button><button data-customer-scope="new" class="${w.customerScope === "new" ? "selected" : ""}">仅新顾客</button></div></div>${target}${stackChoice}</div>`;
   }
   function previewDescription(w) {
     if (w.type === "coupon")
@@ -367,7 +371,13 @@
         : w.targetMode === "categories"
           ? `指定 ${w.categoryNames.size || 0} 个分类`
           : "所有商品";
-    return `<div class="wizard-form wizard-schedule"><h3>设置活动时间</h3><p class="muted">留空即为立即开始、长期有效。</p><div class="two">${field("开始时间", input("wizStartsAt", w.startsAt, 'type="datetime-local"'))}${field("结束时间", input("wizEndsAt", w.endsAt, 'type="datetime-local"'))}</div></div><div class="wizard-preview"><p class="eyebrow">PREVIEW</p><h3>${esc(w.name || (w.type === "referral" ? "推荐奖励" : "未命名活动"))}</h3><b>${previewDescription(w)}</b><p>${w.type === "coupon" || w.type === "referral" ? (w.customerScope === "new" ? "仅新顾客" : "所有顾客") : `${w.customerScope === "new" ? "仅新顾客 · " : "所有顾客 · "}${scope}`}</p><p>${w.startsAt ? timeText({ starts_at: w.startsAt, ends_at: w.endsAt }) : "立即开始 — 长期有效"}</p>${w.type !== "coupon" && w.type !== "referral" ? `<p>${w.allowCouponStack ? "可与优惠券／推荐码叠加" : "不可与其他优惠同时使用"}</p>` : ""}<div class="wizard-preview-actions">${w.type === "referral" ? '<button class="text-btn" data-save-referral>保存设置</button>' : '<button class="text-btn" data-save="draft">保存草稿</button><button class="primary" data-save="published">立即发布</button>'}</div></div>`;
+    const stackNote =
+      w.type === "coupon"
+        ? `<p>${w.allowCampaignStack ? "可与活动叠加" : "不可与活动叠加"}</p>`
+        : w.type !== "referral"
+          ? `<p>${w.allowCouponStack ? "可与优惠券／推荐码叠加" : "不可与其他优惠同时使用"}</p>`
+          : "";
+    return `<div class="wizard-form wizard-schedule"><h3>设置活动时间</h3><p class="muted">留空即为立即开始、长期有效。</p><div class="two">${field("开始时间", input("wizStartsAt", w.startsAt, 'type="datetime-local"'))}${field("结束时间", input("wizEndsAt", w.endsAt, 'type="datetime-local"'))}</div></div><div class="wizard-preview"><p class="eyebrow">PREVIEW</p><h3>${esc(w.name || (w.type === "referral" ? "推荐奖励" : "未命名活动"))}</h3><b>${previewDescription(w)}</b><p>${w.type === "coupon" || w.type === "referral" ? (w.customerScope === "new" ? "仅新顾客" : "所有顾客") : `${w.customerScope === "new" ? "仅新顾客 · " : "所有顾客 · "}${scope}`}</p><p>${w.startsAt ? timeText({ starts_at: w.startsAt, ends_at: w.endsAt }) : "立即开始 — 长期有效"}</p>${stackNote}<div class="wizard-preview-actions">${w.type === "referral" ? '<button class="text-btn" data-save-referral>保存设置</button>' : '<button class="text-btn" data-save="draft">保存草稿</button><button class="primary" data-save="published">立即发布</button>'}</div></div>`;
   }
   function collect(step) {
     if (!wizard) return;
@@ -384,10 +394,10 @@
       wizard.rewardMin = get("wizRewardMin") || wizard.rewardMin;
       wizard.rewardDays = get("wizRewardDays") || wizard.rewardDays;
     }
-    if (step === 3)
-      wizard.allowCouponStack = $("#wizStack")
-        ? $("#wizStack").checked
-        : wizard.allowCouponStack;
+    if (step === 3 && $("#wizStack")) {
+      if (wizard.type === "coupon") wizard.allowCampaignStack = $("#wizStack").checked;
+      else wizard.allowCouponStack = $("#wizStack").checked;
+    }
     if (step === 4) {
       wizard.startsAt = get("wizStartsAt");
       wizard.endsAt = get("wizEndsAt");
@@ -468,6 +478,7 @@
         total_quantity: Number(w.quantity || 1),
         per_phone_limit: 1,
         customer_scope: w.customerScope,
+        allow_campaign_stack: w.allowCampaignStack,
         starts_at: w.startsAt || null,
         ends_at: w.endsAt || null,
         status,
@@ -577,6 +588,7 @@
         threshold: item.min_spend,
         quantity: item.total_quantity,
         customerScope: item.customer_scope || "all",
+        allowCampaignStack: item.allow_campaign_stack !== false,
         startsAt: localValue(item.starts_at),
         endsAt: localValue(item.ends_at),
         originalStatus: currentStatus(item),

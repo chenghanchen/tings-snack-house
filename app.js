@@ -598,10 +598,15 @@ function isEnabledCampaign(c, now = new Date()) {
     (!c.ends_at || new Date(c.ends_at) >= now)
   );
 }
-function nonStackableCampaigns(campaigns, t, now = new Date()) {
+function nonStackableCampaigns(campaigns, t, coupon = null, isNew = false, now = new Date()) {
   const delivery = $("#fulfillment")?.value === "delivery";
   return (campaigns || []).filter((campaign) => {
-    if (!isEnabledCampaign(campaign, now) || campaign.allow_coupon_stack !== false)
+    if (
+      !isEnabledCampaign(campaign, now) ||
+      (campaign.customer_scope === "new" && !isNew) ||
+      (coupon?.allow_campaign_stack !== false &&
+        campaign.allow_coupon_stack !== false)
+    )
       return false;
     if (["product_discount", "category_discount"].includes(campaign.kind))
       return cart.some((item) => campaignMatchesProduct(campaign, item.product));
@@ -621,8 +626,7 @@ function showCampaignStackChoice(conflicts, code) {
   if (stackChoiceKey === key) return;
   stackChoiceKey = key;
   pendingStackConflicts = conflicts;
-  const names = conflicts.map((campaign) => campaign.name || "该活动").join("、");
-  $("#campaignStackMessage").textContent = `优惠券/推荐码不能与${names}活动同时参加使用`;
+  $("#campaignStackMessage").textContent = "优惠券/推荐码不能与活动同时参加使用";
   $("#campaignStackDialog").hidden = false;
 }
 function closeCampaignStackChoice() {
@@ -764,6 +768,7 @@ function previewOffer() {
       }
       let codeDiscount = 0,
         codeName = "",
+        selectedCoupon = null,
         message = campaignName ? `已自动享受${campaignName}。` : "";
       if (code) {
         const referral = (refs || []).find((x) => x.referral_code === code);
@@ -787,6 +792,7 @@ function previewOffer() {
               (!x.recipient_phone || x.recipient_phone === phone) &&
               (!(x.customer_scope === "new") || isNew),
           );
+          selectedCoupon = coupon || null;
           if (coupon && t.subtotal >= Number(coupon.min_spend || 0)) {
             codeDiscount = Math.min(
               Number(coupon.amount || 0),
@@ -796,7 +802,7 @@ function previewOffer() {
           }
         }
         const conflicts = codeDiscount
-          ? nonStackableCampaigns(campaigns, t, now)
+          ? nonStackableCampaigns(campaigns, t, selectedCoupon, isNew, now)
           : [];
         if (conflicts.length) {
           offerPreview = {

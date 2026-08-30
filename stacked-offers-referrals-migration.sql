@@ -16,6 +16,10 @@ drop policy if exists "owner manages referrals" on public.customer_referrals;
 drop policy if exists "admin manages referrals" on public.customer_referrals;
 create policy "admin manages referrals" on public.customer_referrals for all to anon, authenticated using (true) with check (true);
 
+-- A coupon may independently prohibit combining with any applicable activity.
+alter table public.marketing_coupons
+  add column if not exists allow_campaign_stack boolean not null default true;
+
 create or replace function public.submit_shop_order(
   p_customer_name text, p_phone text, p_email text, p_fulfillment text,
   p_address text, p_note text, p_items jsonb, p_promotion_id uuid default null,
@@ -30,7 +34,7 @@ declare
   order_id uuid; order_number text; selected_campaign_name text:=null; selected_campaign_kind text:=null; selected_campaign_id uuid:=null;
   selected_campaign_benefit numeric(10,2):=0; candidate_benefit numeric(10,2); candidate_discount numeric(10,2); selected_free_shipping boolean:=false;
   selected_code_name text:=null; selected_code_kind text:=null; selected_coupon_id uuid:=null; entered_code text:=null; coupon_uses integer:=0;
-  prior_orders integer:=0; referral_amount numeric(10,2); referral_min numeric(10,2); referral_days integer; reward_ends_at timestamptz; taxable numeric(10,2); blocked_campaign_names text;
+  prior_orders integer:=0; referral_amount numeric(10,2); referral_min numeric(10,2); referral_days integer; reward_ends_at timestamptz; taxable numeric(10,2); blocked_campaign_names text; coupon_campaign_conflict boolean:=false;
 begin
   if p_phone !~ '^[0-9]{10}$' then raise exception '请输入 10 位数字电话号码'; end if;
   if p_fulfillment not in ('delivery','pickup') then raise exception '取货方式无效'; end if;
@@ -117,7 +121,7 @@ begin
             or (cardinality(c.category_names)>0 and (x->>'category')=any(c.category_names))
         ))
         or (c.kind='full_reduction' and current_subtotal>=c.threshold)
-        or (c.kind='free_shipping' and p_fulfillment='delivery' and fee>0)
+        or (c.kind='free_shipping' and p_fulfillment='delivery' and base_fee>0 and current_subtotal<free_at)
       );
     if blocked_campaign_names is not null then
       raise exception '优惠券/推荐码不能与%活动同时参加使用',blocked_campaign_names;
@@ -138,6 +142,25 @@ begin
       if coupon_uses>=coupon.total_quantity then raise exception '该优惠券已领完'; end if;
       select count(*) into coupon_uses from public.coupon_redemptions where coupon_id=coupon.id and phone=p_phone;
       if coupon_uses>=coupon.per_phone_limit then raise exception '此电话号码已使用过该优惠券'; end if;
+      if coalesce(coupon.allow_campaign_stack,true)=false then
+        select exists(
+          select 1 from public.marketing_campaigns c
+          where c.active=true and (c.status is null or c.status='published')
+            and not (c.id=any(coalesce(p_excluded_campaign_ids,'{}'::uuid[])))
+            and (c.starts_at is null or c.starts_at<=now()) and (c.ends_at is null or c.ends_at>=now())
+            and (
+              (c.kind in ('product_discount','category_discount') and exists (
+                select 1 from jsonb_array_elements(lines) x
+                where (cardinality(c.product_ids)=0 and cardinality(c.category_names)=0)
+                  or (cardinality(c.product_ids)>0 and (x->>'product_id')::bigint=any(c.product_ids))
+                  or (cardinality(c.category_names)>0 and (x->>'category')=any(c.category_names))
+              ))
+              or (c.kind='full_reduction' and current_subtotal>=c.threshold)
+              or (c.kind='free_shipping' and p_fulfillment='delivery' and base_fee>0 and current_subtotal<free_at)
+            )
+        ) into coupon_campaign_conflict;
+        if coupon_campaign_conflict then raise exception '优惠券/推荐码不能与活动同时参加使用'; end if;
+      end if;
       code_discount:=least(coupon.amount,current_subtotal-campaign_discount); selected_code_name:=coupon.name; selected_code_kind:='coupon'; selected_coupon_id:=coupon.id;
     end if;
   end if;
