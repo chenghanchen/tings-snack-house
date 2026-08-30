@@ -117,6 +117,29 @@ function totals() {
     total: +(subtotal + delivery + tax).toFixed(2),
   };
 }
+function updateCartProgressNotice(subtotal, count) {
+  const notice = $("#cartProgressNotice");
+  if (!notice) return;
+  const storeRules = settings?.content?.storeSettings || {};
+  const minOrder = Number(storeRules.order?.minOrder ?? 20);
+  const minDelivery = Math.max(
+    minOrder,
+    Number(storeRules.delivery?.minDelivery ?? 30),
+  );
+  const freeDelivery = Math.max(
+    minDelivery,
+    Number(settings.free_delivery_threshold ?? 50),
+  );
+  notice.hidden = !count;
+  if (!count) return;
+  if (subtotal < minOrder)
+    notice.textContent = `⚠️ 再购买${dollars(minOrder - subtotal)}即可下单`;
+  else if (subtotal < minDelivery)
+    notice.textContent = `🚗 再购买${dollars(minDelivery - subtotal)}即可配送`;
+  else if (subtotal < freeDelivery)
+    notice.textContent = `🚗 再购买${dollars(freeDelivery - subtotal)}即可免费配送`;
+  else notice.textContent = "🚗 您已达到免配送门槛";
+}
 function renderCart() {
   const t = totals(),
     accepting = settings.is_accepting_orders !== false,
@@ -125,6 +148,7 @@ function renderCart() {
   $("#cartCount").textContent = t.count;
   $("#totalCount").textContent = `${t.count} 件`;
   $("#cartSubtotal").textContent = dollars(t.subtotal);
+  updateCartProgressNotice(t.subtotal, t.count);
   $("#cartItems").innerHTML = cart
     .map(
       (x) =>
@@ -932,6 +956,7 @@ function refreshCartLocally() {
   $("#cartCount").textContent = totalsNow.count;
   $("#totalCount").textContent = `${totalsNow.count} 件`;
   $("#cartSubtotal").textContent = dollars(totalsNow.subtotal);
+  updateCartProgressNotice(totalsNow.subtotal, totalsNow.count);
   const beforeScroll = list.scrollTop,
     liveKeys = new Set(cart.map((item) => item.key));
   list.querySelectorAll(".cart-item").forEach((node) => {
