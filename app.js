@@ -15,7 +15,9 @@ const db = window.supabase.createClient(
           '"': "&quot;",
           "'": "&#39;",
         })[c],
-    );
+  );
+const CART_STORAGE_KEY = "tings-snack-house-cart-v1";
+const CART_STORAGE_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
 let products = [],
   categories = [],
   groups = [],
@@ -28,7 +30,8 @@ let products = [],
   cardCampaigns = [],
   excludedCampaignIds = new Set(),
   shopLoadVersion = 0,
-  catalogDetailsReady = false;
+  catalogDetailsReady = false,
+  cartRestoreCompleted = false;
 /* This is also read by the separately-loaded checkout rules script. */
 window.settings = settings;
 const sortByPopularity = (list) =>
@@ -76,6 +79,83 @@ const cartItem = (p) => {
   const i = itemFor(p);
   return i && cart.find((x) => x.key === i.key);
 };
+function saveCartLocally() {
+  try {
+    if (!cart.length) {
+      localStorage.removeItem(CART_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(
+      CART_STORAGE_KEY,
+      JSON.stringify({
+        savedAt: Date.now(),
+        items: cart.map((item) => ({
+          productId: item.product.id,
+          variantId: item.variant?.id || null,
+          qty: item.qty,
+        })),
+      }),
+    );
+  } catch {
+    // Storage can be unavailable in private browsing; shopping still works.
+  }
+}
+function restoreSavedCart() {
+  let saved;
+  try {
+    saved = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || "null");
+  } catch {
+    try {
+      localStorage.removeItem(CART_STORAGE_KEY);
+    } catch {
+      // Storage can be unavailable in private browsing; shopping still works.
+    }
+    return;
+  }
+  if (
+    !saved ||
+    !Array.isArray(saved.items) ||
+    !Number(saved.savedAt) ||
+    Date.now() - Number(saved.savedAt) > CART_STORAGE_MAX_AGE
+  ) {
+    localStorage.removeItem(CART_STORAGE_KEY);
+    return;
+  }
+  const restored = new Map();
+  for (const savedItem of saved.items) {
+    const product = products.find((item) => item.id === Number(savedItem.productId));
+    const variant = savedItem.variantId
+      ? variants.find(
+          (item) =>
+            item.id === Number(savedItem.variantId) && item.product_id === product?.id,
+        )
+      : null;
+    const requiresVariant = product && optionGroups(product.id).length > 0;
+    if (!product || (requiresVariant && !variant) || (!requiresVariant && savedItem.variantId))
+      continue;
+    const stock = Number(variant ? variant.stock : product.stock) || 0;
+    const out = stock <= 0 || !!(variant ? variant.is_out_of_stock : product.is_out_of_stock);
+    const qty = Math.min(Math.max(0, Number(savedItem.qty) || 0), stock);
+    if (out || !qty) continue;
+    const key = variant ? `v-${variant.id}` : `p-${product.id}`;
+    const existing = restored.get(key);
+    if (existing) existing.qty = Math.min(existing.qty + qty, stock);
+    else
+      restored.set(key, {
+        key,
+        product,
+        variant,
+        price: variant ? variant.price : product.price,
+        stock,
+        out,
+        image: variant?.image || product.image,
+        label: variant?.option_values?.map((item) => item.name).join(" / ") || "",
+        qty,
+      });
+  }
+  cart = [...restored.values()];
+  saveCartLocally();
+}
 function renderFilters() {
   const ordinary = categories.filter((x) => x.name !== "未分类");
   const hasUncategorized = products.some(
@@ -1360,6 +1440,7 @@ renderCart = function () {
   const empty = list.querySelector(".cart-empty-message");
   if (cart.length) {
     empty?.remove();
+    if (cartRestoreCompleted) saveCartLocally();
     return;
   }
   if (!empty)
@@ -1367,6 +1448,7 @@ renderCart = function () {
       "afterbegin",
       '<p class="cart-empty-message">把你喜欢的零食放进来吧！</p>',
     );
+  if (cartRestoreCompleted) saveCartLocally();
 };
 refreshCartLocally = renderCart;
 /* First paint only waits for the product list; supporting catalog data follows without blocking it. */
@@ -1428,6 +1510,10 @@ loadShop = async function () {
       c.error || s.error || g.error || v.error || vr.error || sales.error,
     );
   if (s.data) applySettings(s.data);
+  if (catalogDetailsReady && !cartRestoreCompleted) {
+    restoreSavedCart();
+    cartRestoreCompleted = true;
+  }
   renderFilters();
   renderProducts(
     document.querySelector("#filters .active")?.dataset.filter || "全部",
