@@ -210,7 +210,6 @@ function applySettings(s) {
   $("#brandEnglish").textContent = s.english || "";
   $("#footerName").textContent = s.name || "";
   $("#deliveryDescription").textContent = s.delivery?.trim() || deliveryCopy;
-  $("#deliveryNote").textContent = deliveryCopy;
   for (const [id, key] of Object.entries({
     heroEyebrow: "heroEyebrow",
     heroTitle: "heroTitle",
@@ -331,7 +330,6 @@ function syncFulfillment() {
   $("#addressField").hidden = !delivery;
   address.required = delivery;
   if (!delivery) address.value = "";
-  $("#deliveryNote").hidden = !delivery;
   if (pickup) {
     pickup.hidden = delivery;
     pickup.textContent = `自取地址：${settings.pickup_address || "天河城二楼，Archer Ave"}\n自取说明：${settings.pickup_note || "请到天河城二楼取货；每日 10:00–22:00"}`;
