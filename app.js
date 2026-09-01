@@ -456,6 +456,22 @@ function showOrderSuccess(order, form) {
   $("#submittedAddress").textContent = pickup
     ? settings.pickup_address || "天河城二楼，Archer Ave"
     : form.get("address") || "配送地址待确认";
+  $("#submittedItemCount").textContent = String(
+    cart.reduce((count, item) => count + Number(item.qty || 0), 0),
+  );
+  const thumbs = $("#submittedItemThumbs");
+  thumbs.replaceChildren();
+  cart.slice(0, 3).forEach((item) => {
+    const thumb = document.createElement("span");
+    thumb.className = "success-item-thumb";
+    if (item.image) {
+      const image = document.createElement("img");
+      image.src = item.image;
+      image.alt = item.product.name || "商品";
+      thumb.append(image);
+    } else thumb.textContent = item.product.icon || "🍬";
+    thumbs.append(thumb);
+  });
   if (profile.phone) contactLines.push(`电话：${profile.phone}`);
   if (profile.email) contactLines.push(`邮箱：${profile.email}`);
   $("#successContactDetails").textContent = contactLines.length
@@ -511,6 +527,24 @@ $("#contactShop").onclick = () => {
     open = details.hidden;
   details.hidden = !open;
   $("#contactShop").setAttribute("aria-expanded", String(open));
+};
+$("#copySubmittedOrder").onclick = async (event) => {
+  const orderNumber = $("#successMessage").dataset.orderNumber;
+  if (!orderNumber) return;
+  try {
+    await navigator.clipboard.writeText(orderNumber);
+  } catch {
+    const input = document.createElement("textarea");
+    input.value = orderNumber;
+    document.body.append(input);
+    input.select();
+    document.execCommand("copy");
+    input.remove();
+  }
+  const button = event.currentTarget,
+    previous = button.textContent;
+  button.textContent = "✓ 已复制订单号";
+  setTimeout(() => (button.textContent = previous), 1600);
 };
 $("#viewSubmittedOrder").onclick = async () => {
   const orderNumber = $("#successMessage").dataset.orderNumber;
