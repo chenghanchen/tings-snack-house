@@ -435,7 +435,44 @@ $("#checkout").onclick = () => {
   $("#orderDialog").showModal();
   renderCart();
 };
-$("#closeDialog").onclick = () => $("#orderDialog").close();
+function resetOrderDialog() {
+  $("#orderForm").reset();
+  $("#orderFormWrap").hidden = false;
+  $("#successMessage").hidden = true;
+  $("#successContactDetails").hidden = true;
+  $("#contactShop").setAttribute("aria-expanded", "false");
+}
+function showOrderSuccess(order, form) {
+  const pickup = form.get("fulfillment") === "pickup",
+    profile = settings.content?.storeSettings?.profile || {},
+    contactLines = [];
+  $("#submittedOrderNumber").textContent = order.order_number || "";
+  $("#submittedOrderTotal").textContent = dollars(order.total_amount || 0);
+  $("#submittedFulfillmentLabel").textContent = pickup ? "自取" : "配送";
+  $("#submittedFulfillmentNote").textContent = pickup
+    ? "订单准备完成后会与你联系"
+    : "稍后会与你联系及确认配送时间";
+  $("#submittedAddressLabel").textContent = pickup ? "自取地址" : "配送地址";
+  $("#submittedAddress").textContent = pickup
+    ? settings.pickup_address || "天河城二楼，Archer Ave"
+    : form.get("address") || "配送地址待确认";
+  if (profile.phone) contactLines.push(`电话：${profile.phone}`);
+  if (profile.email) contactLines.push(`邮箱：${profile.email}`);
+  $("#successContactDetails").textContent = contactLines.length
+    ? contactLines.join("　")
+    : "店铺暂未设置联系电话或邮箱。";
+  $("#successContactDetails").hidden = true;
+  $("#contactShop").setAttribute("aria-expanded", "false");
+  $("#successMessage").dataset.orderNumber = order.order_number || "";
+  $("#orderFormWrap").hidden = true;
+  $("#successMessage").hidden = false;
+}
+function closeOrderDialog() {
+  $("#orderDialog").close();
+  resetOrderDialog();
+}
+$("#closeDialog").onclick = closeOrderDialog;
+$("#orderDialog").addEventListener("close", resetOrderDialog);
 $("#fulfillment").onchange = syncFulfillment;
 syncFulfillment();
 $("#orderForm").onsubmit = async (e) => {
@@ -460,18 +497,39 @@ $("#orderForm").onsubmit = async (e) => {
     p_excluded_campaign_ids: Array.from(excludedCampaignIds),
   });
   if (error) return alert(error.message || "订单暂时无法提交");
-  $("#submittedOrderNumber").textContent = data.order_number;
-  $("#orderFormWrap").hidden = true;
-  $("#successMessage").hidden = false;
+  showOrderSuccess(data, f);
   cart = [];
   renderCart();
   loadShop();
 };
 $("#done").onclick = () => {
+  closeOrderDialog();
+  $("#snacks").scrollIntoView({ behavior: "smooth", block: "start" });
+};
+$("#contactShop").onclick = () => {
+  const details = $("#successContactDetails"),
+    open = details.hidden;
+  details.hidden = !open;
+  $("#contactShop").setAttribute("aria-expanded", String(open));
+};
+$("#viewSubmittedOrder").onclick = async () => {
+  const orderNumber = $("#successMessage").dataset.orderNumber;
+  if (!orderNumber) return;
   $("#orderDialog").close();
-  $("#orderForm").reset();
-  $("#orderFormWrap").hidden = false;
-  $("#successMessage").hidden = true;
+  resetOrderDialog();
+  openOrderLookup();
+  $("#orderLookupFormWrap").hidden = true;
+  $("#lookupQuery").value = orderNumber;
+  lastLookupQuery = orderNumber;
+  await loadLookupResults(orderNumber);
+  const card = $("#lookupResult").querySelector(".lookup-order-card"),
+    details = card?.querySelector(".lookup-details"),
+    button = card?.querySelector("[data-lookup-details]");
+  if (card && details && button) {
+    details.hidden = false;
+    card.classList.add("is-expanded");
+    button.textContent = "收起详情";
+  }
 };
 function openOrderLookup() {
   $("#orderLookupFormWrap").hidden = false;

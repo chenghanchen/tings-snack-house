@@ -19,7 +19,7 @@
       href="hero-snack-illustration-v1.png"
       fetchpriority="high"
     />
-    <link rel="stylesheet" href="styles.css?v=20260830c" />
+    <link rel="stylesheet" href="styles.css?v=20260901a" />
     <style>
       .order-amounts .fee-value b {
         grid-column: 2;
@@ -382,17 +382,41 @@
           </button>
         </form>
       </div>
-      <div class="success" id="successMessage" hidden>
-        <div>✓</div>
-        <p class="eyebrow">Arigatō</p>
-        <h2>已为您提交</h2>
-        <p>
-          订单号：<b id="submittedOrderNumber"></b
-          ><br />请保存订单号；可用订单号或手机号码查询订单。
-        </p>
-        <button class="primary-button" id="done">
-          继续逛逛 <span>→</span>
-        </button>
+      <div class="success order-success" id="successMessage" hidden>
+        <div class="success-hero">
+          <span class="success-check" aria-hidden="true">✓</span>
+          <p class="eyebrow">ORDER CONFIRMED</p>
+          <h2>下单成功！</h2>
+          <p>我们已收到你的订单，店铺确认后会开始备货。</p>
+        </div>
+        <dl class="success-order-summary">
+          <div>
+            <dt><span aria-hidden="true">⌗</span>订单号</dt>
+            <dd id="submittedOrderNumber"></dd>
+          </div>
+          <div>
+            <dt><span aria-hidden="true">$</span>订单总额</dt>
+            <dd id="submittedOrderTotal"></dd>
+          </div>
+          <div>
+            <dt><span aria-hidden="true">◌</span><span id="submittedFulfillmentLabel">配送</span></dt>
+            <dd id="submittedFulfillmentNote"></dd>
+          </div>
+          <div>
+            <dt><span aria-hidden="true">⌖</span><span id="submittedAddressLabel">配送地址</span></dt>
+            <dd id="submittedAddress"></dd>
+          </div>
+        </dl>
+        <div class="success-actions">
+          <button class="primary-button" id="viewSubmittedOrder" type="button">
+            查看订单 <span>→</span>
+          </button>
+          <button class="success-secondary" id="done" type="button">继续逛逛</button>
+        </div>
+        <div class="success-contact">
+          <button id="contactShop" type="button">⌁ 联系店铺</button>
+          <p id="successContactDetails" hidden></p>
+        </div>
       </div>
     </dialog>
     <div class="campaign-stack-dialog" id="campaignStackDialog" hidden role="dialog" aria-modal="true" aria-labelledby="campaignStackMessage">
@@ -429,7 +453,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260827c"></script>
     <script src="image-optimizer.js?v=20260829a"></script>
-    <script src="app.js?v=20260831b"></script>
+    <script src="app.js?v=20260901a"></script>
     <script src="activity-announcement.js?v=20260827c"></script>
     <script src="site-appearance.js?v=20260827c"></script>
     <script src="footer-contact-overlay.js?v=20260827c"></script>
