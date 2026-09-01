@@ -27,7 +27,7 @@
   );
   document.head.insertAdjacentHTML(
     "beforeend",
-    "<style>@media(min-width:721px){#orderDateControls{flex-wrap:nowrap}.order-date-range{flex-wrap:nowrap}.order-date-field select{width:185px;min-width:185px}.order-date-range .order-date-field{width:185px}.order-date-range .order-date-field input{width:100%;min-width:0}}</style>",
+    "<style>#orderDatePreset{border-radius:10px}@media(min-width:721px){#orderDateControls{flex-wrap:nowrap}.order-date-range{flex-wrap:nowrap}.order-date-field select{width:185px;min-width:185px}.order-date-range .order-date-field{width:185px}.order-date-range .order-date-field input{width:100%;min-width:0}#orderDatePreset{margin-left:3px}}</style>",
   );
   const localValue = (date) => {
     const p = (n) => String(n).padStart(2, "0");
