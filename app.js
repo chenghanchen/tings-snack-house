@@ -433,6 +433,7 @@ $("#checkout").onclick = () => {
   syncFulfillment();
   toggleCart(false);
   $("#orderDialog").showModal();
+  lockPageForOrderDialog();
   renderCart();
 };
 function resetOrderDialog() {
@@ -670,9 +671,11 @@ function returnFromOrderLookup() {
   orderLookupReturnToSuccess = false;
   $("#orderLookupDialog").close();
   if (!returnToSuccess) return;
+  unlockPageFromLookup();
   $("#orderFormWrap").hidden = true;
   $("#successMessage").hidden = false;
   $("#orderDialog").showModal();
+  lockPageForOrderDialog();
 }
 $("#openOrderLookup").onclick = (e) => {
   e.preventDefault();
@@ -1879,6 +1882,75 @@ openOrderLookup = () => {
   fitLookupFormToContent();
 };
 $("#orderLookupDialog").addEventListener("close", unlockPageFromLookup);
+
+/* On phones, confirmation and tracking windows keep the page behind them
+   still, including when a swipe reaches the beginning or end of the content. */
+let orderDialogPageScrollY = 0,
+  orderDialogPageLocked = false;
+function lockPageForOrderDialog() {
+  if (
+    orderDialogPageLocked ||
+    !window.matchMedia("(max-width:780px)").matches
+  )
+    return;
+  orderDialogPageLocked = true;
+  orderDialogPageScrollY = window.scrollY;
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${orderDialogPageScrollY}px`;
+  document.body.style.width = "100%";
+  document.body.style.overflow = "hidden";
+}
+function unlockPageFromOrderDialog() {
+  if (!orderDialogPageLocked) return;
+  orderDialogPageLocked = false;
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.width = "";
+  document.body.style.overflow = "";
+  const root = document.documentElement,
+    previousBehavior = root.style.scrollBehavior;
+  root.style.scrollBehavior = "auto";
+  window.scrollTo(0, orderDialogPageScrollY);
+  requestAnimationFrame(() => {
+    root.style.scrollBehavior = previousBehavior;
+  });
+}
+function containMobileScroll(scrollArea, isActive) {
+  let touchStartY = 0;
+  scrollArea.addEventListener(
+    "touchstart",
+    (event) => {
+      touchStartY = event.touches[0]?.clientY || 0;
+    },
+    { passive: true },
+  );
+  scrollArea.addEventListener(
+    "touchmove",
+    (event) => {
+      if (
+        !window.matchMedia("(max-width:780px)").matches ||
+        !isActive() ||
+        event.touches.length !== 1
+      )
+        return;
+      const delta = touchStartY - (event.touches[0]?.clientY || touchStartY),
+        atTop = scrollArea.scrollTop <= 0,
+        atBottom =
+          scrollArea.scrollTop + scrollArea.clientHeight >=
+          scrollArea.scrollHeight - 1;
+      event.stopPropagation();
+      if ((atTop && delta < 0) || (atBottom && delta > 0))
+        event.preventDefault();
+    },
+    { passive: false },
+  );
+}
+containMobileScroll(
+  $("#orderDialog"),
+  () => $("#orderDialog").open && !$("#successMessage").hidden,
+);
+containMobileScroll($("#lookupResult"), () => !$("#lookupResult").hidden);
+$("#orderDialog").addEventListener("close", unlockPageFromOrderDialog);
 
 /* Customer order lookup: compact tracking cards, with the full receipt available on demand. */
 /* Customer order tracking and the customer-confirmed cancellation workflow. */
