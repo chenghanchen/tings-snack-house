@@ -19,7 +19,7 @@
       href="hero-snack-illustration-v1.png"
       fetchpriority="high"
     />
-    <link rel="stylesheet" href="styles.css?v=20260901b" />
+    <link rel="stylesheet" href="styles.css?v=20260901c" />
     <style>
       .order-amounts .fee-value b {
         grid-column: 2;
@@ -392,23 +392,23 @@
         </div>
         <dl class="success-order-summary">
           <div>
-            <dt><span aria-hidden="true">⌗</span>订单号</dt>
+            <dt><span class="success-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4h10v16H7z"/><path d="M9 2h6v4H9zM9 11l2 2 4-4M9 17h6"/></svg></span>订单号</dt>
             <dd id="submittedOrderNumber"></dd>
           </div>
           <div>
-            <dt><span aria-hidden="true">$</span>订单总额</dt>
+            <dt><span class="success-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16v11H4z"/><path d="M4 10h16M8 15h3"/></svg></span>订单总额</dt>
             <dd id="submittedOrderTotal"></dd>
           </div>
           <div>
-            <dt><span aria-hidden="true">◌</span><span id="submittedFulfillmentLabel">配送</span></dt>
+            <dt><span class="success-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></span><span id="submittedFulfillmentLabel">配送</span></dt>
             <dd id="submittedFulfillmentNote"></dd>
           </div>
           <div>
-            <dt><span aria-hidden="true">⌖</span><span id="submittedAddressLabel">配送地址</span></dt>
+            <dt><span class="success-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s6-6.1 6-11a6 6 0 1 0-12 0c0 4.9 6 11 6 11z"/><circle cx="12" cy="10" r="2"/></svg></span><span id="submittedAddressLabel">配送地址</span></dt>
             <dd id="submittedAddress"></dd>
           </div>
           <div class="success-items-row">
-            <dt><span aria-hidden="true">□</span>共 <b id="submittedItemCount">0</b> 件商品</dt>
+            <dt><span class="success-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6zM8 8V6a4 4 0 0 1 8 0v2"/></svg></span>共 <b id="submittedItemCount">0</b> 件商品</dt>
             <dd><span class="success-item-thumbs" id="submittedItemThumbs"></span><i aria-hidden="true">›</i></dd>
           </div>
         </dl>
@@ -417,9 +417,9 @@
           <button class="success-secondary" id="done" type="button">继续逛逛</button>
         </div>
         <div class="success-utility">
-          <button id="contactShop" type="button">◌ 联系店铺</button>
+          <button id="contactShop" type="button"><svg class="success-utility-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H9l-4 4z"/><path d="M9 10h.01M12 10h.01M15 10h.01"/></svg>联系店铺</button>
           <span aria-hidden="true"></span>
-          <button id="copySubmittedOrder" type="button">▣ 复制订单号</button>
+          <button id="copySubmittedOrder" type="button"><svg class="success-utility-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="7" width="11" height="13" rx="1"/><path d="M5 16V4h10"/><path d="M12 12h3M12 16h3"/></svg>复制订单号</button>
         </div>
         <div class="success-contact">
           <p id="successContactDetails" hidden></p>
@@ -461,7 +461,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260827c"></script>
     <script src="image-optimizer.js?v=20260829a"></script>
-    <script src="app.js?v=20260901b"></script>
+    <script src="app.js?v=20260901c"></script>
     <script src="activity-announcement.js?v=20260827c"></script>
     <script src="site-appearance.js?v=20260827c"></script>
     <script src="footer-contact-overlay.js?v=20260827c"></script>
