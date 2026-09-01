@@ -63,6 +63,37 @@
           overscroll-behavior-y: contain;
         }
       }
+      #heroTitle,
+      #heroEmphasis {
+        display: inline-block;
+        margin-left: -4px;
+      }
+      .hero-copy > .primary-button { border-radius: 15px; }
+      #productGrid > .product,
+      #productGrid > .product .product-image { border-radius: 5px; }
+      #deliveryInfo {
+        grid-template-columns: 1fr;
+        gap: 0;
+        border-radius: 15px;
+      }
+      @media (min-width: 781px) {
+        .product-action-wrap .stock-warning { font-size: 12px; }
+        #deliveryDescription {
+          color: #3d2e2e;
+          font-size: 15px;
+          font-weight: 500;
+        }
+        footer > span:first-child {
+          color: #1b221e;
+          font-size: 15px;
+          font-weight: 500;
+        }
+        #footerHours {
+          color: #161d19;
+          font-size: 15px;
+          font-weight: 500;
+        }
+      }
     </style>
     <style>
       .hero {
@@ -264,12 +295,6 @@
       </section>
 
       <section class="delivery-info" id="deliveryInfo" aria-label="配送说明">
-        <span class="delivery-stamp" id="deliveryStamp"
-          ><span id="deliveryStampTop">DELIVERY</span><br /><i
-            id="deliveryStampBottom"
-            >CHICAGO</i
-          ><img id="deliveryStampImage" alt="" hidden
-        /></span>
         <div>
           <p class="eyebrow" id="deliveryEyebrow">LOCAL DELIVERY</p>
           <h2 id="deliveryTitle">把零食送到你身边</h2>
@@ -505,10 +530,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260827c"></script>
     <script src="image-optimizer.js?v=20260829a"></script>
-    <script src="app.js?v=20260901i"></script>
+    <script src="app.js?v=20260901j"></script>
     <script src="activity-announcement.js?v=20260827c"></script>
     <script src="site-appearance.js?v=20260827c"></script>
-    <script src="footer-contact-overlay.js?v=20260827c"></script>
+    <script src="footer-contact-overlay.js?v=20260901a"></script>
     <script src="store-order-rules.js?v=20260830b"></script>
   </body>
 </html>

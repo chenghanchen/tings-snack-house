@@ -298,28 +298,15 @@ function applySettings(s) {
     heroButton: "heroButton",
     deliveryEyebrow: "deliveryEyebrow",
     deliveryTitle: "deliveryTitle",
-    deliveryStampTop: "deliveryStampTop",
-    deliveryStampBottom: "deliveryStampBottom",
     footerHours: "footerHours",
     footerYear: "footerYear",
   }))
     if (c[key]) $("#" + id).textContent = c[key];
-  const deliveryInfo = $("#deliveryInfo"),
-    deliveryStamp = $("#deliveryStamp"),
-    deliveryImage = $("#deliveryStampImage");
+  const deliveryInfo = $("#deliveryInfo");
   deliveryInfo.style.backgroundColor = c.deliveryBackgroundColor || "#f4e9d2";
   if (c.deliveryBackgroundImage)
     deliveryInfo.style.backgroundImage = `url("${c.deliveryBackgroundImage}")`;
   else deliveryInfo.style.removeProperty("background-image");
-  if (c.deliveryStampImage) {
-    deliveryImage.src = c.deliveryStampImage;
-    deliveryImage.hidden = false;
-    deliveryStamp.classList.add("has-image");
-  } else {
-    deliveryImage.hidden = true;
-    deliveryImage.removeAttribute("src");
-    deliveryStamp.classList.remove("has-image");
-  }
   const heroArt = $("#heroArt"),
     heroImage = $("#heroIllustration"),
     story = $("#story");
