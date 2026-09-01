@@ -440,10 +440,42 @@ function resetOrderDialog() {
   $("#orderFormWrap").hidden = false;
   $("#successMessage").hidden = true;
   $("#successContactDetails").hidden = true;
+  $("#successReferralReward").hidden = true;
+  $("#successReferralTooltip").hidden = true;
   $("#contactShop").setAttribute("aria-expanded", "false");
 }
 let preserveOrderSuccessOnClose = false;
 let orderLookupReturnToSuccess = false;
+function referralValidityText(validDays) {
+  const days = Number(validDays || 0);
+  return days > 0 ? `有效期 ${days} 天` : "长期有效";
+}
+function referralCouponDetails(coupon = {}) {
+  return `满 ${dollars(coupon.min_spend || 0)} 减 ${dollars(coupon.amount || 0)}，${referralValidityText(coupon.valid_days)}，每券限用一次，奖励券与下单的手机号码绑定。`;
+}
+function setSuccessReferralCode(id, code) {
+  const button = $(id);
+  button.textContent = code || "";
+  button.dataset.copyValue = code || "";
+}
+function showSuccessReferralReward(order) {
+  const reward = order.referral_reward || {},
+    section = $("#successReferralReward"),
+    code = reward.referral_code || "",
+    usedReferral = !!reward.used_referral,
+    yourCoupon = reward.your_reward_coupon || {},
+    referrerCoupon = reward.referrer_reward_coupon || {};
+  section.hidden = !code;
+  $("#successReferralEarned").hidden = !usedReferral;
+  $("#successYourRewardCoupon").hidden = !yourCoupon.code;
+  $("#successReferrerRewardCoupon").hidden = !referrerCoupon.code;
+  $("#successReferralTooltip").hidden = true;
+  setSuccessReferralCode("#submittedReferralCode", code);
+  setSuccessReferralCode("#submittedYourRewardCoupon", yourCoupon.code);
+  setSuccessReferralCode("#submittedReferrerRewardCoupon", referrerCoupon.code);
+  section.dataset.codeInfo = `他人使用您的推荐码下单会获得满 ${dollars(reward.referral_min_spend || 0)} 减 ${dollars(reward.referral_amount || 0)} 的优惠，下单成功后您也会获得一张满 ${dollars(yourCoupon.min_spend || reward.reward_min_spend || 0)} 减 ${dollars(yourCoupon.amount || reward.reward_amount || 0)} 的奖励券。奖励券与您下单的手机号码绑定。`;
+  section.dataset.couponInfo = referralCouponDetails(yourCoupon);
+}
 function showOrderSuccess(order, form) {
   const pickup = form.get("fulfillment") === "pickup",
     profile = settings.content?.storeSettings?.profile || {},
@@ -481,6 +513,7 @@ function showOrderSuccess(order, form) {
     : "店铺暂未设置联系电话或邮箱。";
   $("#successContactDetails").hidden = true;
   $("#contactShop").setAttribute("aria-expanded", "false");
+  showSuccessReferralReward(order);
   $("#successMessage").dataset.orderNumber = order.order_number || "";
   $("#orderFormWrap").hidden = true;
   $("#successMessage").hidden = false;
@@ -507,7 +540,7 @@ $("#orderForm").onsubmit = async (e) => {
     variant_id: x.variant?.id || null,
     qty: x.qty,
   }));
-  const { data, error } = await db.rpc("submit_shop_order", {
+  const submitArgs = {
     p_customer_name: f.get("name"),
     p_phone: f.get("phone"),
     p_email: f.get("email") || null,
@@ -519,7 +552,14 @@ $("#orderForm").onsubmit = async (e) => {
     p_coupon_code: f.get("coupon_code") || null,
     p_referral_value: null,
     p_excluded_campaign_ids: Array.from(excludedCampaignIds),
-  });
+  };
+  let { data, error } = await db.rpc(
+    "submit_shop_order_with_referral_rewards",
+    submitArgs,
+  );
+  if (error?.code === "PGRST202") {
+    ({ data, error } = await db.rpc("submit_shop_order", submitArgs));
+  }
   if (error) return alert(error.message || "订单暂时无法提交");
   showOrderSuccess(data, f);
   cart = [];
@@ -536,6 +576,43 @@ $("#contactShop").onclick = () => {
   details.hidden = !open;
   $("#contactShop").setAttribute("aria-expanded", String(open));
 };
+$("#successReferralReward").onclick = async (event) => {
+  const section = event.currentTarget,
+    copyButton = event.target.closest("[data-copy-referral]"),
+    infoButton = event.target.closest("[data-referral-info]");
+  if (event.target.closest("[data-close-referral-info]")) {
+    $("#successReferralTooltip").hidden = true;
+    return;
+  }
+  if (infoButton) {
+    $("#successReferralTooltipText").textContent =
+      infoButton.dataset.referralInfo === "code"
+        ? section.dataset.codeInfo
+        : section.dataset.couponInfo;
+    $("#successReferralTooltip").hidden = false;
+    return;
+  }
+  if (!copyButton?.dataset.copyValue) return;
+  const value = copyButton.dataset.copyValue,
+    original = copyButton.textContent;
+  try {
+    await navigator.clipboard.writeText(value);
+  } catch {
+    const input = document.createElement("textarea");
+    input.value = value;
+    document.body.append(input);
+    input.select();
+    document.execCommand("copy");
+    input.remove();
+  }
+  copyButton.textContent = "✓ 已复制";
+  setTimeout(() => (copyButton.textContent = original), 1400);
+};
+document.addEventListener("click", (event) => {
+  const section = $("#successReferralReward");
+  if (!$("#successReferralTooltip").hidden && !section.contains(event.target))
+    $("#successReferralTooltip").hidden = true;
+});
 $("#copySubmittedOrder").onclick = async (event) => {
   const orderNumber = $("#successMessage").dataset.orderNumber;
   if (!orderNumber) return;

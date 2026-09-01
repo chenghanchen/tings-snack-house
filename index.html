@@ -19,7 +19,7 @@
       href="hero-snack-illustration-v1.png"
       fetchpriority="high"
     />
-    <link rel="stylesheet" href="styles.css?v=20260901g" />
+    <link rel="stylesheet" href="styles.css?v=20260901h" />
     <style>
       .order-amounts .fee-value b {
         grid-column: 2;
@@ -390,6 +390,21 @@
           <h2>下单成功！</h2>
           <p>我们已收到你的订单，店铺确认后会开始备货</p>
         </div>
+        <section class="success-referral-reward" id="successReferralReward" hidden aria-live="polite">
+          <div class="success-referral-line">
+            <span>🎁 您的推荐码：</span><button class="success-referral-code" id="submittedReferralCode" type="button" data-copy-referral aria-label="复制推荐码"></button><button class="success-referral-info" type="button" data-referral-info="code">推荐码说明</button>
+          </div>
+          <div class="success-referral-line success-referral-earned" id="successReferralEarned" hidden>
+            <span>您使用了推荐码，您及推荐人都获得了推荐奖励券。</span><button class="success-referral-info" type="button" data-referral-info="coupon">奖励券说明</button>
+          </div>
+          <div class="success-referral-line" id="successYourRewardCoupon" hidden>
+            <span>你的奖励券：</span><button class="success-referral-code" id="submittedYourRewardCoupon" type="button" data-copy-referral aria-label="复制你的奖励券"></button>
+          </div>
+          <div class="success-referral-line" id="successReferrerRewardCoupon" hidden>
+            <span>推荐人奖励券：</span><button class="success-referral-code" id="submittedReferrerRewardCoupon" type="button" data-copy-referral aria-label="复制推荐人奖励券"></button>
+          </div>
+          <p class="success-referral-tooltip" id="successReferralTooltip" hidden><span id="successReferralTooltipText"></span><button type="button" aria-label="关闭说明" data-close-referral-info>×</button></p>
+        </section>
         <dl class="success-order-summary">
           <div>
             <dt><span class="success-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4h10v16H7z"/><path d="M9 2h6v4H9zM9 11l2 2 4-4M9 17h6"/></svg></span>订单号</dt>
@@ -460,7 +475,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260827c"></script>
     <script src="image-optimizer.js?v=20260829a"></script>
-    <script src="app.js?v=20260901e"></script>
+    <script src="app.js?v=20260901f"></script>
     <script src="activity-announcement.js?v=20260827c"></script>
     <script src="site-appearance.js?v=20260827c"></script>
     <script src="footer-contact-overlay.js?v=20260827c"></script>
