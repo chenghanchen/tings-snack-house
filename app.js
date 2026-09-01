@@ -523,7 +523,10 @@ function closeOrderDialog() {
   $("#orderDialog").close();
   resetOrderDialog();
 }
-$("#closeDialog").onclick = closeOrderDialog;
+$("#closeDialog").addEventListener("click", (event) => {
+  event.preventDefault();
+  closeOrderDialog();
+});
 $("#orderDialog").addEventListener("close", () => {
   if (preserveOrderSuccessOnClose) {
     preserveOrderSuccessOnClose = false;
