@@ -149,7 +149,7 @@ const startAdmin = () => {
                 .includes(q),
           );
       $("#ordersTitle").textContent =
-        orderTab === "history" ? "历史订单" : "当前订单";
+        orderTab === "history" ? "已完成" : "进行中";
       $("#allOrders").textContent = all.filter((x) => !x.archived).length;
       $("#newOrders").textContent = all.filter(
         (x) => x.status === "待确认" && !x.archived,
@@ -603,7 +603,7 @@ const startAdmin = () => {
               .includes(q),
         );
     $("#ordersTitle").textContent =
-      orderTab === "history" ? "历史订单" : "当前订单";
+      orderTab === "history" ? "已完成" : "进行中";
     $("#allOrders").textContent = o.filter((x) => !x.archived).length;
     $("#newOrders").textContent = o.filter(
       (x) => x.status === "待确认" && !x.archived,
