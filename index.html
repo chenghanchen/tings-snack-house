@@ -19,7 +19,7 @@
       href="hero-snack-illustration-v1.png"
       fetchpriority="high"
     />
-    <link rel="stylesheet" href="styles.css?v=20260901h" />
+    <link rel="stylesheet" href="styles.css?v=20260901i" />
     <style>
       .order-amounts .fee-value b {
         grid-column: 2;
@@ -403,7 +403,6 @@
           <div class="success-referral-line" id="successReferrerRewardCoupon" hidden>
             <span>推荐人奖励券：</span><button class="success-referral-code" id="submittedReferrerRewardCoupon" type="button" data-copy-referral aria-label="复制推荐人奖励券"></button>
           </div>
-          <p class="success-referral-tooltip" id="successReferralTooltip" hidden><span id="successReferralTooltipText"></span><button type="button" aria-label="关闭说明" data-close-referral-info>×</button></p>
         </section>
         <dl class="success-order-summary">
           <div>
@@ -440,6 +439,13 @@
         </div>
         <p class="success-progress-note"><span aria-hidden="true">⌁</span>订单进度更新后会在查询页面显示</p>
       </div>
+      <div class="success-referral-modal" id="successReferralInfoDialog" hidden role="dialog" aria-modal="true" aria-labelledby="successReferralInfoTitle">
+        <div class="success-referral-modal-card">
+          <button class="success-referral-modal-close" type="button" aria-label="关闭说明" data-close-referral-info>×</button>
+          <h3 id="successReferralInfoTitle"></h3>
+          <p id="successReferralInfoText"></p>
+        </div>
+      </div>
     </dialog>
     <div class="campaign-stack-dialog" id="campaignStackDialog" hidden role="dialog" aria-modal="true" aria-labelledby="campaignStackMessage">
       <div class="campaign-stack-card">
@@ -475,7 +481,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260827c"></script>
     <script src="image-optimizer.js?v=20260829a"></script>
-    <script src="app.js?v=20260901f"></script>
+    <script src="app.js?v=20260901g"></script>
     <script src="activity-announcement.js?v=20260827c"></script>
     <script src="site-appearance.js?v=20260827c"></script>
     <script src="footer-contact-overlay.js?v=20260827c"></script>

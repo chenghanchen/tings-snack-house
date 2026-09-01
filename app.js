@@ -441,7 +441,7 @@ function resetOrderDialog() {
   $("#successMessage").hidden = true;
   $("#successContactDetails").hidden = true;
   $("#successReferralReward").hidden = true;
-  $("#successReferralTooltip").hidden = true;
+  $("#successReferralInfoDialog").hidden = true;
   $("#contactShop").setAttribute("aria-expanded", "false");
 }
 let preserveOrderSuccessOnClose = false;
@@ -462,19 +462,20 @@ function showSuccessReferralReward(order) {
   const reward = order.referral_reward || {},
     section = $("#successReferralReward"),
     code = reward.referral_code || "",
-    usedReferral = !!reward.used_referral,
     yourCoupon = reward.your_reward_coupon || {},
-    referrerCoupon = reward.referrer_reward_coupon || {};
+    referrerCoupon = reward.referrer_reward_coupon || {},
+    usedReferral =
+      reward.used_referral === true && !!yourCoupon.code && !!referrerCoupon.code;
   section.hidden = !code;
   $("#successReferralEarned").hidden = !usedReferral;
   $("#successYourRewardCoupon").hidden = !yourCoupon.code;
   $("#successReferrerRewardCoupon").hidden = !referrerCoupon.code;
-  $("#successReferralTooltip").hidden = true;
+  $("#successReferralInfoDialog").hidden = true;
   setSuccessReferralCode("#submittedReferralCode", code);
   setSuccessReferralCode("#submittedYourRewardCoupon", yourCoupon.code);
   setSuccessReferralCode("#submittedReferrerRewardCoupon", referrerCoupon.code);
   section.dataset.codeInfo = `他人使用您的推荐码下单会获得满 ${dollars(reward.referral_min_spend || 0)} 减 ${dollars(reward.referral_amount || 0)} 的优惠，下单成功后您也会获得一张满 ${dollars(yourCoupon.min_spend || reward.reward_min_spend || 0)} 减 ${dollars(yourCoupon.amount || reward.reward_amount || 0)} 的奖励券。奖励券与您下单的手机号码绑定。`;
-  section.dataset.couponInfo = referralCouponDetails(yourCoupon);
+  section.dataset.couponInfo = usedReferral ? referralCouponDetails(yourCoupon) : "";
 }
 function showOrderSuccess(order, form) {
   const pickup = form.get("fulfillment") === "pickup",
@@ -580,16 +581,15 @@ $("#successReferralReward").onclick = async (event) => {
   const section = event.currentTarget,
     copyButton = event.target.closest("[data-copy-referral]"),
     infoButton = event.target.closest("[data-referral-info]");
-  if (event.target.closest("[data-close-referral-info]")) {
-    $("#successReferralTooltip").hidden = true;
-    return;
-  }
   if (infoButton) {
-    $("#successReferralTooltipText").textContent =
-      infoButton.dataset.referralInfo === "code"
-        ? section.dataset.codeInfo
-        : section.dataset.couponInfo;
-    $("#successReferralTooltip").hidden = false;
+    const isCodeInfo = infoButton.dataset.referralInfo === "code";
+    $("#successReferralInfoTitle").textContent = isCodeInfo
+      ? "推荐码说明"
+      : "奖励券说明";
+    $("#successReferralInfoText").textContent = isCodeInfo
+      ? section.dataset.codeInfo
+      : section.dataset.couponInfo;
+    $("#successReferralInfoDialog").hidden = false;
     return;
   }
   if (!copyButton?.dataset.copyValue) return;
@@ -608,11 +608,13 @@ $("#successReferralReward").onclick = async (event) => {
   copyButton.textContent = "✓ 已复制";
   setTimeout(() => (copyButton.textContent = original), 1400);
 };
-document.addEventListener("click", (event) => {
-  const section = $("#successReferralReward");
-  if (!$("#successReferralTooltip").hidden && !section.contains(event.target))
-    $("#successReferralTooltip").hidden = true;
-});
+$("#successReferralInfoDialog").onclick = (event) => {
+  if (
+    event.target === event.currentTarget ||
+    event.target.closest("[data-close-referral-info]")
+  )
+    $("#successReferralInfoDialog").hidden = true;
+};
 $("#copySubmittedOrder").onclick = async (event) => {
   const orderNumber = $("#successMessage").dataset.orderNumber;
   if (!orderNumber) return;
