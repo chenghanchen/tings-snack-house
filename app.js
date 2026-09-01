@@ -442,6 +442,8 @@ function resetOrderDialog() {
   $("#successContactDetails").hidden = true;
   $("#contactShop").setAttribute("aria-expanded", "false");
 }
+let preserveOrderSuccessOnClose = false;
+let orderLookupReturnToSuccess = false;
 function showOrderSuccess(order, form) {
   const pickup = form.get("fulfillment") === "pickup",
     profile = settings.content?.storeSettings?.profile || {},
@@ -488,7 +490,13 @@ function closeOrderDialog() {
   resetOrderDialog();
 }
 $("#closeDialog").onclick = closeOrderDialog;
-$("#orderDialog").addEventListener("close", resetOrderDialog);
+$("#orderDialog").addEventListener("close", () => {
+  if (preserveOrderSuccessOnClose) {
+    preserveOrderSuccessOnClose = false;
+    return;
+  }
+  resetOrderDialog();
+});
 $("#fulfillment").onchange = syncFulfillment;
 syncFulfillment();
 $("#orderForm").onsubmit = async (e) => {
@@ -549,8 +557,9 @@ $("#copySubmittedOrder").onclick = async (event) => {
 $("#viewSubmittedOrder").onclick = async () => {
   const orderNumber = $("#successMessage").dataset.orderNumber;
   if (!orderNumber) return;
+  orderLookupReturnToSuccess = true;
+  preserveOrderSuccessOnClose = true;
   $("#orderDialog").close();
-  resetOrderDialog();
   openOrderLookup();
   $("#orderLookupFormWrap").hidden = true;
   $("#lookupQuery").value = orderNumber;
@@ -570,11 +579,27 @@ function openOrderLookup() {
   $("#lookupResult").hidden = true;
   $("#orderLookupDialog").showModal();
 }
+function openOrderLookupFromStore() {
+  orderLookupReturnToSuccess = false;
+  openOrderLookup();
+}
+function returnFromOrderLookup() {
+  const returnToSuccess = orderLookupReturnToSuccess;
+  orderLookupReturnToSuccess = false;
+  $("#orderLookupDialog").close();
+  if (!returnToSuccess) return;
+  $("#orderFormWrap").hidden = true;
+  $("#successMessage").hidden = false;
+  $("#orderDialog").showModal();
+}
 $("#openOrderLookup").onclick = (e) => {
   e.preventDefault();
-  openOrderLookup();
+  openOrderLookupFromStore();
 };
-$("#closeOrderLookup").onclick = () => $("#orderLookupDialog").close();
+$("#closeOrderLookup").onclick = () => {
+  orderLookupReturnToSuccess = false;
+  $("#orderLookupDialog").close();
+};
 db.channel("shop-live-v2")
   .on(
     "postgres_changes",
@@ -1677,7 +1702,7 @@ cartScrollArea.addEventListener(
 );
 $("#openOrderLookupMobile").onclick = (event) => {
   event.preventDefault();
-  openOrderLookup();
+  openOrderLookupFromStore();
 };
 /* Keep the browser's native momentum scrolling for lookup results.  The page
    behind the dialog is locked below, so Safari cannot pass an edge swipe on. */
@@ -1737,19 +1762,23 @@ function placeLookupCloseButton(inResult) {
     toolbar = document.createElement("div");
     toolbar.id = "lookupResultToolbar";
     toolbar.innerHTML =
-      '<button type="button" class="lookup-retry" data-new-lookup>重新查询</button>';
+      '<div class="lookup-toolbar-actions"><button type="button" class="lookup-retry lookup-nav-button" data-new-lookup>重新查询</button><button type="button" class="lookup-return lookup-nav-button" data-return-lookup>返回</button></div>';
     toolbar.append(close);
     dialog.prepend(toolbar);
     toolbar.addEventListener("click", (event) => {
-      if (!event.target.closest("[data-new-lookup]")) return;
-      placeLookupCloseButton(false);
-      $("#lookupResult").hidden = true;
-      $("#orderLookupFormWrap").hidden = false;
-      fitLookupFormToContent();
-      $("#lookupQuery").focus();
+      if (event.target.closest("[data-new-lookup]")) {
+        placeLookupCloseButton(false);
+        $("#lookupResult").hidden = true;
+        $("#orderLookupFormWrap").hidden = false;
+        fitLookupFormToContent();
+        $("#lookupQuery").focus();
+        return;
+      }
+      if (event.target.closest("[data-return-lookup]")) returnFromOrderLookup();
     });
   }
   toolbar.querySelector("[data-new-lookup]").hidden = !inResult;
+  toolbar.querySelector("[data-return-lookup]").hidden = !inResult;
   dialog.classList.toggle("has-lookup-results", inResult);
   dialog.classList.toggle("lookup-form-mode", !inResult);
   dialog.style.height = inResult ? "" : "fit-content";
