@@ -1148,7 +1148,7 @@ const startAdmin = () => {
             return `<div class="variant-row"><b>${label}</b><input data-vprice="${key}" type="number" min="0" step="0.01" value="${old.price ?? base}" placeholder="价格"><input data-vstock="${key}" type="number" min="0" value="${old.stock ?? stock}" placeholder="库存"><select data-vout="${key}"><option value="false" ${old.is_out_of_stock ? "" : "selected"}>可售</option><option value="true" ${old.is_out_of_stock ? "selected" : ""}>缺货</option></select><label class="variant-image">图片<input data-vimage="${key}" type="file" accept="image/*"><small>${old.image ? "已上传组合图片" : "使用商品主图片"}</small></label>${old.image ? `<button type="button" class="text-btn" data-remove-vimage="${key}">删除图片</button>` : ""}</div>`;
           })
           .join("")}`
-      : '<p class="muted">不添加规格组时，顾客直接购买基础商品。</p>';
+      : "";
   }
   $("#addSpecGroup").onclick = () => {
     editGroups.push({ client: temp(), name: "", values: [] });
