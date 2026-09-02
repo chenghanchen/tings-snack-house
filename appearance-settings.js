@@ -145,7 +145,7 @@
     document.head.insertAdjacentHTML("beforeend", css);
     document.head.insertAdjacentHTML(
       "beforeend",
-      '<style>#deliveryBackgroundImagePreview{width:min(500px,100%);height:100px;border-radius:15px;font-size:25px}#appearanceForm>.primary{border-radius:15px}</style>',
+      '<style>#deliveryBackgroundImagePreview{width:min(500px,100%);height:100px;border-radius:15px;font-size:25px}#heroImageControl>label{font-size:16px}#heroBackgroundImagePreview{width:min(500px,100%);height:auto;aspect-ratio:5/3;border-radius:15px;overflow:hidden}#heroBackgroundImagePreview img{width:100%;height:100%;object-fit:cover;border-radius:inherit}#appearanceForm>.primary{margin-top:15px;border-radius:15px}</style>',
     );
   }
   async function bindAdvanced() {
@@ -343,13 +343,13 @@
         reset = preview?.nextElementSibling,
         section = document.createElement("section");
       section.id = sectionId;
-      section.innerHTML = `<h3>${title}</h3>`;
+      section.innerHTML = title ? `<h3>${title}</h3>` : "";
       section.append(label);
       if (preview) section.append(preview);
       if (reset?.matches("button")) section.append(reset);
       target.append(section);
     };
-    take("heroBackgroundImageUpload", "heroImageControl", "首页插画图片");
+    take("heroBackgroundImageUpload", "heroImageControl", "");
     take("storyBackgroundImageUpload", "footerImageControl", "页尾插画图片");
     images.remove();
   }
