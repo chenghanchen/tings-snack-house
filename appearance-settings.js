@@ -24,7 +24,7 @@
   const footerSocials = [
     ["instagram", "Instagram"],
     ["facebook", "Facebook"],
-    ["xiaohongshu", "Xiaohongshu"],
+    ["xiaohongshu", "小红书"],
     ["wechat", "Wechat"],
   ];
   const footerDefaults = {
@@ -145,7 +145,7 @@
     document.head.insertAdjacentHTML("beforeend", css);
     document.head.insertAdjacentHTML(
       "beforeend",
-      '<style>#deliveryBackgroundImagePreview{width:min(500px,100%);height:100px;border-radius:15px;font-size:25px}#heroImageControl>label{font-size:16px}#heroBackgroundImagePreview{width:min(500px,100%);height:auto;aspect-ratio:5/3;border-radius:15px;overflow:hidden}#heroBackgroundImagePreview img{width:100%;height:100%;object-fit:cover;border-radius:inherit}#appearanceForm>.primary{margin-top:15px;border-radius:15px}</style>',
+      '<style>#deliveryBackgroundImagePreview{width:min(500px,100%);height:100px;border-radius:15px;font-size:25px}#heroImageControl>label,#footerImageControl>label{font-size:16px}#heroBackgroundImagePreview,#storyBackgroundImagePreview{width:min(500px,100%);height:auto;aspect-ratio:5/3;border-radius:15px;overflow:hidden}#heroBackgroundImagePreview img,#storyBackgroundImagePreview img{width:100%;height:100%;object-fit:cover;border-radius:inherit}#footerContactSettings>.two>.rule-switch{box-sizing:border-box;display:flex;align-items:center;height:50px;margin:5px 0;font-size:15px}#footerContactSettings .footer-social-row>.rule-switch{box-sizing:border-box;display:flex;align-items:center;height:50px;font-size:14px}#appearanceForm>.primary{margin-top:15px;border-radius:15px}</style>',
     );
   }
   async function bindAdvanced() {
@@ -350,7 +350,7 @@
       target.append(section);
     };
     take("heroBackgroundImageUpload", "heroImageControl", "");
-    take("storyBackgroundImageUpload", "footerImageControl", "页尾插画图片");
+    take("storyBackgroundImageUpload", "footerImageControl", "");
     images.remove();
   }
 
