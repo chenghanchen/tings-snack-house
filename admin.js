@@ -1134,13 +1134,13 @@ const startAdmin = () => {
     root.innerHTML = editGroups
       .map(
         (g, gi) =>
-          `<section class="spec-group" draggable="true" data-gi="${gi}"><div class="spec-drag">⋮⋮ 拖拽排序规格组</div><div class="two"><label>规格组名称<input data-gname="${gi}" value="${g.name || ""}" placeholder="例如：口味"></label><button type="button" class="text-btn" data-remove-group="${gi}">删除规格组</button></div><div class="spec-values">${g.values.map((v, vi) => `<div class="spec-value" draggable="true" data-gi="${gi}" data-vi="${vi}"><span class="spec-drag">⋮⋮</span><label>规格值<input data-vname="${gi}:${vi}" value="${v.name || ""}" placeholder="例如：橙子味"></label><button type="button" class="text-btn" data-remove-value="${gi}:${vi}">删除</button></div>`).join("")}</div><button type="button" class="text-btn" data-add-value="${gi}">+ 添加规格值</button></section>`,
+          `<section class="spec-group" draggable="true" data-gi="${gi}"><div class="two"><label>规格组名称<input data-gname="${gi}" value="${g.name || ""}" placeholder="例如：口味"></label><button type="button" class="text-btn" data-remove-group="${gi}">删除规格组</button></div><div class="spec-values">${g.values.map((v, vi) => `<div class="spec-value" draggable="true" data-gi="${gi}" data-vi="${vi}"><span class="spec-drag">⋮⋮</span><label><input aria-label="规格值" data-vname="${gi}:${vi}" value="${v.name || ""}" placeholder="例如：橙子味"></label><button type="button" class="text-btn" data-remove-value="${gi}:${vi}">删除</button></div>`).join("")}</div><button type="button" class="text-btn" data-add-value="${gi}">+ 添加规格值</button></section>`,
       )
       .join("");
     const base = +$("#productPrice").value || 0,
       stock = +$("#productStock").value || 100;
     $("#variantsEditor").innerHTML = editGroups.length
-      ? `<hr><h3>规格组合</h3><p class="muted">每个组合可设置价格、库存、缺货状态和专属图片；未上传时自动使用商品主图片。</p>${combos()
+      ? `<hr><h3>规格组合</h3>${combos()
           .map((c) => {
             const key = c.map((x) => x.value.client).join("-"),
               old = variantFor(c, key),
