@@ -145,7 +145,7 @@
     document.head.insertAdjacentHTML("beforeend", css);
     document.head.insertAdjacentHTML(
       "beforeend",
-      '<style>#deliveryBackgroundImagePreview{width:min(500px,100%);height:100px;border-radius:15px;font-size:25px}#heroImageControl>label,#footerImageControl>label{font-size:16px}#heroBackgroundImagePreview{width:min(500px,100%);height:auto;aspect-ratio:5/3;border-radius:15px;overflow:hidden}#heroBackgroundImagePreview img{width:100%;height:100%;object-fit:cover;border-radius:inherit}#storyBackgroundImagePreview{width:min(500px,100%);height:100px;aspect-ratio:auto;border-radius:15px;overflow:hidden}#storyBackgroundImagePreview img{width:100%;height:100px;object-fit:cover;border-radius:inherit}#footerContactSettings>.two>.rule-switch{box-sizing:border-box;display:flex;align-items:center;height:50px;margin:5px 0;font-size:15px}#footerContactSettings .footer-social-row>.rule-switch{box-sizing:border-box;display:flex;align-items:center;height:50px;font-size:14px}#appearanceForm>.primary{margin-top:15px;border-radius:15px}</style>',
+      '<style>#deliveryBackgroundImagePreview{width:min(500px,100%);height:100px;border-radius:15px;font-size:25px}#heroImageControl>label,#footerImageControl>label{font-size:16px}#heroBackgroundImagePreview,#storyBackgroundImagePreview{width:min(500px,100%);height:100px;aspect-ratio:auto;border-radius:15px;overflow:hidden}#heroBackgroundImagePreview img,#storyBackgroundImagePreview img{width:100%;height:100px;object-fit:cover;border-radius:inherit}#footerContactSettings>.two>.rule-switch{box-sizing:border-box;display:flex;align-items:center;height:50px;margin:5px 0;font-size:15px}#footerContactSettings .footer-social-row>.rule-switch{box-sizing:border-box;display:flex;align-items:center;height:50px;font-size:14px}#appearanceForm>.primary{margin-top:15px;border-radius:15px}</style>',
     );
   }
   async function bindAdvanced() {
@@ -339,6 +339,7 @@
       const input = $("#" + inputId),
         label = input?.closest("label");
       if (!label) return;
+      if (sectionId === "heroImageControl") label.querySelector("small")?.remove();
       const preview = label.nextElementSibling,
         reset = preview?.nextElementSibling,
         section = document.createElement("section");
