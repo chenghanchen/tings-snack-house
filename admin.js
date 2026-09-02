@@ -1129,23 +1129,27 @@ const startAdmin = () => {
       ) || {}
     );
   }
+  function variantControls(c, className = "") {
+    const key = c.map((x) => x.value.client).join("-"),
+      old = variantFor(c, key),
+      defaultPrice = +$("#productPrice").value || 0,
+      defaultStock = +$("#productStock").value || 100;
+    return `<div class="variant-controls ${className}"><label>价格<input data-vprice="${key}" type="number" min="0" step="0.01" value="${old.price ?? defaultPrice}" placeholder="价格"></label><label>库存<input data-vstock="${key}" type="number" min="0" value="${old.stock ?? defaultStock}" placeholder="库存"></label><label>状态<select data-vout="${key}"><option value="false" ${old.is_out_of_stock ? "" : "selected"}>可售</option><option value="true" ${old.is_out_of_stock ? "selected" : ""}>缺货</option></select></label><label class="variant-image">图片<input data-vimage="${key}" type="file" accept="image/*"><small>${old.image ? "已上传规格图片" : "使用商品主图片"}</small></label>${old.image ? `<button type="button" class="text-btn" data-remove-vimage="${key}">删除图片</button>` : ""}</div>`;
+  }
   function renderSpecs() {
-    const root = $("#specGroups");
+    const root = $("#specGroups"),
+      inlineVariants = editGroups.length === 1;
     root.innerHTML = editGroups
       .map(
         (g, gi) =>
-          `<section class="spec-group" draggable="true" data-gi="${gi}"><div class="two"><label>规格组名称<input data-gname="${gi}" value="${g.name || ""}" placeholder="例如：口味"></label><button type="button" class="text-btn" data-remove-group="${gi}">删除规格组</button></div><div class="spec-values">${g.values.map((v, vi) => `<div class="spec-value" draggable="true" data-gi="${gi}" data-vi="${vi}"><span class="spec-drag">⋮⋮</span><label><input aria-label="规格值" data-vname="${gi}:${vi}" value="${v.name || ""}" placeholder="例如：橙子味"></label><button type="button" class="text-btn" data-remove-value="${gi}:${vi}">删除</button></div>`).join("")}</div><button type="button" class="text-btn" data-add-value="${gi}">+ 添加规格值</button></section>`,
+          `<section class="spec-group" draggable="true" data-gi="${gi}"><div class="two"><label>规格组名称<input data-gname="${gi}" value="${g.name || ""}" placeholder="例如：口味"></label><button type="button" class="text-btn" data-remove-group="${gi}">删除规格组</button></div><div class="spec-values">${g.values.map((v, vi) => `<div class="spec-value" draggable="true" data-gi="${gi}" data-vi="${vi}"><span class="spec-drag">⋮⋮</span><label><input aria-label="规格值" data-vname="${gi}:${vi}" value="${v.name || ""}" placeholder="例如：橙子味"></label><button type="button" class="text-btn" data-remove-value="${gi}:${vi}">删除</button>${inlineVariants ? variantControls([{ group: g, value: v }], "inline-variant-editor") : ""}</div>`).join("")}</div><button type="button" class="text-btn" data-add-value="${gi}">+ 添加规格值</button></section>`,
       )
       .join("");
-    const base = +$("#productPrice").value || 0,
-      stock = +$("#productStock").value || 100;
-    $("#variantsEditor").innerHTML = editGroups.length
+    $("#variantsEditor").innerHTML = !inlineVariants && combos().length
       ? `<hr><h3>规格组合</h3>${combos()
           .map((c) => {
-            const key = c.map((x) => x.value.client).join("-"),
-              old = variantFor(c, key),
-              label = c.map((x) => x.value.name || "未命名").join(" / ");
-            return `<div class="variant-row"><b>${label}</b><input data-vprice="${key}" type="number" min="0" step="0.01" value="${old.price ?? base}" placeholder="价格"><input data-vstock="${key}" type="number" min="0" value="${old.stock ?? stock}" placeholder="库存"><select data-vout="${key}"><option value="false" ${old.is_out_of_stock ? "" : "selected"}>可售</option><option value="true" ${old.is_out_of_stock ? "selected" : ""}>缺货</option></select><label class="variant-image">图片<input data-vimage="${key}" type="file" accept="image/*"><small>${old.image ? "已上传组合图片" : "使用商品主图片"}</small></label>${old.image ? `<button type="button" class="text-btn" data-remove-vimage="${key}">删除图片</button>` : ""}</div>`;
+            const label = c.map((x) => x.value.name || "未命名").join(" / ");
+            return `<div class="variant-row"><b>${label}</b>${variantControls(c)}</div>`;
           })
           .join("")}`
       : "";
@@ -1155,15 +1159,22 @@ const startAdmin = () => {
     renderSpecs();
   };
   $("#specGroups").oninput = (e) => {
+    let needsRender = false;
     if (e.target.dataset.gname !== undefined)
-      editGroups[+e.target.dataset.gname].name = e.target.value;
+      (editGroups[+e.target.dataset.gname].name = e.target.value),
+        (needsRender = true);
     if (e.target.dataset.vname) {
       const [g, v] = e.target.dataset.vname.split(":").map(Number);
       editGroups[g].values[v].name = e.target.value;
+      needsRender = true;
     }
-    renderSpecs();
+    if (needsRender) renderSpecs();
   };
   $("#specGroups").onclick = (e) => {
+    if (e.target.dataset.removeVimage) {
+      removeVariantImage(e);
+      return;
+    }
     if (e.target.dataset.addValue !== undefined) {
       editGroups[+e.target.dataset.addValue].values.push({
         client: temp(),
@@ -1241,7 +1252,7 @@ const startAdmin = () => {
     }
     renderSpecs();
   };
-  $("#variantsEditor").onchange = async (e) => {
+  async function changeVariantImage(e) {
     const key = e.target.dataset.vimage,
       file = e.target.files?.[0];
     if (!key || !file) return;
@@ -1258,14 +1269,17 @@ const startAdmin = () => {
     } catch (error) {
       toast(error.message || "规格图片读取失败，请重新选择");
     }
-  };
-  $("#variantsEditor").onclick = (e) => {
+  }
+  function removeVariantImage(e) {
     const key = e.target.dataset.removeVimage;
     if (key) {
       editVariants[key] = { ...(editVariants[key] || {}), image: null };
       renderSpecs();
     }
-  };
+  }
+  $("#specGroups").onchange = changeVariantImage;
+  $("#variantsEditor").onchange = changeVariantImage;
+  $("#variantsEditor").onclick = removeVariantImage;
   async function saveSpecs(productId) {
     const liveGroups = [];
     for (let i = 0; i < editGroups.length; i++) {
