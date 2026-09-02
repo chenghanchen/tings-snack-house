@@ -157,7 +157,7 @@
     );
     document.head.insertAdjacentHTML(
       "beforeend",
-      '<style>#deliveryContentSettings>h3{font-size:17.38px}#deliveryContentSettings>label{font-size:16px}#deliveryText{height:42.25px;min-height:0}</style>',
+      '<style>#deliveryContentSettings>h3{font-size:17.38px}#deliveryContentSettings>label:nth-of-type(1),#deliveryContentSettings>label:nth-of-type(2){font-size:12px}#deliveryContentSettings>label:nth-of-type(3){font-size:16px}#deliveryText{height:42.25px;min-height:0}</style>',
     );
   }
   async function bindAdvanced() {
