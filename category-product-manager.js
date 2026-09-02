@@ -33,7 +33,7 @@
   document.head.insertAdjacentHTML("beforeend", `<style>${css}</style>`);
   document.head.insertAdjacentHTML(
     "beforeend",
-    '<style>.category-accordion-head{border-radius:10px}.category-product-toolbar{display:flex;justify-content:flex-end;gap:8px;margin:0 0 12px}.category-product-toolbar .primary{border-radius:10px}@media(max-width:720px){.category-product-toolbar{gap:6px}}</style>',
+    '<style>#products>.panel,.category-accordion,.category-accordion-head{border-radius:10px}.category-product-toolbar{display:flex;justify-content:flex-end;gap:8px;margin:0 0 12px}.category-product-toolbar .primary{border-radius:10px}@media(max-width:720px){.category-product-toolbar{gap:6px}}</style>',
   );
   const systemCategory = (category) =>
     category?.name === "未分类" || category?.is_system;
