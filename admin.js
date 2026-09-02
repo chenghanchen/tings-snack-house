@@ -685,11 +685,9 @@ const startAdmin = () => {
   const deliveryContentDefaults = {
       deliveryEyebrow: "LOCAL DELIVERY",
       deliveryTitle: "把零食送到你身边",
-      deliveryStampTop: "DELIVERY",
-      deliveryStampBottom: "CHICAGO",
       deliveryBackgroundColor: "#f4e9d2",
     },
-    deliveryImageKeys = ["deliveryStampImage", "deliveryBackgroundImage"];
+    deliveryImageKeys = ["deliveryBackgroundImage"];
   const deliveryCopyDefault = (fee, free) =>
     `配送费 ${money(Number(fee || 5))}；商品小计满 ${money(Number(free || 50))} 免费配送。`;
   function resetDeliveryEditor() {
@@ -709,9 +707,7 @@ const startAdmin = () => {
       const input = $(`#${key}Upload`);
       if (input) input.value = "";
       const preview = $(`#${key}Preview`);
-      if (preview)
-        preview.textContent =
-          key === "deliveryStampImage" ? "默认圆形印章" : "默认浅米色背景";
+      if (preview) preview.textContent = "默认浅米色背景";
     });
   }
   function setupDeliverySettings(s, content) {
@@ -720,7 +716,7 @@ const startAdmin = () => {
       const footer = $("#footerContentSettings");
       footer.insertAdjacentHTML(
         "beforebegin",
-        `<section id="deliveryContentSettings"><h3>配送区域插画文案</h3><div id="deliveryTextSlot"></div><label>顶部小字<input id="deliveryEyebrowInput"></label><label>标题<input id="deliveryTitleInput"></label><div class="two"><label>印章上方文字<input id="deliveryStampTopInput"></label><label>印章下方文字<input id="deliveryStampBottomInput"></label></div><label>背景颜色<input id="deliveryBackgroundColorInput" type="color"></label><label>左侧印章插画图片<input id="deliveryStampImageUpload" type="file" accept="image/*"><small>上传后会隐藏默认的印章文字。</small></label><div class="image-preview" id="deliveryStampImagePreview">默认圆形印章</div><button class="text-btn" type="button" data-remove-delivery-image="deliveryStampImage">恢复默认圆形印章</button><label>配送区域背景图片<input id="deliveryBackgroundImageUpload" type="file" accept="image/*"><small>未上传时使用浅米色背景。</small></label><div class="image-preview" id="deliveryBackgroundImagePreview">默认浅米色背景</div><button class="text-btn" type="button" data-remove-delivery-image="deliveryBackgroundImage">恢复默认背景</button></section><hr>`,
+        `<section id="deliveryContentSettings"><h3>配送区域插画文案</h3><div id="deliveryTextSlot"></div><label>顶部小字<input id="deliveryEyebrowInput"></label><label>标题<input id="deliveryTitleInput"></label><label>背景颜色<input id="deliveryBackgroundColorInput" type="color"></label><label>配送区域背景图片<input id="deliveryBackgroundImageUpload" type="file" accept="image/*"><small>未上传时使用浅米色背景。</small></label><div class="image-preview" id="deliveryBackgroundImagePreview">默认浅米色背景</div><button class="text-btn" type="button" data-remove-delivery-image="deliveryBackgroundImage">恢复默认背景</button></section><hr>`,
       );
       const deliveryLabel = $("#deliveryText")?.closest("label");
       if (deliveryLabel) $("#deliveryTextSlot").append(deliveryLabel);
@@ -745,8 +741,7 @@ const startAdmin = () => {
         if (!key) return;
         form.dataset[key] = "";
         $(`#${key}Upload`).value = "";
-        $(`#${key}Preview`).textContent =
-          key === "deliveryStampImage" ? "默认圆形印章" : "默认浅米色背景";
+        $(`#${key}Preview`).textContent = "默认浅米色背景";
         toast("已恢复默认图片，请点击保存店铺设置");
       };
     }
@@ -764,9 +759,7 @@ const startAdmin = () => {
       form.dataset[key] = value;
       $(`#${key}Preview`).innerHTML = value
         ? `<img src="${value}" alt="">`
-        : key === "deliveryStampImage"
-          ? "默认圆形印章"
-          : "默认浅米色背景";
+        : "默认浅米色背景";
     });
   }
   function resetContentForm() {

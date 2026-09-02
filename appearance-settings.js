@@ -14,14 +14,11 @@
   const deliveryDefaults = {
     deliveryEyebrow: "LOCAL DELIVERY",
     deliveryTitle: "把零食送到你身边",
-    deliveryStampTop: "DELIVERY",
-    deliveryStampBottom: "CHICAGO",
     deliveryBackgroundColor: "#f4e9d2",
   };
   const imageKeys = [
     "heroBackgroundImage",
     "storyBackgroundImage",
-    "deliveryStampImage",
     "deliveryBackgroundImage",
   ];
   const footerSocials = [
@@ -146,6 +143,10 @@
     const css =
       '<style>.appearance-style-picker{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:12px 0}.appearance-style-picker button{padding:10px 5px;border:1px solid var(--line);background:#fffdf8;cursor:pointer;font:12px inherit}.appearance-style-picker i{display:block;height:36px;margin:0 5px 7px;background:#f1e7d5;border-radius:3px}.appearance-style-picker button[data-card-style="cute"] i{border-radius:13px}.appearance-style-picker button[data-card-style="clean"] i{background:linear-gradient(90deg,#f1e7d5 45%,transparent 45%)}.appearance-style-picker button[data-card-style="classic"] i{border:1px solid #a99f8d}.appearance-style-picker button.active{outline:2px solid var(--sage)}.footer-social-settings{display:grid;gap:8px;margin-top:12px}.footer-social-row{display:grid;grid-template-columns:150px minmax(150px,1fr) 64px;gap:10px;align-items:end;padding:8px 0;border-top:1px solid var(--line)}.footer-social-row label{margin:0}.footer-social-row input[type=file]{font-size:11px;padding:6px}.footer-qr-preview{height:50px;border:1px solid var(--line);display:grid;place-items:center;color:#79847a;font-size:10px;overflow:hidden}.footer-qr-preview img{width:100%;height:100%;object-fit:contain}@media(max-width:720px){.appearance-style-picker{grid-template-columns:1fr 1fr}.footer-social-row{grid-template-columns:1fr 70px}.footer-social-row>.rule-switch{grid-column:1/-1}}</style>';
     document.head.insertAdjacentHTML("beforeend", css);
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      '<style>#deliveryBackgroundImagePreview{width:min(500px,100%);height:100px;border-radius:15px;font-size:25px}#appearanceForm>.primary{border-radius:15px}</style>',
+    );
   }
   async function bindAdvanced() {
     const form = $("#appearanceForm");
