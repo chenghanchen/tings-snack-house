@@ -147,6 +147,10 @@
       "beforeend",
       '<style>#deliveryBackgroundImagePreview{width:min(500px,100%);height:100px;border-radius:15px;font-size:25px}#heroImageControl>label,#footerImageControl>label{font-size:16px}#heroBackgroundImagePreview,#storyBackgroundImagePreview{width:min(500px,100%);height:100px;aspect-ratio:auto;border-radius:15px;overflow:hidden}#heroBackgroundImagePreview img,#storyBackgroundImagePreview img{width:100%;height:100px;object-fit:cover;border-radius:inherit}#footerContactSettings>.two>.rule-switch{box-sizing:border-box;display:flex;align-items:center;height:50px;margin:5px 0;font-size:15px}#footerContactSettings .footer-social-row>.rule-switch{box-sizing:border-box;display:flex;align-items:center;height:50px;font-size:14px}#appearanceForm>.primary{margin-top:15px;border-radius:15px}</style>',
     );
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      '<style>#appearanceAnnouncement>label{font-size:16px}#activityAnnouncementImagePreview{width:min(500px,100%);height:100px;border-radius:15px;font-size:25px;overflow:hidden}#activityAnnouncementImagePreview img{width:100%;height:100%;object-fit:cover;border-radius:inherit}</style>',
+    );
   }
   async function bindAdvanced() {
     const form = $("#appearanceForm");
@@ -212,7 +216,7 @@
       .querySelector("p.muted")
       ?.insertAdjacentHTML(
         "afterend",
-        '<label>活动公告栏背景插图<input id="activityAnnouncementImageUpload" type="file" accept="image/*"><small>插图会铺满整条公告栏，活动文字叠加显示在上方。</small></label><div class="image-preview" id="activityAnnouncementImagePreview">默认浅米色背景</div><button class="text-btn" type="button" id="removeActivityAnnouncementImage">恢复默认背景</button>',
+        '<label>活动公告插画<input id="activityAnnouncementImageUpload" type="file" accept="image/*"></label><div class="image-preview" id="activityAnnouncementImagePreview">默认浅米色背景</div><button class="text-btn" type="button" id="removeActivityAnnouncementImage">恢复默认背景</button>',
       );
     const db = window.supabase.createClient(
         window.TINGS_SUPABASE.url,
