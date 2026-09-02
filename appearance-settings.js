@@ -22,10 +22,10 @@
     "deliveryBackgroundImage",
   ];
   const footerSocials = [
-    ["instagram", "Instagram"],
-    ["facebook", "Facebook"],
-    ["xiaohongshu", "小红书"],
     ["wechat", "微信"],
+    ["xiaohongshu", "小红书"],
+    ["facebook", "Facebook"],
+    ["instagram", "Instagram"],
   ];
   const footerDefaults = {
     showPhone: true,
@@ -150,6 +150,10 @@
     document.head.insertAdjacentHTML(
       "beforeend",
       '<style>#appearanceAnnouncement>label{font-size:16px}#activityAnnouncementImagePreview{width:min(500px,100%);height:100px;border-radius:15px;font-size:25px;overflow:hidden}#activityAnnouncementImagePreview img{width:100%;height:100%;object-fit:cover;border-radius:inherit}</style>',
+    );
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      '<style>#footerContentSettings>h3,#footerContactSettings>h3{font-size:17.38px}#footerContactSettings>p.muted{margin:-15px 0 10px}</style>',
     );
   }
   async function bindAdvanced() {
@@ -343,7 +347,8 @@
       const input = $("#" + inputId),
         label = input?.closest("label");
       if (!label) return;
-      if (sectionId === "heroImageControl") label.querySelector("small")?.remove();
+      if (sectionId === "heroImageControl" || sectionId === "footerImageControl")
+        label.querySelector("small")?.remove();
       const preview = label.nextElementSibling,
         reset = preview?.nextElementSibling,
         section = document.createElement("section");

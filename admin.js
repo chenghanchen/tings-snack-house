@@ -680,7 +680,7 @@ const startAdmin = () => {
   };
   const imageSettings = [
     ["heroBackgroundImage", "首页插画", "hero-snack-illustration-v1.png"],
-    ["storyBackgroundImage", "页尾插画图片", "footer-composite-v1.png"],
+    ["storyBackgroundImage", "页尾插画", "footer-composite-v1.png"],
   ];
   const deliveryContentDefaults = {
       deliveryEyebrow: "LOCAL DELIVERY",
