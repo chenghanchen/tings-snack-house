@@ -155,6 +155,10 @@
       "beforeend",
       '<style>#footerContentSettings>h3,#footerContactSettings>h3{font-size:17.38px}#footerContactSettings>p.muted{margin:-15px 0 10px}</style>',
     );
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      '<style>#deliveryContentSettings>h3{font-size:17.38px}#deliveryContentSettings>label{font-size:16px}#deliveryText{height:42.25px;min-height:0}</style>',
+    );
   }
   async function bindAdvanced() {
     const form = $("#appearanceForm");
@@ -405,6 +409,9 @@
       .select("content")
       .eq("id", 1)
       .maybeSingle();
+    content.deliveryBackgroundColor =
+      current?.content?.deliveryBackgroundColor ||
+      deliveryDefaults.deliveryBackgroundColor;
     content.footerAppearance = footerConfigFromForm(
       $("#appearanceForm") || source,
     );

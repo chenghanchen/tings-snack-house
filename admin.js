@@ -716,7 +716,7 @@ const startAdmin = () => {
       const footer = $("#footerContentSettings");
       footer.insertAdjacentHTML(
         "beforebegin",
-        `<section id="deliveryContentSettings"><h3>配送区域插画文案</h3><div id="deliveryTextSlot"></div><label>顶部小字<input id="deliveryEyebrowInput"></label><label>标题<input id="deliveryTitleInput"></label><label>背景颜色<input id="deliveryBackgroundColorInput" type="color"></label><label>配送区域背景图片<input id="deliveryBackgroundImageUpload" type="file" accept="image/*"><small>未上传时使用浅米色背景。</small></label><div class="image-preview" id="deliveryBackgroundImagePreview">默认浅米色背景</div><button class="text-btn" type="button" data-remove-delivery-image="deliveryBackgroundImage">恢复默认背景</button></section><hr>`,
+        `<section id="deliveryContentSettings"><h3>配送区域文案</h3><div id="deliveryTextSlot"></div><label>顶部小字<input id="deliveryEyebrowInput"></label><label>标题<input id="deliveryTitleInput"></label><label>配送区域插画<input id="deliveryBackgroundImageUpload" type="file" accept="image/*"></label><div class="image-preview" id="deliveryBackgroundImagePreview">默认浅米色背景</div><button class="text-btn" type="button" data-remove-delivery-image="deliveryBackgroundImage">恢复默认背景</button></section><hr>`,
       );
       const deliveryLabel = $("#deliveryText")?.closest("label");
       if (deliveryLabel) $("#deliveryTextSlot").append(deliveryLabel);
