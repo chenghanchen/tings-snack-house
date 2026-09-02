@@ -33,7 +33,7 @@
   document.head.insertAdjacentHTML("beforeend", `<style>${css}</style>`);
   document.head.insertAdjacentHTML(
     "beforeend",
-    '<style>.category-accordion-head{border-radius:10px}.header-title-row{display:flex;align-items:center;gap:12px}.product-header-actions{display:flex;gap:8px;flex-wrap:wrap}.product-header-actions .primary{border-radius:10px}@media(max-width:720px){.header-title-row{align-items:flex-start;flex-direction:column;gap:8px}.product-header-actions{gap:6px}}</style>',
+    '<style>.category-accordion-head{border-radius:10px}.category-product-toolbar{display:flex;justify-content:flex-end;gap:8px;margin:0 0 12px}.category-product-toolbar .primary{border-radius:10px}@media(max-width:720px){.category-product-toolbar{gap:6px}}</style>',
   );
   const systemCategory = (category) =>
     category?.name === "未分类" || category?.is_system;
@@ -339,28 +339,11 @@
       optimizeButton.type = "button";
       optimizeButton.className = newButton.className;
       optimizeButton.textContent = "优化商品图";
-      const pageTitle = $("#pageTitle");
-      let titleRow = pageTitle.closest(".header-title-row");
-      if (!titleRow) {
-        titleRow = document.createElement("div");
-        titleRow.className = "header-title-row";
-        pageTitle.before(titleRow);
-        titleRow.append(pageTitle);
-      }
-      const headerActions = document.createElement("div");
-      headerActions.id = "productHeaderActions";
-      headerActions.className = "product-header-actions";
-      headerActions.hidden = true;
-      headerActions.append(newButton, optimizeButton);
-      titleRow.append(headerActions);
+      const toolbar = document.createElement("div");
+      toolbar.className = "category-product-toolbar";
+      toolbar.append(newButton, optimizeButton);
+      panel.querySelector("#categoryProductList")?.before(toolbar);
       panel.querySelector(".panel-head")?.remove();
-      const syncProductActions = () => {
-        headerActions.hidden = !$("#products")?.classList.contains("active");
-      };
-      document.querySelectorAll('aside [data-view]').forEach((button) =>
-        button.addEventListener("click", () => setTimeout(syncProductActions)),
-      );
-      syncProductActions();
       optimizeButton.addEventListener("click", () =>
         optimizeCatalogImages(optimizeButton),
       );
