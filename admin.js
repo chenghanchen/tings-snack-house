@@ -909,6 +909,7 @@ const startAdmin = () => {
     document.querySelector("aside").style.display = "none";
     $("main").innerHTML =
       `<header><div><p class="eyebrow">OWNER ACCESS</p><h1>店主登录</h1></div></header><section class="panel narrow"><p class="muted">仅店主账号可查看订单和管理网站。</p><form id="loginForm"><label>店主邮箱<input id="loginEmail" type="email" value="${OWNER_EMAIL}" required autocomplete="email"></label><label>密码<input id="loginPassword" type="password" required autocomplete="current-password"></label><button class="primary">登录后台</button><button class="text-btn" type="button" id="resetPassword">设置／忘记密码</button></form></section>`;
+    window.finishAdminBoot?.();
     $("#loginForm").onsubmit = async (e) => {
       e.preventDefault();
       const { data, error } = await db.auth.signInWithPassword({
@@ -936,6 +937,7 @@ const startAdmin = () => {
     document.querySelector("aside").style.display = "none";
     $("main").innerHTML =
       `<header><div><p class="eyebrow">OWNER ACCESS</p><h1>设置新密码</h1></div></header><section class="panel narrow"><form id="newPasswordForm"><label>新密码<input id="newPassword" type="password" minlength="8" required autocomplete="new-password"></label><label>再次输入新密码<input id="confirmPassword" type="password" minlength="8" required autocomplete="new-password"></label><button class="primary">保存新密码</button></form></section>`;
+    window.finishAdminBoot?.();
     $("#newPasswordForm").onsubmit = async (e) => {
       e.preventDefault();
       if ($("#newPassword").value !== $("#confirmPassword").value)
@@ -959,7 +961,7 @@ const startAdmin = () => {
         logoutButton.disabled = false;
         return toast(error.message);
       }
-      location.reload();
+      login();
     };
   async function boot() {
     await settings();
