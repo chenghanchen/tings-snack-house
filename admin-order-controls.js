@@ -23,7 +23,7 @@
   );
   document.head.insertAdjacentHTML(
     "beforeend",
-    "<style>#orders .panel{padding:18px 24px}#orders .panel-head{min-height:0;padding:0 0 8px;margin-bottom:0}.order-tab-heading{min-height:0}.order-tab{padding:12px 18px;font-size:16px}.order-tabs{gap:8px}#orderDateControls{gap:10px;margin-left:14px}.order-date-field{font-size:13px}.order-date-field select,.order-date-field input{margin-top:3px;min-width:170px;padding:10px 12px;font-size:14px}.order-date-range{gap:7px}.order-search{margin:11px 0}@media(max-width:720px){#orders .panel{padding:16px}.order-tab{padding:10px 13px;font-size:14px}.order-date-field select,.order-date-field input{min-width:0;padding:9px 10px;font-size:13px}}</style>",
+    "<style>#orders .panel{padding:18px 24px}#orders .panel-head{min-height:0;padding:0 0 8px;margin-bottom:0}.order-tab-heading{min-height:0}.order-tab{width:150px;height:50px;padding:5px;font-size:25px}.order-tabs{gap:8px}#orderDateControls{gap:10px;margin-left:14px}.order-date-field{font-size:13px}.order-date-field select,.order-date-field input{margin-top:3px;min-width:170px;padding:10px 12px;font-size:14px}.order-date-range{gap:7px}.order-search{margin:11px 0}@media(max-width:720px){#orders .panel{padding:16px}.order-tab{width:auto;height:auto;padding:10px 13px;font-size:14px}.order-date-field select,.order-date-field input{min-width:0;padding:9px 10px;font-size:13px}}</style>",
   );
   document.head.insertAdjacentHTML(
     "beforeend",
