@@ -1145,7 +1145,7 @@ const startAdmin = () => {
           `<section class="spec-group" draggable="true" data-gi="${gi}"><div class="two"><label>规格组名称<input data-gname="${gi}" value="${g.name || ""}" placeholder="例如：口味"></label><button type="button" class="text-btn" data-remove-group="${gi}">删除规格组</button></div><div class="spec-values">${g.values.map((v, vi) => `<div class="spec-value" draggable="true" data-gi="${gi}" data-vi="${vi}"><span class="spec-drag">⋮⋮</span><label><input aria-label="规格值" data-vname="${gi}:${vi}" value="${v.name || ""}" placeholder="例如：橙子味"></label><button type="button" class="text-btn" data-remove-value="${gi}:${vi}">删除</button>${inlineVariants ? variantControls([{ group: g, value: v }], "inline-variant-editor") : ""}</div>`).join("")}</div><button type="button" class="text-btn" data-add-value="${gi}">+ 添加规格值</button></section>`,
       )
       .join("");
-    $("#variantsEditor").innerHTML = !inlineVariants && combos().length
+    $("#variantsEditor").innerHTML = editGroups.length > 1 && combos().length
       ? `<hr><h3>规格组合</h3>${combos()
           .map((c) => {
             const label = c.map((x) => x.value.name || "未命名").join(" / ");
@@ -1155,7 +1155,11 @@ const startAdmin = () => {
       : "";
   }
   $("#addSpecGroup").onclick = () => {
-    editGroups.push({ client: temp(), name: "", values: [] });
+    editGroups.push({
+      client: temp(),
+      name: "",
+      values: [{ client: temp(), name: "" }],
+    });
     renderSpecs();
   };
   $("#specGroups").oninput = (e) => {
