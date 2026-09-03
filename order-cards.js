@@ -178,6 +178,13 @@
       .join("&#65307; ") || T.noItems;
   const card = (x) => {
     const delivery = x.fulfillment === "delivery",
+      stageText = stage(x),
+      stageClass =
+        stageText === T.cancelled
+          ? " status-cancelled"
+          : stageText === T.complete
+            ? " status-completed"
+            : "",
       action = next(x),
       items =
         (x.items || []).map(item).join("") ||
@@ -197,7 +204,9 @@
           "</button></div></div>"
         : "";
     const select = x.archived
-      ? '<span class="status-stage">' +
+      ? '<span class="status-stage fulfillment-stage ' +
+        (delivery ? "fulfillment-delivery" : "fulfillment-pickup") +
+        '">' +
         (delivery ? "&#128663; " : "&#128717; ") +
         (delivery ? T.delivery : T.pickup) +
         "</span>"
@@ -339,8 +348,9 @@
       esc(x.order_number) +
       '</h3><span class="status-stage' +
       (x.cancellation_requested ? " cancellation-pending" : "") +
+      stageClass +
       '">' +
-      esc(stage(x)) +
+      esc(stageText) +
       "</span>" +
       select +
       '</div><p class="order-time">' +
