@@ -85,9 +85,9 @@
   let fulfillmentFilter = "";
   const placeFulfillmentFilters = () => {
     const filters = $(".order-fulfillment-filters"),
-      activeTab = document.querySelector("[data-order-tab].active-order-tab");
-    if (filters && activeTab && filters.previousElementSibling !== activeTab)
-      activeTab.after(filters);
+      completedTab = document.querySelector('[data-order-tab="history"]');
+    if (filters && completedTab && filters.previousElementSibling !== completedTab)
+      completedTab.after(filters);
   };
   const dateRange = () => {
     const preset = $("#orderDatePreset")?.value || "30d";
@@ -548,7 +548,6 @@
           .forEach((node) =>
             node.classList.toggle("active-order-tab", node === button),
           );
-        placeFulfillmentFilters();
         render();
       };
     });
