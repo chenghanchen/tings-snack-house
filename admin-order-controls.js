@@ -29,27 +29,34 @@
     "beforeend",
     "<style>#orderDatePreset{border-radius:10px}@media(min-width:721px){#orderDateControls{flex-wrap:nowrap}.order-date-range{flex-wrap:nowrap}.order-date-field select{width:185px;min-width:185px}.order-date-range .order-date-field{width:185px}.order-date-range .order-date-field input{width:100%;min-width:0}#orderDatePreset{margin-left:3px}}</style>",
   );
-  const localValue = (date) => {
+  document.head.insertAdjacentHTML(
+    "beforeend",
+    '<style>#orderDateControls{display:flex;align-items:center;gap:18px;margin:0 0 0 14px;flex-wrap:nowrap}.order-date-label{white-space:nowrap;color:#000;font:700 15px "Noto Serif SC",serif}.order-date-filter{position:relative;display:flex;align-items:center;gap:8px;flex-wrap:nowrap}#orderDatePreset{width:170px;min-width:170px;height:35px;margin:0;padding:7px 28px 7px 9px;border-radius:15px;font-size:15px}.order-date-range{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;font-size:15px;color:#758077}.order-date-range input{width:auto;min-width:0;margin:0;padding:6px 8px;font-size:15px}.order-date-range[hidden]{display:none!important}@media(max-width:720px){.order-tab-heading{flex-wrap:wrap}#orderDateControls{position:relative;width:100%;gap:8px;margin:12px 0 0;align-items:center}.order-date-label{font:700 16px "Noto Serif SC",serif}.order-date-filter{position:static}#orderDatePreset{width:150px;min-width:150px;height:36px;font-size:16px}.order-date-range{position:absolute;z-index:2;top:50%;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--paper);font-size:15px}.order-date-range input{width:126px;padding:6px 8px;font-size:16px}#orderDateControls:has(.order-date-range:not([hidden])){padding-bottom:72px}}</style>',
+  );
+  const dateValue = (date) => {
     const p = (n) => String(n).padStart(2, "0");
-    return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}T${p(date.getHours())}:${p(date.getMinutes())}`;
+    return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
   };
   const dayStart = (date) =>
     new Date(date.getFullYear(), date.getMonth(), date.getDate());
   function orderRange() {
-    const preset = $("#orderDatePreset")?.value || "30days",
+    const preset = $("#orderDatePreset")?.value || "30d",
       now = new Date();
     if (preset === "custom") {
-      const from = $("#orderDateFrom")?.value,
-        to = $("#orderDateTo")?.value;
+      const fromValue = $("#orderDateFrom")?.value,
+        toValue = $("#orderDateTo")?.value,
+        from = fromValue ? new Date(`${fromValue}T00:00:00`) : null,
+        to = toValue ? new Date(`${toValue}T00:00:00`) : null;
+      if (to) to.setDate(to.getDate() + 1);
       return {
-        from: from ? new Date(from) : null,
-        to: to ? new Date(to) : null,
+        from,
+        to,
       };
     }
     let from = dayStart(now),
       to = null;
-    if (preset === "7days") from.setDate(from.getDate() - 6);
-    if (preset === "30days") from.setDate(from.getDate() - 29);
+    if (preset === "7d") from.setDate(from.getDate() - 6);
+    if (preset === "30d") from.setDate(from.getDate() - 29);
     if (preset === "month")
       from = new Date(now.getFullYear(), now.getMonth(), 1);
     if (preset === "today")
@@ -106,18 +113,30 @@
     if (search.parentElement?.classList.contains("order-search"))
       search.parentElement.insertAdjacentHTML(
         "beforebegin",
-        `<div id="orderDateControls" aria-label="订单时间筛选"><label class="order-date-field">订单时间<select id="orderDatePreset"><option value="today">今日</option><option value="7days">近 7 天</option><option value="30days" selected>近 30 天</option><option value="month">本月</option><option value="custom">自定义日期范围</option></select></label><div class="order-date-range" id="orderDateRange" hidden><label class="order-date-field">开始时间<input id="orderDateFrom" type="datetime-local"></label><label class="order-date-field">结束时间<input id="orderDateTo" type="datetime-local"></label></div></div>`,
+        `<div id="orderDateControls" aria-label="订单时间筛选"><span class="order-date-label">订单时间</span><div class="order-date-filter"><select id="orderDatePreset" aria-label="订单时间范围"><option value="today">今日</option><option value="7d">近 7 天</option><option value="30d" selected>近 30 天</option><option value="month">本月</option><option value="custom">自定义日期</option></select><div class="order-date-range" id="orderDateRange" hidden><input id="orderDateFrom" aria-label="开始日期" type="date"><span>至</span><input id="orderDateTo" aria-label="结束日期" type="date"></div></div></div>`,
       );
     const preset = $("#orderDatePreset"),
       range = $("#orderDateRange");
     preset.addEventListener("change", () => {
       range.hidden = preset.value !== "custom";
-      if (preset.value !== "custom") {
+      if (preset.value === "custom") {
+        if (!$("#orderDateFrom").value || !$("#orderDateTo").value) {
+          const end = dayStart(new Date()),
+            start = new Date(end);
+          start.setDate(start.getDate() - 6);
+          $("#orderDateFrom").value = dateValue(start);
+          $("#orderDateTo").value = dateValue(end);
+        }
+      } else {
         const current = orderRange();
         $("#orderDateFrom").value = current.from
-          ? localValue(current.from)
+          ? dateValue(current.from)
           : "";
-        $("#orderDateTo").value = current.to ? localValue(current.to) : "";
+        if (current.to) {
+          const end = new Date(current.to);
+          end.setDate(end.getDate() - 1);
+          $("#orderDateTo").value = dateValue(end);
+        } else $("#orderDateTo").value = "";
       }
       queueDateFilter();
     });
