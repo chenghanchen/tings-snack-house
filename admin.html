@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20260902m" />
+    <link rel="stylesheet" href="admin.css?v=20260903a" />
     <link rel="stylesheet" href="order-cards.css?v=20260902b" />
     <link rel="stylesheet" href="order-tab.css?v=20260901a" />
     <link rel="stylesheet" href="marketing-wizard.css?v=20260902m" />
@@ -64,23 +64,28 @@
           <p class="eyebrow">OWNER DASHBOARD</p>
           <h1 id="pageTitle">订单中心</h1>
         </div>
-        <div
-          class="shop-status-switch"
-          id="shopStatusSwitch"
-          aria-label="店铺接单状态"
-        >
-          <button
-            class="shop-status-option active"
-            type="button"
-            data-shop-status="accepting"
+        <div class="admin-header-actions">
+          <div
+            class="shop-status-switch"
+            id="shopStatusSwitch"
+            aria-label="店铺接单状态"
           >
-            <i></i>正在接单</button
-          ><button
-            class="shop-status-option"
-            type="button"
-            data-shop-status="paused"
-          >
-            暂停接单
+            <button
+              class="shop-status-option active"
+              type="button"
+              data-shop-status="accepting"
+            >
+              <i></i>正在接单</button
+            ><button
+              class="shop-status-option"
+              type="button"
+              data-shop-status="paused"
+            >
+              暂停接单
+            </button>
+          </div>
+          <button class="admin-logout" id="adminLogout" type="button">
+            退出登录
           </button>
         </div>
       </header>
@@ -309,7 +314,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260828a"></script>
     <script src="image-optimizer.js?v=20260829a"></script>
-    <script src="admin.js?v=20260902h"></script>
+    <script src="admin.js?v=20260903a"></script>
     <script src="admin-mobile-nav.js?v=20260828a"></script>
     <script src="order-cards.js?v=20260902b"></script>
     <script src="marketing.js?v=20260902k"></script>

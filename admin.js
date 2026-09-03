@@ -951,6 +951,17 @@ const startAdmin = () => {
       setTimeout(() => location.reload(), 900);
     };
   }
+  const logoutButton = $("#adminLogout");
+  if (logoutButton)
+    logoutButton.onclick = async () => {
+      logoutButton.disabled = true;
+      const { error } = await db.auth.signOut();
+      if (error) {
+        logoutButton.disabled = false;
+        return toast(error.message);
+      }
+      location.reload();
+    };
   async function boot() {
     await Promise.all([orders(), products(), categories(), settings()]);
     db.channel("order-alert")
