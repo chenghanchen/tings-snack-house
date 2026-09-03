@@ -86,21 +86,25 @@
           #storeHoursSlot .hours-special-heading h4{margin:0}
           #storeHoursSlot .add-special{width:110px;height:25px;margin-top:0;margin-right:clamp(0px,calc(100% - 265px),335px);border:1.25px solid var(--line);border-radius:10px;background:#fffdf8;color:var(--red);padding:0;font:12px inherit}
           #storeHoursSlot .store-settings-pane[data-store-pane="hours"] .store-save{border-radius:15px}
-          #specialHours .special-hour-row{box-sizing:border-box;width:min(500px,100%);min-height:100px;grid-template-columns:120px 90px 90px 90px 1fr;grid-template-rows:40px 40px;gap:7px;align-items:center;padding:5px 0 0 10px;border-radius:10px}
+          #specialHours .special-hour-row{box-sizing:border-box;width:min(500px,100%);min-height:100px;grid-template-columns:125px 90px 100px 100px 1fr;grid-template-rows:40px 40px;gap:7px;align-items:center;padding:5px 0 0 10px;border-radius:10px}
           #specialHours .special-hour-row input[name="specialDate"],#specialHours .special-hour-row select,#specialHours .special-hour-row input[type="time"]{box-sizing:border-box;height:40px}
-          #specialHours .special-hour-row select,#specialHours .special-hour-row input[type="time"]{width:90px}
+          #specialHours .special-hour-row select{width:90px;margin-left:3px}
+          #specialHours .special-hour-row input[name="specialStart"]{width:100px;margin-left:2px}
+          #specialHours .special-hour-row input[name="specialEnd"]{width:100px;margin-left:10px}
           #specialHours .special-hour-row input[name="specialNote"]{box-sizing:border-box;grid-column:1/5;grid-row:2;width:400px;height:40px}
-          #specialHours .special-hour-row button{box-sizing:border-box;grid-column:5;grid-row:2;justify-self:start;width:50px;height:40px;margin-left:-20px;border:1.25px solid var(--line);border-radius:15px;background:#fffdf8;padding:0}
+          #specialHours .special-hour-row button{box-sizing:border-box;grid-column:5;grid-row:2;justify-self:start;width:50px;height:40px;margin-left:-10px;border:1.25px solid var(--line);border-radius:15px;background:#fffdf8;padding:0}
         }
         @media(max-width:720px){
           #storeHoursSlot .hours-special-heading{display:flex;align-items:center;justify-content:flex-start;gap:12px}
           #storeHoursSlot .add-special{width:110px;height:25px;margin-top:0;margin-right:clamp(0px,calc(100% - 265px),335px);border:1.25px solid var(--line);border-radius:10px;background:#fffdf8;color:var(--red);padding:0;font:12px inherit}
           #specialHours .special-hour-row{box-sizing:border-box;width:min(500px,100%);min-height:0;padding:5px 10px 10px;border-radius:10px}
           #specialHours .special-hour-row input[name="specialDate"],#specialHours .special-hour-row select,#specialHours .special-hour-row input[type="time"]{box-sizing:border-box;height:40px}
-          #specialHours .special-hour-row input[name="specialDate"]{width:120px}
-          #specialHours .special-hour-row select,#specialHours .special-hour-row input[type="time"]{width:90px}
+          #specialHours .special-hour-row input[name="specialDate"]{width:125px}
+          #specialHours .special-hour-row select{width:90px;margin-left:3px}
+          #specialHours .special-hour-row input[name="specialStart"]{width:100px;margin-left:2px}
+          #specialHours .special-hour-row input[name="specialEnd"]{width:100px;margin-left:10px}
           #specialHours .special-hour-row input[name="specialNote"]{box-sizing:border-box;width:min(400px,100%);height:40px}
-          #specialHours .special-hour-row button{box-sizing:border-box;grid-column:1/-1;justify-self:start;width:50px;height:40px;margin-left:0;border:1.25px solid var(--line);border-radius:15px;background:#fffdf8;padding:0}
+          #specialHours .special-hour-row button{box-sizing:border-box;grid-column:1/-1;justify-self:start;width:50px;height:40px;margin-left:-10px;border:1.25px solid var(--line);border-radius:15px;background:#fffdf8;padding:0}
         }
       </style>`,
     );
