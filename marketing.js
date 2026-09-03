@@ -672,8 +672,16 @@
     $("#referralRewardList").innerHTML = rows.length
       ? rows
           .map(
-            (coupon) =>
-              `<div class="referral-code-row"><div class="referral-code-main"><b>${esc(coupon.code || "—")}</b><small>所属手机号：${esc(coupon.recipient_phone || "—")}</small><div class="referral-code-meta"><span class="referral-code-status">可用</span><span>立减：${money(coupon.amount)}</span><span>满 ${money(coupon.min_spend)} 可用</span><span>${coupon.ends_at ? `到期：${esc(chicagoTime(coupon.ends_at))}` : "长期有效"}</span><span>限用一次</span></div></div><button class="text-btn" type="button" data-referral-reward-copy="${esc(coupon.code || "")}">复制</button></div>`,
+            (coupon) => {
+              const expiresAt = coupon.ends_at ? new Date(coupon.ends_at).getTime() : 0;
+              const remainingDays = expiresAt
+                ? Math.ceil(Math.max(0, expiresAt - Date.now()) / 86400000)
+                : 0;
+              const validityLabel = expiresAt
+                ? `有效期：剩余 ${remainingDays} 天`
+                : "长期有效";
+              return `<div class="referral-code-row"><div class="referral-code-main"><div class="referral-code-heading"><b>${esc(coupon.code || "—")}</b><span class="referral-code-validity">${validityLabel}</span></div><small>所属手机号：${esc(coupon.recipient_phone || "—")}</small><div class="referral-code-meta"><span>满 ${money(coupon.min_spend)} 减 ${money(coupon.amount)}</span><span>限用一次</span></div></div><button class="text-btn" type="button" data-referral-reward-copy="${esc(coupon.code || "")}">复制</button></div>`;
+            },
           )
           .join("")
       : '<p class="muted">暂时没有已生成且有效的推荐奖励券。</p>';
