@@ -230,9 +230,7 @@
         ? "<small>" + T.updated + time(x.staff_note_updated_at) + "</small>"
         : "") +
       "</div>";
-    const cancel = x.archived
-      ? '<span class="muted">' + T.archived + "</span>"
-      : x.cancellation_requested
+    const cancel = x.cancellation_requested
         ? '<button class="approve-cancel" data-card-approve="' +
           x.id +
           '">' +
@@ -264,11 +262,11 @@
       discount > 0
         ? '<p class="discount-row"><span>' +
           T.discount +
-          '</span><span class="discount-amount"><span class="promotion-tags">' +
+          '<span class="promotion-tags">' +
           tags.join("") +
-          "</span><span>−" +
+          '</span></span><span class="discount-amount">−' +
           cash(discount) +
-          "</span></span></p>"
+          "</span></p>"
         : "";
     const feeRow = delivery
       ? "<p><span>" +
