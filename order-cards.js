@@ -116,16 +116,17 @@
     const qty = Number(i.qty || 1),
       price = Number(i.price ?? i.unit_price ?? 0),
       total = Number(i.total ?? i.subtotal ?? price * qty),
-      image = i.image || i.product_image || "";
+      image = i.image || i.product_image || "",
+      variant = String(i.variant_label || i.option_label || "").trim();
     const thumb = image ? '<img src="' + esc(image) + '" alt="">' : "&#127852;";
     return (
       '<div class="order-item-detail"><div class="order-item-thumb">' +
       thumb +
       '</div><div class="order-item-main"><b>' +
       esc(i.name || T.items) +
-      "</b><small> &middot; " +
-      esc(i.variant_label || i.option_label || T.variant) +
-      '</small></div><span class="order-item-qty">&times; ' +
+      "</b>" +
+      (variant ? "<small> &middot; " + esc(variant) + "</small>" : "") +
+      '</div><span class="order-item-qty">&times; ' +
       qty +
       '</span><span class="order-item-price">' +
       cash(total) +
