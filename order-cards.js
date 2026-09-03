@@ -221,14 +221,19 @@
       T.notePlaceholder +
       '">' +
       esc(x.staff_note || "") +
-      '</textarea></label><button data-card-save-note="' +
-      x.id +
-      '">' +
-      T.saveNote +
-      "</button>" +
+      "</textarea></label>" +
       (x.staff_note_updated_at
         ? "<small>" + T.updated + time(x.staff_note_updated_at) + "</small>"
         : "") +
+      '<div class="staff-note-actions"><button data-card-save-note="' +
+      x.id +
+      '">' +
+      T.saveNote +
+      '</button><button class="mobile-detail-toggle" data-card-toggle="' +
+      x.id +
+      '">' +
+      T.details +
+      "</button></div>" +
       "</div>";
     const cancel = x.cancellation_requested
         ? '<button class="approve-cancel" data-card-approve="' +
@@ -450,7 +455,9 @@
     const node = button.closest(".order-card");
     if (!node) return;
     const collapsed = node.classList.toggle("is-collapsed");
-    button.textContent = collapsed ? T.details : T.collapse;
+    node
+      .querySelectorAll("[data-card-toggle]")
+      .forEach((toggle) => (toggle.textContent = collapsed ? T.details : T.collapse));
   };
   /* This runs before legacy order handlers, so the compact-card toggle only fires once. */
   root.addEventListener(

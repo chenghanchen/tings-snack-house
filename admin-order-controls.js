@@ -33,6 +33,10 @@
     "beforeend",
     '<style>#orderDateControls{display:flex;align-items:center;gap:18px;margin:0 0 0 14px;flex-wrap:nowrap}.order-date-label{white-space:nowrap;color:#000;font:700 15px "Noto Serif SC",serif}.order-date-filter{position:relative;display:flex;align-items:center;gap:8px;flex-wrap:nowrap}#orderDatePreset{width:170px;min-width:170px;height:35px;margin:0;padding:7px 28px 7px 9px;border-radius:15px;font-size:15px}.order-date-range{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;font-size:15px;color:#758077}.order-date-range input{width:130px;min-width:130px;margin:0;padding:6px 8px;font-size:15px}.order-date-range[hidden]{display:none!important}@media(min-width:721px){#orderDatePreset{margin-left:-10px}}@media(max-width:720px){.order-tab-heading{flex-wrap:wrap}#orderDateControls{position:relative;width:100%;gap:8px;margin:12px 0 0;align-items:center}.order-date-label{font:700 16px "Noto Serif SC",serif}.order-date-filter{position:static}#orderDatePreset{width:150px;min-width:150px;height:36px;font-size:16px}.order-date-range{position:absolute;z-index:2;top:50%;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--paper);font-size:15px}.order-date-range input{width:126px;min-width:0;padding:6px 8px;font-size:16px}#orderDateControls:has(.order-date-range:not([hidden])){padding-bottom:72px}}</style>',
   );
+  document.head.insertAdjacentHTML(
+    "beforeend",
+    '<style>@media(max-width:720px){#orderDateControls{flex-wrap:wrap}.order-date-filter{display:contents}.order-date-range{position:static;z-index:auto;flex-basis:100%;justify-content:center;margin:5px 0;transform:none;background:transparent}#orderDateControls:has(.order-date-range:not([hidden])){padding-bottom:0}}</style>',
+  );
   const dateValue = (date) => {
     const p = (n) => String(n).padStart(2, "0");
     return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
