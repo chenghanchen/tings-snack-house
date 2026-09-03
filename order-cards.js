@@ -83,6 +83,12 @@
     document.querySelector("[data-order-tab].active-order-tab")?.dataset
       .orderTab || "current";
   const fulfillmentFilters = new Set();
+  const placeFulfillmentFilters = () => {
+    const filters = $(".order-fulfillment-filters"),
+      activeTab = document.querySelector("[data-order-tab].active-order-tab");
+    if (filters && activeTab && filters.previousElementSibling !== activeTab)
+      activeTab.after(filters);
+  };
   const stage = (x) =>
     x.cancellation_requested
       ? "取消申请中"
@@ -507,6 +513,7 @@
     .subscribe();
   setTimeout(async () => {
     orders = render;
+    placeFulfillmentFilters();
     const search = $("#orderSearch");
     if (search) search.oninput = render;
     document.querySelectorAll("[data-order-tab]").forEach((button) => {
@@ -516,6 +523,7 @@
           .forEach((node) =>
             node.classList.toggle("active-order-tab", node === button),
           );
+        placeFulfillmentFilters();
         render();
       };
     });
