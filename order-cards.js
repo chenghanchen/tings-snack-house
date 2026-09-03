@@ -497,6 +497,18 @@
     .subscribe();
   setTimeout(async () => {
     orders = render;
+    const search = $("#orderSearch");
+    if (search) search.oninput = render;
+    document.querySelectorAll("[data-order-tab]").forEach((button) => {
+      button.onclick = () => {
+        document
+          .querySelectorAll("[data-order-tab]")
+          .forEach((node) =>
+            node.classList.toggle("active-order-tab", node === button),
+          );
+        render();
+      };
+    });
     try {
       await render();
     } finally {
