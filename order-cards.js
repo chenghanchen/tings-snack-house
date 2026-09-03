@@ -82,12 +82,34 @@
   const tab = () =>
     document.querySelector("[data-order-tab].active-order-tab")?.dataset
       .orderTab || "current";
-  const fulfillmentFilters = new Set();
+  let fulfillmentFilter = "";
   const placeFulfillmentFilters = () => {
     const filters = $(".order-fulfillment-filters"),
       activeTab = document.querySelector("[data-order-tab].active-order-tab");
     if (filters && activeTab && filters.previousElementSibling !== activeTab)
       activeTab.after(filters);
+  };
+  const dateRange = () => {
+    const preset = $("#orderDatePreset")?.value || "30d";
+    const dayStart = (date) =>
+      new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    if (preset === "custom") {
+      const fromValue = $("#orderDateFrom")?.value,
+        toValue = $("#orderDateTo")?.value,
+        from = fromValue ? new Date(`${fromValue}T00:00:00`) : null,
+        to = toValue ? new Date(`${toValue}T00:00:00`) : null;
+      if (to) to.setDate(to.getDate() + 1);
+      return { from, to };
+    }
+    let from = dayStart(new Date()),
+      to = null;
+    if (preset === "7d") from.setDate(from.getDate() - 6);
+    if (preset === "30d") from.setDate(from.getDate() - 29);
+    if (preset === "month")
+      from = new Date(from.getFullYear(), from.getMonth(), 1);
+    if (preset === "today")
+      to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 1);
+    return { from, to };
   };
   const stage = (x) =>
     x.cancellation_requested
@@ -299,9 +321,7 @@
           esc(x.customer_note) +
           "</p></section>"
         : "") +
-      '<section class="card-section"><p class="card-label">' +
-      T.ownerNote +
-      "</p>" +
+      '<section class="card-section">' +
       staff +
       "</section></div>";
     return (
@@ -375,13 +395,18 @@
     }
     const all = orders || [],
       selected = tab(),
-      query = ($("#orderSearch")?.value || "").trim().toLowerCase();
+      query = ($("#orderSearch")?.value || "").trim().toLowerCase(),
+      range = dateRange();
     const list = all
       .filter((x) => (selected === "history") === !!x.archived)
-      .filter(
-        (x) =>
-          !fulfillmentFilters.size || fulfillmentFilters.has(x.fulfillment),
-      )
+      .filter((x) => !fulfillmentFilter || x.fulfillment === fulfillmentFilter)
+      .filter((x) => {
+        const createdAt = new Date(x.created_at);
+        return (
+          (!range.from || createdAt >= range.from) &&
+          (!range.to || createdAt < range.to)
+        );
+      })
       .filter(
         (x) =>
           !query ||
@@ -532,13 +557,14 @@
       .forEach((button) => {
         button.onclick = () => {
           const value = button.dataset.orderFulfillmentFilter;
-          if (fulfillmentFilters.has(value)) fulfillmentFilters.delete(value);
-          else fulfillmentFilters.add(value);
-          button.classList.toggle("active", fulfillmentFilters.has(value));
-          button.setAttribute(
-            "aria-pressed",
-            String(fulfillmentFilters.has(value)),
-          );
+          fulfillmentFilter = fulfillmentFilter === value ? "" : value;
+          document
+            .querySelectorAll("[data-order-fulfillment-filter]")
+            .forEach((node) => {
+              const active = node.dataset.orderFulfillmentFilter === fulfillmentFilter;
+              node.classList.toggle("active", active);
+              node.setAttribute("aria-pressed", String(active));
+            });
           render();
         };
       });

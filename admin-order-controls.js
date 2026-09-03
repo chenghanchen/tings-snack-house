@@ -23,7 +23,7 @@
   );
   document.head.insertAdjacentHTML(
     "beforeend",
-    "<style>#orders .panel{padding:18px 24px}#orders .panel-head{min-height:0;padding:0 0 8px;margin-bottom:0}.order-tab-heading{min-height:0}.order-tab{width:150px;height:50px;padding:5px;font-size:25px}.order-tabs{gap:8px}#orderDateControls{gap:10px;margin-left:14px}.order-date-field{font-size:13px}.order-date-field select,.order-date-field input{margin-top:3px;min-width:170px;padding:10px 12px;font-size:14px}.order-date-range{gap:7px}.order-search{margin:11px 0}@media(max-width:720px){#orders .panel{padding:16px}.order-tab{width:auto;height:auto;padding:10px 13px;font-size:14px}.order-date-field select,.order-date-field input{min-width:0;padding:9px 10px;font-size:13px}}</style>",
+    "<style>#orders .panel{padding:18px 24px}#orders .panel-head{min-height:0;padding:0 0 8px;margin-bottom:0}.order-tab-heading{min-height:0}.order-tab{width:130px;height:50px;padding:5px;font-size:25px}.order-tabs{gap:8px}#orderDateControls{gap:10px;margin-left:14px}.order-date-field{font-size:13px}.order-date-field select,.order-date-field input{margin-top:3px;min-width:170px;padding:10px 12px;font-size:14px}.order-date-range{gap:7px}.order-search{margin:11px 0}@media(max-width:720px){#orders .panel{padding:16px}.order-tab{width:auto;height:auto;padding:10px 13px;font-size:14px}.order-date-field select,.order-date-field input{min-width:0;padding:9px 10px;font-size:13px}}</style>",
   );
   document.head.insertAdjacentHTML(
     "beforeend",
@@ -31,7 +31,7 @@
   );
   document.head.insertAdjacentHTML(
     "beforeend",
-    '<style>#orderDateControls{display:flex;align-items:center;gap:18px;margin:0 0 0 14px;flex-wrap:nowrap}.order-date-label{white-space:nowrap;color:#000;font:700 15px "Noto Serif SC",serif}.order-date-filter{position:relative;display:flex;align-items:center;gap:8px;flex-wrap:nowrap}#orderDatePreset{width:170px;min-width:170px;height:35px;margin:0;padding:7px 28px 7px 9px;border-radius:15px;font-size:15px}.order-date-range{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;font-size:15px;color:#758077}.order-date-range input{width:130px;min-width:130px;margin:0;padding:6px 8px;font-size:15px}.order-date-range[hidden]{display:none!important}@media(max-width:720px){.order-tab-heading{flex-wrap:wrap}#orderDateControls{position:relative;width:100%;gap:8px;margin:12px 0 0;align-items:center}.order-date-label{font:700 16px "Noto Serif SC",serif}.order-date-filter{position:static}#orderDatePreset{width:150px;min-width:150px;height:36px;font-size:16px}.order-date-range{position:absolute;z-index:2;top:50%;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--paper);font-size:15px}.order-date-range input{width:126px;min-width:0;padding:6px 8px;font-size:16px}#orderDateControls:has(.order-date-range:not([hidden])){padding-bottom:72px}}</style>',
+    '<style>#orderDateControls{display:flex;align-items:center;gap:18px;margin:0 0 0 14px;flex-wrap:nowrap}.order-date-label{white-space:nowrap;color:#000;font:700 15px "Noto Serif SC",serif}.order-date-filter{position:relative;display:flex;align-items:center;gap:8px;flex-wrap:nowrap}#orderDatePreset{width:170px;min-width:170px;height:35px;margin:0;padding:7px 28px 7px 9px;border-radius:15px;font-size:15px}.order-date-range{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;font-size:15px;color:#758077}.order-date-range input{width:130px;min-width:130px;margin:0;padding:6px 8px;font-size:15px}.order-date-range[hidden]{display:none!important}@media(min-width:721px){#orderDatePreset{margin-left:-10px}}@media(max-width:720px){.order-tab-heading{flex-wrap:wrap}#orderDateControls{position:relative;width:100%;gap:8px;margin:12px 0 0;align-items:center}.order-date-label{font:700 16px "Noto Serif SC",serif}.order-date-filter{position:static}#orderDatePreset{width:150px;min-width:150px;height:36px;font-size:16px}.order-date-range{position:absolute;z-index:2;top:50%;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--paper);font-size:15px}.order-date-range input{width:126px;min-width:0;padding:6px 8px;font-size:16px}#orderDateControls:has(.order-date-range:not([hidden])){padding-bottom:72px}}</style>',
   );
   const dateValue = (date) => {
     const p = (n) => String(n).padStart(2, "0");
@@ -105,7 +105,7 @@
   }
   function queueDateFilter() {
     clearTimeout(filterTimer);
-    filterTimer = setTimeout(applyOrderDateFilter, 300);
+    filterTimer = setTimeout(() => window.orders?.(), 0);
   }
   function setupDateControls() {
     const search = $("#orderSearch");
@@ -142,22 +142,7 @@
     });
     $("#orderDateFrom").addEventListener("change", queueDateFilter);
     $("#orderDateTo").addEventListener("change", queueDateFilter);
-    $("#orderSearch").addEventListener("input", queueDateFilter);
-    document
-      .querySelectorAll("[data-order-tab]")
-      .forEach((button) => button.addEventListener("click", queueDateFilter));
-    const baseOrders = window.orders;
-    setTimeout(() => {
-      const latestOrders = window.orders;
-      if (latestOrders && latestOrders !== baseOrders) {
-        window.orders = async (...args) => {
-          const result = await latestOrders(...args);
-          queueDateFilter();
-          return result;
-        };
-      }
-      queueDateFilter();
-    }, 160);
+    setTimeout(queueDateFilter, 160);
   }
   function syncAlertButton(button) {
     button.textContent = alertEnabled ? "关闭新订单提醒" : "开启新订单提醒";
@@ -305,17 +290,3 @@
   }
   window.addEventListener("load", () => setTimeout(start, 80));
 })();
-
-/* The compact-card renderer is installed after the base admin script. Keep the date filter after every redraw. */
-setTimeout(() => {
-  const original = window.orders;
-  if (!original || original.__dateRangeWrapped) return;
-  const wrapped = async (...args) => {
-    const result = await original(...args);
-    const preset = document.querySelector("#orderDatePreset");
-    if (preset) preset.dispatchEvent(new Event("change"));
-    return result;
-  };
-  wrapped.__dateRangeWrapped = true;
-  window.orders = wrapped;
-}, 700);
