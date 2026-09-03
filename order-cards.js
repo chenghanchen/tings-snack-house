@@ -317,11 +317,11 @@
       cash(x.total_amount ?? x.subtotal) +
       "</span></p></div></section>" +
       (x.customer_note && x.customer_note.trim()
-        ? '<section class="card-section"><p class="card-label">' +
+        ? '<section class="card-section customer-note-section"><div class="customer-note-row"><p class="card-label">' +
           T.customerNote +
           '</p><p class="customer-note">' +
           esc(x.customer_note) +
-          "</p></section>"
+          "</p></div></section>"
         : "") +
       '<section class="card-section">' +
       staff +
