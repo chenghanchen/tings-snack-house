@@ -271,13 +271,12 @@
     const feeRow = delivery
       ? "<p><span>" +
         T.fee +
-        '</span><span class="fee-value">' +
         (Number(x.delivery_fee || 0) === 0
-          ? "<small>" + T.waived + "</small>"
+          ? '<small class="fee-note">' + T.waived + "</small>"
           : "") +
-        "<b>" +
+        '</span><span class="fee-value">' +
         cash(x.delivery_fee) +
-        "</b></span></p>"
+        "</span></p>"
       : "";
     const detail =
       '<div class="order-detail"><section class="card-section"><p class="card-label">' +
