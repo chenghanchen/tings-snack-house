@@ -198,8 +198,8 @@
               ? "近 30 天"
               : metricRange === "month"
                 ? "本月"
-                : "自定义日期范围";
-    return `<div class="marketing-metrics-head"><span class="marketing-metrics-label">数据统计</span><div class="marketing-date-filter"><select aria-label="统计时间范围" data-metric-range><option value="today" ${metricRange === "today" ? "selected" : ""}>今日</option><option value="7d" ${metricRange === "7d" ? "selected" : ""}>近 7 天</option><option value="30d" ${metricRange === "30d" ? "selected" : ""}>近 30 天</option><option value="month" ${metricRange === "month" ? "selected" : ""}>本月</option><option value="custom" ${custom ? "selected" : ""}>自定义日期范围</option></select>${custom ? `<div class="custom-date-range"><input aria-label="开始日期" data-metric-start type="date" value="${esc(window.start || "")}"><span>至</span><input aria-label="结束日期" data-metric-end type="date" value="${esc(window.end || "")}"></div>` : ""}</div><button class="primary marketing-create" data-create>＋ 创建活动</button></div>`;
+                : "自定义日期";
+    return `<div class="marketing-metrics-head"><span class="marketing-metrics-label">数据统计</span><div class="marketing-date-filter"><select aria-label="统计时间范围" data-metric-range><option value="today" ${metricRange === "today" ? "selected" : ""}>今日</option><option value="7d" ${metricRange === "7d" ? "selected" : ""}>近 7 天</option><option value="30d" ${metricRange === "30d" ? "selected" : ""}>近 30 天</option><option value="month" ${metricRange === "month" ? "selected" : ""}>本月</option><option value="custom" ${custom ? "selected" : ""}>自定义日期</option></select>${custom ? `<div class="custom-date-range"><input aria-label="开始日期" data-metric-start type="date" value="${esc(window.start || "")}"><span>至</span><input aria-label="结束日期" data-metric-end type="date" value="${esc(window.end || "")}"></div>` : ""}</div><button class="primary marketing-create" data-create>＋ 创建活动</button></div>`;
   }
   function campaignType(item) {
     if (item.kind === "full_reduction") return "full_reduction";
@@ -277,14 +277,14 @@
         .join("") || '<p class="muted empty-offer">还没有草稿或历史活动。</p>'
     }</div></section><section class="panel referral-summary"><div><p class="eyebrow">REFERRAL REWARD</p><h2>推荐奖励</h2><p>新生成推荐码：新客首单立减 <b>${money(referralAmount)}</b>，满 <b>${money(referralMin)}</b> 可用${Number(referralDays) ? `，有效期 ${referralDays} 天` : "，长期有效"}${Number(rewards?.referral_max_uses || 0) ? `，每码最多 ${rewards.referral_max_uses} 次` : "，不限次数"}。新生成推荐奖励券：双方各获 <b>${money(rewardAmount)}</b> 券，满 <b>${money(rewardMin)}</b> 可用${Number(rewardDays) ? `，有效期 ${rewardDays} 天` : "，长期有效"}，每券限用一次。调整不会影响已经生成的推荐码或推荐券。</p></div><div><b>${referrals.length}</b><small>已生成推荐码</small><div class="referral-summary-actions"><div><button class="text-btn" data-show-referral-codes>查看推荐码</button><button class="text-btn" data-create-referral-code>调整推荐码</button></div><div><button class="text-btn" data-show-referral-rewards>查看推荐券</button><button class="text-btn" data-create-referral>调整推荐券</button></div></div></div></section></div>${wizard ? wizardView() : ""}`;
     root.querySelector(".marketing-library .muted").textContent =
-      "已结束或已停用的活动也会保留在这里。";
+      "草稿，已结束或已停用的活动也会保留在这里。";
     root.querySelector(".marketing-active h2").textContent =
       "进行中的活动/优惠券";
     root.querySelector(".marketing-library h2").textContent =
       "已结束的活动/优惠券";
     root.querySelector(".referral-summary h2").insertAdjacentHTML(
       "afterend",
-      `<span class="referral-code-total">已生成推荐码：${referrals.length}</span>`,
+      `<span class="referral-code-total">已生成推荐码：<b>${referrals.length}</b></span>`,
     );
     bind();
   }
