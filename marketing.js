@@ -626,8 +626,17 @@
                     : 0,
                 expired = expiresAt && expiresAt <= Date.now(),
                 exhausted = rowMaxUses > 0 && uses >= rowMaxUses,
-                state = expired ? "已过期" : exhausted ? "已用完" : "可用";
-              return `<div class="referral-code-row"><div class="referral-code-main"><b>${esc(row.referral_code || "—")}</b><small>手机号：${esc(row.phone || "—")}</small><div class="referral-code-meta"><span class="referral-code-status">${state}</span><span>有效期：${rowValidity > 0 ? `${rowValidity} 天` : "长期有效"}</span><span>已用 ${uses}${rowMaxUses > 0 ? ` / ${rowMaxUses}` : " 次（不限）"}</span><span>立减：${money(rowAmount)}</span><span>满 ${money(rowMin)} 可用</span><span>生成：${esc(chicagoTime(row.created_at) || "—")}</span></div></div><button class="text-btn" type="button" data-referral-copy="${esc(row.referral_code || "")}">复制</button></div>`;
+                remainingDays = expiresAt
+                  ? Math.ceil(Math.max(0, expiresAt - Date.now()) / 86400000)
+                  : 0,
+                validityLabel = expired
+                  ? "已过期"
+                  : exhausted
+                    ? "已用完"
+                    : expiresAt
+                      ? `有效期：剩余 ${remainingDays} 天`
+                      : "长期有效";
+              return `<div class="referral-code-row"><div class="referral-code-main"><div class="referral-code-heading"><b>${esc(row.referral_code || "—")}</b><span class="referral-code-validity">${validityLabel}</span></div><small>手机号：${esc(row.phone || "—")}</small><div class="referral-code-meta"><span>已用 ${uses}${rowMaxUses > 0 ? ` / ${rowMaxUses}` : " 次（不限）"}</span><span>满 ${money(rowMin)} 减 ${money(rowAmount)}</span><span>生成：${esc(chicagoTime(row.created_at) || "—")}</span></div></div><button class="text-btn" type="button" data-referral-copy="${esc(row.referral_code || "")}">复制</button></div>`;
             },
           )
           .join("")
