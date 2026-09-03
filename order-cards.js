@@ -82,6 +82,7 @@
   const tab = () =>
     document.querySelector("[data-order-tab].active-order-tab")?.dataset
       .orderTab || "current";
+  const fulfillmentFilters = new Set();
   const stage = (x) =>
     x.cancellation_requested
       ? "取消申请中"
@@ -125,10 +126,14 @@
       '</div><div class="order-item-main"><b>' +
       esc(i.name || T.items) +
       "</b>" +
-      (variant ? "<small> &middot; " + esc(variant) + "</small>" : "") +
-      '</div><span class="order-item-qty">&times; ' +
-      qty +
-      '</span><span class="order-item-price">' +
+      (variant
+        ? "<small> &middot; " +
+          esc(variant) +
+          ' <span class="order-item-qty">&times; ' +
+          qty +
+          "</span></small>"
+        : ' <span class="order-item-qty">&times; ' + qty + "</span>") +
+      '</div><span class="order-item-price">' +
       cash(total) +
       "</span></div>"
     );
@@ -369,6 +374,10 @@
       .filter((x) => (selected === "history") === !!x.archived)
       .filter(
         (x) =>
+          !fulfillmentFilters.size || fulfillmentFilters.has(x.fulfillment),
+      )
+      .filter(
+        (x) =>
           !query ||
           [x.order_number, x.customer_name, x.phone, time(x.created_at)]
             .join(" ")
@@ -510,6 +519,21 @@
         render();
       };
     });
+    document
+      .querySelectorAll("[data-order-fulfillment-filter]")
+      .forEach((button) => {
+        button.onclick = () => {
+          const value = button.dataset.orderFulfillmentFilter;
+          if (fulfillmentFilters.has(value)) fulfillmentFilters.delete(value);
+          else fulfillmentFilters.add(value);
+          button.classList.toggle("active", fulfillmentFilters.has(value));
+          button.setAttribute(
+            "aria-pressed",
+            String(fulfillmentFilters.has(value)),
+          );
+          render();
+        };
+      });
     try {
       await render();
     } finally {

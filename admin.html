@@ -18,7 +18,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="admin.css?v=20260903f" />
-    <link rel="stylesheet" href="order-cards.css?v=20260903a" />
+    <link rel="stylesheet" href="order-cards.css?v=20260903b" />
     <link rel="stylesheet" href="order-tab.css?v=20260901a" />
     <link rel="stylesheet" href="marketing-wizard.css?v=20260902m" />
     <link rel="stylesheet" href="shop-status.css?v=20260901a" />
@@ -119,6 +119,18 @@
             </div>
           </div>
           <div class="order-search">
+            <div
+              class="order-fulfillment-filters"
+              role="group"
+              aria-label="订单配送方式筛选"
+            >
+              <button type="button" data-order-fulfillment-filter="delivery">
+                🚗 配送订单
+              </button>
+              <button type="button" data-order-fulfillment-filter="pickup">
+                🛍 自取订单
+              </button>
+            </div>
             <input
               id="orderSearch"
               placeholder="按日期、姓名、电话或订单号查找订单"
@@ -316,7 +328,7 @@
     <script src="image-optimizer.js?v=20260829a"></script>
     <script src="admin.js?v=20260903c"></script>
     <script src="admin-mobile-nav.js?v=20260828a"></script>
-    <script src="order-cards.js?v=20260903a"></script>
+    <script src="order-cards.js?v=20260903b"></script>
     <script src="marketing.js?v=20260902k"></script>
     <script src="legacy-product-editor-bridge.js?v=20260828a"></script>
     <script src="category-product-manager.js?v=20260902d"></script>
