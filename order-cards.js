@@ -337,7 +337,9 @@
       Number(x.delivery_fee || 0) +
       '"><div class="order-top"><div><div class="order-title-wrap"><h3>' +
       esc(x.order_number) +
-      '</h3><span class="status-stage">' +
+      '</h3><span class="status-stage' +
+      (x.cancellation_requested ? " cancellation-pending" : "") +
+      '">' +
       esc(stage(x)) +
       "</span>" +
       select +
@@ -345,8 +347,10 @@
       T.time +
       time(x.created_at) +
       "</p></div>" +
-      (action && !x.archived
-        ? '<button class="advance-order ' +
+      (x.cancellation_requested
+        ? '<div class="cancellation-actions">' + cancel + "</div>"
+        : action && !x.archived
+          ? '<button class="advance-order ' +
           action.kind +
           '" data-card-advance="' +
           x.id +
@@ -355,7 +359,7 @@
           '">' +
           action.label +
           "</button>"
-        : "") +
+          : "") +
       "</div>" +
       (x.cancellation_requested
         ? '<p class="cancellation-alert">' +
@@ -379,9 +383,7 @@
       x.id +
       '">' +
       T.details +
-      '</button><div class="order-footer-right">' +
-      cancel +
-      "</div></div></article>"
+      '</button><div class="order-footer-right"></div></div></article>'
     );
   };
   const render = async () => {
