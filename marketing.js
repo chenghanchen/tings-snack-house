@@ -260,9 +260,12 @@
     const root = $("#marketingCenter");
     if (!root) return;
     const s = stats(),
+      referralRewardCoupons = coupons.filter((coupon) => coupon.is_referral_reward),
       active = [
         ...campaigns.filter(isRunning),
-        ...coupons.filter(isRunning).map((x) => ({ ...x, _coupon: true })),
+        ...coupons
+          .filter((coupon) => !coupon.is_referral_reward && isRunning(coupon))
+          .map((x) => ({ ...x, _coupon: true })),
       ];
     const referralAmount = rewards?.referral_amount ?? rewards?.amount ?? 5,
       referralMin = rewards?.referral_min_spend ?? rewards?.min_spend ?? 35,
@@ -284,7 +287,7 @@
       "已结束的活动/优惠券";
     root.querySelector(".referral-summary h2").insertAdjacentHTML(
       "afterend",
-      `<span class="referral-code-total">已生成推荐码：<b>${referrals.length}</b></span>`,
+      `<span class="referral-code-total">已生成推荐码：<b>${referrals.length}</b></span><span class="referral-code-total">已生成推荐券：<b>${referralRewardCoupons.length}</b></span>`,
     );
     bind();
   }
