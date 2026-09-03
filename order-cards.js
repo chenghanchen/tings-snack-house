@@ -424,7 +424,15 @@
       .filter(
         (x) =>
           !query ||
-          [x.order_number, x.customer_name, x.phone, time(x.created_at)]
+          [
+            x.order_number,
+            x.customer_name,
+            x.phone,
+            time(x.created_at),
+            x.status,
+            stage(x),
+            x.fulfillment === "delivery" ? T.delivery : T.pickup,
+          ]
             .join(" ")
             .toLowerCase()
             .includes(query),
