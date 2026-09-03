@@ -278,6 +278,10 @@
     }</div></section><section class="panel referral-summary"><div><p class="eyebrow">REFERRAL REWARD</p><h2>推荐奖励</h2><p>新生成推荐码：新客首单立减 <b>${money(referralAmount)}</b>，满 <b>${money(referralMin)}</b> 可用${Number(referralDays) ? `，有效期 ${referralDays} 天` : "，长期有效"}${Number(rewards?.referral_max_uses || 0) ? `，每码最多 ${rewards.referral_max_uses} 次` : "，不限次数"}。新生成推荐奖励券：双方各获 <b>${money(rewardAmount)}</b> 券，满 <b>${money(rewardMin)}</b> 可用${Number(rewardDays) ? `，有效期 ${rewardDays} 天` : "，长期有效"}，每券限用一次。调整不会影响已经生成的推荐码或推荐券。</p></div><div><b>${referrals.length}</b><small>已生成推荐码</small><div class="referral-summary-actions"><div><button class="text-btn" data-show-referral-codes>查看推荐码</button><button class="text-btn" data-create-referral-code>调整推荐码</button></div><div><button class="text-btn" data-show-referral-rewards>查看推荐券</button><button class="text-btn" data-create-referral>调整推荐券</button></div></div></div></section></div>${wizard ? wizardView() : ""}`;
     root.querySelector(".marketing-library .muted").textContent =
       "已结束或已停用的活动也会保留在这里。";
+    root.querySelector(".marketing-active h2").textContent =
+      "进行中的活动/优惠券";
+    root.querySelector(".marketing-library h2").textContent =
+      "已结束的活动/优惠券";
     bind();
   }
   function choice(type, icon, title, note) {
