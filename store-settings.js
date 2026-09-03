@@ -77,6 +77,21 @@
     @media(max-width:720px){#settings{width:100%}.store-settings-layout{margin-top:16px}.store-settings-row,.order-rule-row{grid-template-columns:1fr}.special-hour-row{grid-template-columns:1fr 1fr;gap:8px}.special-hour-row input[name="specialNote"]{grid-column:1/-1}.special-hour-row button{grid-column:2;justify-self:end}.hours-table{display:block;overflow:auto}.hours-table th,.hours-table td{white-space:nowrap;padding:6px 5px}.hours-table input[type="time"]{width:92px}.store-save{width:100%}.store-settings-submenu{margin:0 0 4px 5px}.store-settings-submenu button{padding:8px 10px!important}}
   </style>`,
     );
+    document.head.insertAdjacentHTML(
+      "beforeend",
+      `<style id="storeHoursLayoutStyles">
+        @media(min-width:721px){
+          #settings:has(#storeHoursSlot .store-settings-pane.active) .panel.narrow{padding-top:0;padding-bottom:15px}
+          #storeHoursSlot .hours-special-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px}
+          #storeHoursSlot .hours-special-heading h4{margin:0}
+          #storeHoursSlot .add-special{width:110px;height:25px;margin:0;border:1.25px solid var(--line);border-radius:10px;background:#fffdf8;color:var(--red);padding:0;font:12px inherit}
+          #storeHoursSlot .store-settings-pane[data-store-pane="hours"] .store-save{border-radius:15px}
+          #specialHours .special-hour-row{width:100%;min-height:100px;grid-template-columns:135px 90px minmax(70px,1fr) minmax(70px,1fr) auto;grid-template-rows:35px 35px;align-items:center;padding:0 0 16px}
+          #specialHours .special-hour-row input[name="specialNote"]{grid-column:1/5;grid-row:2}
+          #specialHours .special-hour-row button{grid-column:5;grid-row:2;justify-self:end}
+        }
+      </style>`,
+    );
   }
 
   function screen(id) {
@@ -135,7 +150,7 @@
     return `<div class="special-hour-row"><input name="specialDate" type="date" value="${esc(row.date)}"><select name="specialOpen"><option value="open" ${row.open ? "selected" : ""}>营业</option><option value="closed" ${row.open ? "" : "selected"}>休息</option></select><input name="specialStart" type="time" value="${esc(row.start || "10:00")}"><input name="specialEnd" type="time" value="${esc(row.end || "22:00")}"><input name="specialNote" placeholder="说明（选填）" value="${esc(row.note)}"><button type="button" data-remove-special>删除</button></div>`;
   }
   function hoursMarkup() {
-    return `<table class="hours-table"><thead><tr><th>星期</th><th>状态</th><th>营业时间</th></tr></thead><tbody>${dayRows.map(([id, name]) => `<tr><td>${name}</td><td><label><input type="checkbox" data-hours-open="${id}">营业</label></td><td><input type="time" data-hours-start="${id}"> <span>–</span> <input type="time" data-hours-end="${id}"></td></tr>`).join("")}</tbody></table><h4>特殊营业时间／节假日</h4><p class="settings-inline-note">可单独设置某一天营业或休息，无需修改正常营业时间。</p><div class="special-hours" id="specialHours"></div><button type="button" class="text-btn add-special" data-add-special>＋ 添加特殊日期</button>`;
+    return `<table class="hours-table"><thead><tr><th>星期</th><th>状态</th><th>营业时间</th></tr></thead><tbody>${dayRows.map(([id, name]) => `<tr><td>${name}</td><td><label><input type="checkbox" data-hours-open="${id}">营业</label></td><td><input type="time" data-hours-start="${id}"> <span>–</span> <input type="time" data-hours-end="${id}"></td></tr>`).join("")}</tbody></table><div class="hours-special-heading"><h4>特殊营业时间／节假日</h4><button type="button" class="text-btn add-special" data-add-special>＋ 添加特殊日期</button></div><p class="settings-inline-note">可单独设置某一天营业或休息，无需修改正常营业时间。</p><div class="special-hours" id="specialHours"></div>`;
   }
 
   function hideLegacySource(form) {
