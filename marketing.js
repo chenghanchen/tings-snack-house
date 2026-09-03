@@ -306,7 +306,7 @@
       typeName = typeNames[w.type] || "营销活动",
       body =
         w.step === 1
-          ? `<div class="wizard-type-grid">${choice("full_reduction", "💵", "满减优惠", "消费满额立减")}${choice("discount", "%", "折扣", "全店、分类或商品折扣")}${choice("coupon", "🎟", "优惠券", "创建兑换码")}${choice("referral", "🎁", "推荐奖励", "设置推荐奖励券")}${choice("free_shipping", "🚗", "免配送费", "配送订单免运费")}${choice("product_special", "🛍", "指定商品优惠", "给指定商品优惠")}${choice("limited", "⏰", "限时促销", "为优惠设置活动时间")}</div>`
+          ? `<div class="wizard-type-grid">${choice("full_reduction", "💵", "满减优惠", "消费满额立减")}${choice("discount", "🛍", "商品优惠", "全店、分类或商品折扣")}${choice("coupon", "🎟", "优惠券", "创建兑换码")}${choice("referral", "🎁", "推荐奖励", "设置推荐奖励券")}${choice("free_shipping", "🚗", "免配送费", "配送订单免运费")}${choice("limited", "⏰", "限时促销", "为优惠设置活动时间")}</div>`
           : w.step === 2
             ? wizardCore(w)
             : w.step === 3
