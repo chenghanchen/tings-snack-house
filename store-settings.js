@@ -82,13 +82,24 @@
       `<style id="storeHoursLayoutStyles">
         @media(min-width:721px){
           #settings:has(#storeHoursSlot .store-settings-pane.active) .panel.narrow{padding-top:0;padding-bottom:15px}
-          #storeHoursSlot .hours-special-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px}
+          #storeHoursSlot .hours-special-heading{display:flex;align-items:center;justify-content:flex-start;gap:12px;margin-top:10px}
           #storeHoursSlot .hours-special-heading h4{margin:0}
-          #storeHoursSlot .add-special{width:110px;height:25px;margin:0;border:1.25px solid var(--line);border-radius:10px;background:#fffdf8;color:var(--red);padding:0;font:12px inherit}
+          #storeHoursSlot .add-special{width:110px;height:25px;margin-right:clamp(0px,calc(100% - 265px),335px);border:1.25px solid var(--line);border-radius:10px;background:#fffdf8;color:var(--red);padding:0;font:12px inherit}
           #storeHoursSlot .store-settings-pane[data-store-pane="hours"] .store-save{border-radius:15px}
-          #specialHours .special-hour-row{width:100%;min-height:100px;grid-template-columns:135px 90px minmax(70px,1fr) minmax(70px,1fr) auto;grid-template-rows:35px 35px;align-items:center;padding:0 0 16px}
-          #specialHours .special-hour-row input[name="specialNote"]{grid-column:1/5;grid-row:2}
-          #specialHours .special-hour-row button{grid-column:5;grid-row:2;justify-self:end}
+          #specialHours .special-hour-row{box-sizing:border-box;width:min(600px,100%);min-height:100px;grid-template-columns:135px 90px 90px 90px 1fr;grid-template-rows:40px 40px;gap:7px;align-items:center;padding:10px 0 0 10px;border-radius:10px}
+          #specialHours .special-hour-row input[name="specialDate"],#specialHours .special-hour-row select,#specialHours .special-hour-row input[type="time"]{box-sizing:border-box;height:40px}
+          #specialHours .special-hour-row select,#specialHours .special-hour-row input[type="time"]{width:90px}
+          #specialHours .special-hour-row input[name="specialNote"]{box-sizing:border-box;grid-column:1/5;grid-row:2;width:400px;height:40px}
+          #specialHours .special-hour-row button{box-sizing:border-box;grid-column:5;grid-row:2;justify-self:start;width:50px;height:40px;margin-left:105px;border:1.25px solid var(--line);border-radius:15px;background:#fffdf8;padding:0}
+        }
+        @media(max-width:720px){
+          #storeHoursSlot .hours-special-heading{display:flex;align-items:center;justify-content:flex-start;gap:12px}
+          #storeHoursSlot .add-special{width:110px;height:25px;margin-right:clamp(0px,calc(100% - 265px),335px);border:1.25px solid var(--line);border-radius:10px;background:#fffdf8;color:var(--red);padding:0;font:12px inherit}
+          #specialHours .special-hour-row{box-sizing:border-box;width:100%;min-height:0;padding:10px;border-radius:10px}
+          #specialHours .special-hour-row input[name="specialDate"],#specialHours .special-hour-row select,#specialHours .special-hour-row input[type="time"]{box-sizing:border-box;height:40px}
+          #specialHours .special-hour-row select,#specialHours .special-hour-row input[type="time"]{width:90px}
+          #specialHours .special-hour-row input[name="specialNote"]{box-sizing:border-box;width:min(400px,100%);height:40px}
+          #specialHours .special-hour-row button{box-sizing:border-box;grid-column:1/-1;justify-self:start;width:50px;height:40px;margin-left:0;border:1.25px solid var(--line);border-radius:15px;background:#fffdf8;padding:0}
         }
       </style>`,
     );
