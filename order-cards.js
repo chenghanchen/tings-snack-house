@@ -37,7 +37,6 @@
     ownerNote: "\u5e97\u4e3b\u8bf4\u660e",
     notePlaceholder:
       "\u586b\u5199\u7ed9\u987e\u5ba2\u770b\u7684\u8ba2\u5355\u8bf4\u660e",
-    saveNote: "\u4fdd\u5b58\u8bf4\u660e",
     updated: "\u66f4\u65b0\u4e8e\uff1a",
     cancel: "\u53d6\u6d88\u8ba2\u5355",
     approve: "\u901a\u8fc7\u53d6\u6d88\u7533\u8bf7",
@@ -231,18 +230,11 @@
       '">' +
       esc(x.staff_note || "") +
       "</textarea></label>" +
+      '<small class="staff-note-status" aria-live="polite">' +
       (x.staff_note_updated_at
-        ? "<small>" + T.updated + time(x.staff_note_updated_at) + "</small>"
+        ? T.updated + time(x.staff_note_updated_at)
         : "") +
-      '<div class="staff-note-actions"><button data-card-save-note="' +
-      x.id +
-      '">' +
-      T.saveNote +
-      '</button><button class="mobile-detail-toggle" data-card-toggle="' +
-      x.id +
-      '">' +
-      T.details +
-      "</button></div>" +
+      "</small>" +
       "</div>";
     const cancel = x.cancellation_requested
         ? '<button class="approve-cancel" data-card-approve="' +
@@ -357,19 +349,6 @@
       T.time +
       time(x.created_at) +
       "</p></div>" +
-      (x.cancellation_requested
-        ? '<div class="cancellation-actions">' + cancel + "</div>"
-        : action && !x.archived
-          ? '<button class="advance-order ' +
-          action.kind +
-          '" data-card-advance="' +
-          x.id +
-          '" data-target="' +
-          action.target +
-          '">' +
-          action.label +
-          "</button>"
-          : "") +
       "</div>" +
       (x.cancellation_requested
         ? '<p class="cancellation-alert">' +
@@ -393,7 +372,21 @@
       x.id +
       '">' +
       T.details +
-      '</button><div class="order-footer-right"></div></div></article>'
+      '</button><div class="order-footer-right">' +
+      (x.cancellation_requested
+        ? '<div class="cancellation-actions">' + cancel + "</div>"
+        : action && !x.archived
+          ? '<button class="advance-order ' +
+            action.kind +
+            '" data-card-advance="' +
+            x.id +
+            '" data-target="' +
+            action.target +
+            '">' +
+            action.label +
+            "</button>"
+          : "") +
+      "</div></div></article>"
     );
   };
   const render = async () => {
@@ -471,6 +464,48 @@
     toast(result.error ? result.error.message : T.orderUpdated);
     if (!result.error) render();
   };
+  const noteTimers = new Map();
+  const saveNote = async (field) => {
+    const id = field?.dataset.cardNote;
+    if (!id) return;
+    if (field.dataset.noteSaving === "true") {
+      field.dataset.noteDirty = "true";
+      return;
+    }
+    const value = field.value;
+    field.dataset.noteSaving = "true";
+    field.dataset.noteDirty = "";
+    const result = await client.rpc("owner_update_order_note", {
+      p_order_id: id,
+      p_staff_note: value,
+    });
+    field.dataset.noteSaving = "";
+    if (result.error) {
+      toast(result.error.message);
+      return;
+    }
+    if (field.value !== value || field.dataset.noteDirty === "true") {
+      field.dataset.noteDirty = "";
+      queueNoteSave(field, 0);
+      return;
+    }
+    const status = field
+      .closest(".staff-note-editor")
+      ?.querySelector(".staff-note-status");
+    if (status) status.textContent = "已自动保存";
+  };
+  const queueNoteSave = (field, delay = 650) => {
+    const id = field?.dataset.cardNote;
+    if (!id) return;
+    clearTimeout(noteTimers.get(id));
+    noteTimers.set(
+      id,
+      setTimeout(() => {
+        noteTimers.delete(id);
+        saveNote(field);
+      }, delay),
+    );
+  };
   const toggleDetails = (button) => {
     const node = button.closest(".order-card");
     if (!node) return;
@@ -495,7 +530,11 @@
     if (e.target.matches("textarea[data-card-note]")) {
       e.target.style.height = "auto";
       e.target.style.height = Math.max(40, e.target.scrollHeight) + "px";
+      queueNoteSave(e.target);
     }
+  });
+  root.addEventListener("focusout", (e) => {
+    if (e.target.matches("textarea[data-card-note]")) queueNoteSave(e.target, 0);
   });
   root.addEventListener("change", (e) => {
     if (!e.target.dataset.cardFulfillment) return;
@@ -517,16 +556,6 @@
       } catch {
         toast(T.copyFail);
       }
-      return;
-    }
-    if (e.target.dataset.cardSaveNote) {
-      const field = node.querySelector("[data-card-note]");
-      const result = await client.rpc("owner_update_order_note", {
-        p_order_id: id,
-        p_staff_note: field?.value || "",
-      });
-      toast(result.error ? result.error.message : T.noteSaved);
-      if (!result.error) render();
       return;
     }
     if (e.target.dataset.cardAdvance)
