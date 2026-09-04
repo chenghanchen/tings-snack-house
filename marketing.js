@@ -323,7 +323,7 @@
         w.step > 1
           ? '<button class="text-btn" data-wizard-back>← 上一步</button>'
           : "";
-    return `<section class="marketing-wizard-shell" aria-label="营销活动向导"><div class="marketing-wizard"><div class="wizard-head"><div><p class="eyebrow">CAMPAIGN WIZARD</p><h2>${heading}</h2><p class="muted">${w.step === 1 ? "第一步：你想做什么？" : typeName}</p></div><button class="close-wizard" data-wizard-close aria-label="关闭">×</button></div>${stepIndicator(w.step)}<div class="wizard-body">${body}</div><div class="wizard-footer"><div>${previous}</div>${next}</div></div></section>`;
+    return `<section class="marketing-wizard-shell" aria-label="营销活动向导"><div class="marketing-wizard"><div class="wizard-head"><div><p class="eyebrow">CAMPAIGN WIZARD</p><h2>${heading}</h2><p class="muted">${w.step === 1 ? "第一步：你想做什么？" : typeName}</p></div><button class="close-wizard" data-wizard-close aria-label="关闭">×</button></div>${stepIndicator(w.step)}<div class="wizard-body wizard-step-${w.step}">${body}</div><div class="wizard-footer"><div>${previous}</div>${next}</div></div></section>`;
   }
   function field(label, content, hint = "") {
     return `<label>${label}${content}${hint ? `<small>${hint}</small>` : ""}</label>`;
@@ -382,7 +382,7 @@
     const stackChoice = coupon
       ? `<label class="stack-choice"><input id="wizStack" type="checkbox" ${w.allowCampaignStack ? "checked" : ""}><span><b>允许与活动叠加</b><small>取消勾选后，顾客使用此优惠券时不能同时使用活动优惠。</small></span></label>`
       : `<label class="stack-choice"><input id="wizStack" type="checkbox" ${w.allowCouponStack ? "checked" : ""}><span><b>允许与优惠券／推荐码叠加</b><small>取消勾选后，顾客使用这个活动时不能同时使用兑换码。</small></span></label>`;
-    return `<div class="wizard-form"><h3>适用范围</h3><div class="wizard-target-options"><b>适用顾客</b><div class="segment-control"><button data-customer-scope="all" class="${w.customerScope === "all" ? "selected" : ""}">所有顾客</button><button data-customer-scope="new" class="${w.customerScope === "new" ? "selected" : ""}">仅新顾客</button></div></div>${target}${stackChoice}</div>`;
+    return `<div class="wizard-form wizard-audience-form"><h3>适用范围</h3><div class="wizard-target-options"><b>适用顾客</b><div class="segment-control"><button data-customer-scope="all" class="${w.customerScope === "all" ? "selected" : ""}">所有顾客</button><button data-customer-scope="new" class="${w.customerScope === "new" ? "selected" : ""}">仅新顾客</button></div></div>${target}${stackChoice}</div>`;
   }
   function previewDescription(w) {
     if (w.type === "coupon")
