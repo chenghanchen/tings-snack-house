@@ -506,8 +506,7 @@
       }, delay),
     );
   };
-  const toggleDetails = (button) => {
-    const node = button.closest(".order-card");
+  const toggleDetails = (node) => {
     if (!node) return;
     const collapsed = node.classList.toggle("is-collapsed");
     node
@@ -522,10 +521,21 @@
       if (!button) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      toggleDetails(button);
+      toggleDetails(button.closest(".order-card"));
     },
     true,
   );
+  root.addEventListener("click", (event) => {
+    const node = event.target.closest(".order-card");
+    if (
+      !node ||
+      event.target.closest(
+        'button, a, input, textarea, select, label, [contenteditable="true"]',
+      )
+    )
+      return;
+    toggleDetails(node);
+  });
   root.addEventListener("input", (e) => {
     if (e.target.matches("textarea[data-card-note]")) {
       e.target.style.height = "auto";
