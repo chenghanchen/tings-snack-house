@@ -380,8 +380,8 @@
                 : ""
             }</div>`;
     const stackChoice = coupon
-      ? `<label class="stack-choice"><input id="wizStack" type="checkbox" ${w.allowCampaignStack ? "checked" : ""}><span><b>允许与活动叠加</b><small>取消勾选后，顾客使用此优惠券时不能同时使用活动优惠。</small></span></label>`
-      : `<label class="stack-choice"><input id="wizStack" type="checkbox" ${w.allowCouponStack ? "checked" : ""}><span><b>允许与优惠券／推荐码叠加</b><small>取消勾选后，顾客使用这个活动时不能同时使用兑换码。</small></span></label>`;
+      ? `<label class="stack-choice"><input id="wizStack" type="checkbox" ${w.allowCampaignStack ? "checked" : ""}><span><b>允许与活动叠加</b></span></label>`
+      : `<label class="stack-choice"><input id="wizStack" type="checkbox" ${w.allowCouponStack ? "checked" : ""}><span><b>允许与优惠券／推荐码叠加</b></span></label>`;
     return `<div class="wizard-form wizard-audience-form"><h3>适用范围</h3><div class="wizard-target-options"><b>适用顾客</b><div class="segment-control"><button data-customer-scope="all" class="${w.customerScope === "all" ? "selected" : ""}">所有顾客</button><button data-customer-scope="new" class="${w.customerScope === "new" ? "selected" : ""}">仅新顾客</button></div></div>${target}${stackChoice}</div>`;
   }
   function previewDescription(w) {
