@@ -1986,29 +1986,45 @@ function lookupTimeline(order) {
     rejectedIndex = lookupStageIndex(
       order.cancellation_rejected_stage || order.cancellation_stage || status,
     );
-  if (requested || status === "已取消") {
-    const visible = steps.slice(0, cancelIndex + 1);
-    visible.forEach((step, i) => {
-      if (i < cancelIndex) step.state = "done";
-    });
-    visible[visible.length - 1] = {
-      label: status === "已取消" ? "已取消" : "取消申请中",
-      state: "cancelled",
-    };
+  if (status === "已取消") {
     return {
       pickup,
-      steps: visible,
-      title: status === "已取消" ? "已取消" : "取消申请中",
+      steps: [{ label: "已取消", state: "cancelled" }],
+      title: "已取消",
       cancelled: true,
       requested,
     };
   }
-  /* Keep the rejection marker immediately before the live order step. */
-  if (wasRejected)
+  const resetTimelineAt = (stageIndex) => {
+    steps.forEach((step, i) => {
+      step.state = i < stageIndex ? "done" : i === stageIndex ? "current" : "future";
+    });
+    steps[0].label = stageIndex > 0 ? "订单确认" : "待确认";
+    steps[1].label = stageIndex > 1 ? "准备完成" : "正在准备";
+    steps[2].label = finalLabel;
+  };
+  if (requested) {
+    resetTimelineAt(cancelIndex);
+    steps.splice(Math.min(cancelIndex, steps.length), 0, {
+      label: "取消申请中",
+      state: "cancelled",
+    });
+    return {
+      pickup,
+      steps,
+      title: "取消申请中",
+      cancelled: true,
+      requested: true,
+    };
+  }
+  /* A rejected cancellation is a marker; the order resumes at that stage. */
+  if (wasRejected) {
+    resetTimelineAt(rejectedIndex);
     steps.splice(Math.min(rejectedIndex, steps.length), 0, {
       label: "申请未通过",
       state: "rejected",
     });
+  }
   const title = wasRejected
     ? "申请未通过"
     : status === "待确认"
@@ -2080,7 +2096,12 @@ function lookupOrderCard(order) {
     ? `<form class="lookup-cancel-form" data-cancel-form hidden><label>再次输入手机号码<input name="cancelPhone" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" required placeholder="请输入10位手机号码"></label><label>取消原因<textarea name="cancelReason" required maxlength="100" placeholder="请说明取消原因（最多100字）"></textarea><small class="lookup-cancel-count">0 / 100</small></label><button type="submit" class="lookup-cancel-submit">提交取消申请</button></form>`
     : "";
   const actions = `<div class="lookup-actions"><button type="button" class="lookup-detail-button" data-lookup-details>查看详情</button>${canCancel ? `<button type="button" class="lookup-cancel-button" data-show-cancel>申请取消订单</button>` : ""}</div>`;
-  return `<article class="lookup-order-card" data-lookup-order="${escapeHtml(order.order_number)}"><header><div><span class="lookup-order-label">订单号</span><b>${escapeHtml(order.order_number)}</b><small>下单时间：${formatChicagoTime(order.created_at)}</small></div><strong class="lookup-status ${meta.cancelled ? "cancelled" : ""}">${escapeHtml(meta.title)}</strong></header>${lookupProgress(order)}${rejectionNote}<p class="lookup-address">${address}<i>›</i></p>${order.cancellation_requested ? `<p class="lookup-cancel-requested">取消申请中：${escapeHtml(order.cancellation_reason || "等待店主确认")}</p>` : ""}<section class="lookup-items-preview"><div class="lookup-thumbs">${thumbs || '<div class="lookup-item-thumb">🍬</div>'}</div><div><ul>${itemLines}</ul><small>共 ${items.reduce((sum, item) => sum + Number(item.qty || 0), 0)} 件商品</small></div></section><div class="lookup-total"><span>合计</span><b>${dollars(order.total_amount)}</b></div><section class="lookup-details" hidden><div class="lookup-detail-list">${detailRows}</div>${promo}<div class="lookup-amounts"><div><span>商品小计</span><b>${dollars(order.subtotal)}</b></div>${discount ? `<div><span>已优惠</span><b>−${dollars(discount)}</b></div>` : ""}${feeRow}<div><span>税</span><b>${dollars(order.tax_amount)}</b></div><div class="lookup-final"><span>订单总额</span><b>${dollars(order.total_amount)}</b></div></div>${notes}</section>${cancelForm}${actions}</article>`;
+  const itemCount = items.reduce(
+    (sum, item) => sum + Number(item.qty || 0),
+    0,
+  );
+  const cancellationStatus = meta.requested || order.status === "已取消";
+  return `<article class="lookup-order-card" data-lookup-order="${escapeHtml(order.order_number)}"><header><div><span class="lookup-order-label">订单号</span><b>${escapeHtml(order.order_number)}</b><small>下单时间：${formatChicagoTime(order.created_at)}</small></div><strong class="lookup-status ${cancellationStatus ? "cancelled" : ""}">${escapeHtml(meta.title)}</strong></header>${lookupProgress(order)}${rejectionNote}<p class="lookup-address">${address}<i>›</i></p>${order.cancellation_requested ? `<p class="lookup-cancel-requested">取消申请中：${escapeHtml(order.cancellation_reason || "等待店主确认")}</p>` : ""}<section class="lookup-items-preview"><div class="lookup-thumbs">${thumbs || '<div class="lookup-item-thumb">🍬</div>'}</div><div><ul>${itemLines}</ul></div></section><div class="lookup-total"><small class="lookup-item-count">共 ${itemCount} 件商品</small><span>合计</span><b>${dollars(order.total_amount)}</b></div><section class="lookup-details" hidden><div class="lookup-detail-list">${detailRows}</div>${promo}<div class="lookup-amounts"><div><span>商品小计</span><b>${dollars(order.subtotal)}</b></div>${discount ? `<div><span>已优惠</span><b>−${dollars(discount)}</b></div>` : ""}${feeRow}<div><span>税</span><b>${dollars(order.tax_amount)}</b></div><div class="lookup-final"><span>订单总额</span><b>${dollars(order.total_amount)}</b></div></div>${notes}</section>${cancelForm}${actions}</article>`;
 }
 var lastLookupQuery = "";
 async function loadLookupResults(query) {
