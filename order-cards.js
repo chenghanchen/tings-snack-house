@@ -220,22 +220,30 @@
         ">&#128663; " +
         T.delivery +
         "</option></select>";
-    const staff =
-      '<div class="staff-note-editor"><label>' +
-      T.ownerNote +
-      '<textarea data-card-note="' +
-      x.id +
-      '" rows="1" placeholder="' +
-      T.notePlaceholder +
-      '">' +
-      esc(x.staff_note || "") +
-      "</textarea></label>" +
-      '<small class="staff-note-status" aria-live="polite">' +
-      (x.staff_note_updated_at
-        ? T.updated + time(x.staff_note_updated_at)
-        : "") +
-      "</small>" +
-      "</div>";
+    const staffNote = String(x.staff_note || "").trim();
+    const staff = x.archived
+      ? staffNote
+        ? '<div class="staff-note-readonly"><span>' +
+          T.ownerNote +
+          "</span><p>" +
+          esc(staffNote) +
+          "</p></div>"
+        : ""
+      : '<div class="staff-note-editor"><label>' +
+        T.ownerNote +
+        '<textarea data-card-note="' +
+        x.id +
+        '" rows="1" placeholder="' +
+        T.notePlaceholder +
+        '">' +
+        esc(x.staff_note || "") +
+        "</textarea></label>" +
+        '<small class="staff-note-status" aria-live="polite">' +
+        (x.staff_note_updated_at
+          ? T.updated + time(x.staff_note_updated_at)
+          : "") +
+        "</small>" +
+        "</div>";
     const cancel = x.cancellation_requested
         ? '<button class="approve-cancel" data-card-approve="' +
           x.id +
@@ -337,9 +345,10 @@
           esc(x.customer_note) +
           "</p></div></section>"
         : "") +
-      '<section class="card-section staff-note-section">' +
-      staff +
-      "</section></div>";
+      (staff
+        ? '<section class="card-section staff-note-section">' + staff + "</section>"
+        : "") +
+      "</div>";
     return (
       '<article class="order-card ' +
       (expandedOrderIds.has(String(x.id)) ? "" : "is-collapsed ") +
