@@ -82,6 +82,7 @@
     document.querySelector("[data-order-tab].active-order-tab")?.dataset
       .orderTab || "current";
   let fulfillmentFilter = "";
+  const expandedOrderIds = new Set();
   const placeFulfillmentFilters = () => {
     const filters = $(".order-fulfillment-filters"),
       completedTab = document.querySelector('[data-order-tab="history"]');
@@ -328,7 +329,8 @@
       staff +
       "</section></div>";
     return (
-      '<article class="order-card is-collapsed ' +
+      '<article class="order-card ' +
+      (expandedOrderIds.has(String(x.id)) ? "" : "is-collapsed ") +
       color(x) +
       '" data-order-id="' +
       x.id +
@@ -509,6 +511,8 @@
   const toggleDetails = (node) => {
     if (!node) return;
     const collapsed = node.classList.toggle("is-collapsed");
+    if (collapsed) expandedOrderIds.delete(String(node.dataset.orderId));
+    else expandedOrderIds.add(String(node.dataset.orderId));
     node
       .querySelectorAll("[data-card-toggle]")
       .forEach((toggle) => (toggle.textContent = collapsed ? T.details : T.collapse));
