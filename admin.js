@@ -1521,7 +1521,7 @@ startAdmin();
     const basicEnd = form.querySelector("hr");
     basicEnd.insertAdjacentHTML(
       "beforebegin",
-      `<section id="pickupSettings"><h3>到店自取信息</h3><label>自取地址<input id="pickupAddressInput" required></label><label>自取说明／营业时间<textarea id="pickupNoteInput" rows="3" required></textarea></label></section>`,
+      `<section id="pickupSettings"><label>自取地址<input id="pickupAddressInput" required></label><label>自取说明／营业时间<textarea id="pickupNoteInput" rows="3" required></textarea></label></section>`,
     );
     const db = window.supabase.createClient(
       TINGS_SUPABASE.url,
