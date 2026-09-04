@@ -83,6 +83,7 @@
       .orderTab || "current";
   let fulfillmentFilter = "";
   const expandedOrderIds = new Set();
+  let suppressCardToggleUntil = 0;
   const placeFulfillmentFilters = () => {
     const filters = $(".order-fulfillment-filters"),
       completedTab = document.querySelector('[data-order-tab="history"]');
@@ -538,17 +539,19 @@
       )
     )
       return;
+    if (Date.now() < suppressCardToggleUntil) return;
     toggleDetails(node);
   });
   root.addEventListener("input", (e) => {
     if (e.target.matches("textarea[data-card-note]")) {
       e.target.style.height = "auto";
       e.target.style.height = Math.max(40, e.target.scrollHeight) + "px";
-      queueNoteSave(e.target);
     }
   });
   root.addEventListener("focusout", (e) => {
-    if (e.target.matches("textarea[data-card-note]")) queueNoteSave(e.target, 0);
+    if (!e.target.matches("textarea[data-card-note]")) return;
+    suppressCardToggleUntil = Date.now() + 500;
+    queueNoteSave(e.target, 0);
   });
   root.addEventListener("change", (e) => {
     if (!e.target.dataset.cardFulfillment) return;
