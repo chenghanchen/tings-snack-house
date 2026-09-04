@@ -668,10 +668,6 @@ $("#openOrderLookup").onclick = (e) => {
   e.preventDefault();
   openOrderLookupFromStore();
 };
-$("#closeOrderLookup").onclick = () => {
-  orderLookupReturnToSuccess = false;
-  $("#orderLookupDialog").close();
-};
 db.channel("shop-live-v2")
   .on(
     "postgres_changes",
@@ -1826,18 +1822,21 @@ function fitLookupFormToContent() {
   });
 }
 function placeLookupCloseButton(inResult) {
-  const close = $("#closeOrderLookup"),
-    dialog = $("#orderLookupDialog");
-  if (!close) return;
+  const dialog = $("#orderLookupDialog");
   let toolbar = $("#lookupResultToolbar");
   if (!toolbar) {
     toolbar = document.createElement("div");
     toolbar.id = "lookupResultToolbar";
     toolbar.innerHTML =
-      '<div class="lookup-toolbar-actions"><button type="button" class="lookup-retry lookup-nav-button" data-new-lookup>重新查询</button><button type="button" class="lookup-return lookup-nav-button" data-return-lookup>返回</button></div>';
-    toolbar.append(close);
+      '<div class="lookup-order-tabs" role="tablist" aria-label="订单分类"><button type="button" class="lookup-order-tab active" role="tab" aria-selected="true" data-lookup-tab="current">当前订单</button><button type="button" class="lookup-order-tab" role="tab" aria-selected="false" data-lookup-tab="history">历史订单</button></div><div class="lookup-toolbar-actions"><button type="button" class="lookup-retry lookup-nav-button" data-new-lookup>重新查询</button><button type="button" class="lookup-return lookup-nav-button" data-return-lookup>返回</button></div>';
     dialog.prepend(toolbar);
     toolbar.addEventListener("click", (event) => {
+      const tab = event.target.closest("[data-lookup-tab]");
+      if (tab) {
+        activeLookupTab = tab.dataset.lookupTab;
+        renderLookupOrders();
+        return;
+      }
       if (event.target.closest("[data-new-lookup]")) {
         placeLookupCloseButton(false);
         $("#lookupResult").hidden = true;
@@ -1851,6 +1850,7 @@ function placeLookupCloseButton(inResult) {
   }
   toolbar.querySelector("[data-new-lookup]").hidden = !inResult;
   toolbar.querySelector("[data-return-lookup]").hidden = !inResult;
+  toolbar.querySelector(".lookup-order-tabs").hidden = !inResult;
   dialog.classList.toggle("has-lookup-results", inResult);
   dialog.classList.toggle("lookup-form-mode", !inResult);
   dialog.style.height = inResult ? "" : "fit-content";
@@ -2005,6 +2005,7 @@ function lookupTimeline(order) {
   };
   if (requested) {
     resetTimelineAt(cancelIndex);
+    steps[cancelIndex].state = "future";
     steps.splice(Math.min(cancelIndex, steps.length), 0, {
       label: "取消申请中",
       state: "cancelled",
@@ -2025,9 +2026,7 @@ function lookupTimeline(order) {
       state: "rejected",
     });
   }
-  const title = wasRejected
-    ? "申请未通过"
-    : status === "待确认"
+  const title = status === "待确认"
       ? "待确认"
       : status === "已确认"
         ? "正在准备"
@@ -2071,8 +2070,8 @@ function lookupOrderCard(order) {
     settings.pickup_address || "天河城二楼，Archer Ave",
   ).trim();
   const address = meta.pickup
-    ? `<span>🛍</span><span>到店自取 · ${escapeHtml(pickupAddress)}</span>`
-    : `<span>📍</span><span>送至 ${escapeHtml(order.address || "配送地址待确认")}</span>`;
+    ? `<span>🛍</span><span class="lookup-address-content"><b class="lookup-fulfillment-pill">自取</b><span>${escapeHtml(pickupAddress)}</span></span>`
+    : `<span>📍</span><span class="lookup-address-content"><b class="lookup-fulfillment-pill">配送</b><span>${escapeHtml(order.address || "配送地址待确认")}</span></span>`;
   const discount = Number(order.discount_amount || 0),
     fee = Number(order.delivery_fee || 0),
     feeRow = meta.pickup
@@ -2103,9 +2102,33 @@ function lookupOrderCard(order) {
   const cancellationStatus = meta.requested || order.status === "已取消";
   return `<article class="lookup-order-card" data-lookup-order="${escapeHtml(order.order_number)}"><header><div><span class="lookup-order-label">订单号</span><b>${escapeHtml(order.order_number)}</b><small>下单时间：${formatChicagoTime(order.created_at)}</small></div><strong class="lookup-status ${cancellationStatus ? "cancelled" : ""}">${escapeHtml(meta.title)}</strong></header>${lookupProgress(order)}${rejectionNote}<p class="lookup-address">${address}<i>›</i></p>${order.cancellation_requested ? `<p class="lookup-cancel-requested">取消申请中：${escapeHtml(order.cancellation_reason || "等待店主确认")}</p>` : ""}<section class="lookup-items-preview"><div class="lookup-thumbs">${thumbs || '<div class="lookup-item-thumb">🍬</div>'}</div><div><ul>${itemLines}</ul></div></section><div class="lookup-total"><small class="lookup-item-count">共 ${itemCount} 件商品</small><span>合计</span><b>${dollars(order.total_amount)}</b></div><section class="lookup-details" hidden><div class="lookup-detail-list">${detailRows}</div>${promo}<div class="lookup-amounts"><div><span>商品小计</span><b>${dollars(order.subtotal)}</b></div>${discount ? `<div><span>已优惠</span><b>−${dollars(discount)}</b></div>` : ""}${feeRow}<div><span>税</span><b>${dollars(order.tax_amount)}</b></div><div class="lookup-final"><span>订单总额</span><b>${dollars(order.total_amount)}</b></div></div>${notes}</section>${cancelForm}${actions}</article>`;
 }
-var lastLookupQuery = "";
+var lastLookupQuery = "",
+  lastLookupOrders = [],
+  activeLookupTab = "current";
+function isHistoricalLookupOrder(order) {
+  if (!["已完成", "已取消"].includes(order.status)) return false;
+  const finalTime = new Date(order.archived_at || "").getTime();
+  return Number.isFinite(finalTime) && Date.now() - finalTime >= 72 * 60 * 60 * 1000;
+}
+function renderLookupOrders() {
+  const result = $("#lookupResult"),
+    historical = activeLookupTab === "history",
+    orders = lastLookupOrders.filter(
+      (order) => isHistoricalLookupOrder(order) === historical,
+    ),
+    toolbar = $("#lookupResultToolbar");
+  result.innerHTML =
+    orders.map(lookupOrderCard).join("") ||
+    `<p class="dialog-note lookup-empty">暂无${historical ? "历史" : "当前"}订单。</p>`;
+  toolbar?.querySelectorAll("[data-lookup-tab]").forEach((button) => {
+    const selected = button.dataset.lookupTab === activeLookupTab;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-selected", String(selected));
+  });
+}
 async function loadLookupResults(query) {
   const result = $("#lookupResult");
+  lastLookupOrders = [];
   result.innerHTML = '<p class="dialog-note">正在查询订单…</p>';
   result.hidden = false;
   placeLookupCloseButton(true);
@@ -2116,7 +2139,8 @@ async function loadLookupResults(query) {
     placeLookupCloseButton(true);
     return;
   }
-  result.innerHTML = response.data.map(lookupOrderCard).join("");
+  lastLookupOrders = response.data;
+  renderLookupOrders();
   placeLookupCloseButton(true);
 }
 $("#orderLookupForm").onsubmit = async (event) => {
@@ -2124,6 +2148,7 @@ $("#orderLookupForm").onsubmit = async (event) => {
   const query = $("#lookupQuery").value.trim();
   if (!query) return;
   lastLookupQuery = query;
+  activeLookupTab = "current";
   $("#orderLookupFormWrap").hidden = true;
   await loadLookupResults(query);
 };
