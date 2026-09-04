@@ -149,6 +149,10 @@
     setTimeout(queueDateFilter, 160);
   }
   function syncAlertButton(button) {
+    if (button.type === "checkbox") {
+      button.checked = alertEnabled;
+      return;
+    }
     button.textContent = alertEnabled ? "关闭新订单提醒" : "开启新订单提醒";
     button.classList.toggle("enabled", alertEnabled);
   }
@@ -206,11 +210,16 @@
       toast("新订单提醒已关闭");
       return;
     }
-    if (!("Notification" in window)) return toast("当前浏览器不支持系统通知");
+    if (!("Notification" in window)) {
+      syncAlertButton(button);
+      return toast("当前浏览器不支持系统通知");
+    }
     if (Notification.permission === "default")
       await Notification.requestPermission();
-    if (Notification.permission !== "granted")
+    if (Notification.permission !== "granted") {
+      syncAlertButton(button);
       return toast("未获得浏览器通知权限");
+    }
     try {
       audioContext ??= new (window.AudioContext || window.webkitAudioContext)();
       await audioContext.resume();
@@ -229,23 +238,25 @@
     if (!section) {
       pickup.insertAdjacentHTML(
         "beforebegin",
-        `<section class="new-order-alert-settings" id="newOrderAlertSettings"><h3>新订单提醒</h3><div id="newOrderAlertSlot"></div><label>接收新订单邮箱<input id="newOrderEmailInput" type="email" placeholder="例如：name@example.com"></label></section>`,
+        `<section class="new-order-alert-settings" id="newOrderAlertSettings"><div id="newOrderAlertSlot"></div><label>接收新订单邮箱<input id="newOrderEmailInput" type="email" placeholder="例如：name@example.com"></label></section>`,
       );
       section = $("#newOrderAlertSettings");
     }
     let button = $("#orderAlertToggle");
-    if (button && !button.dataset.settingsButton) {
-      const replacement = button.cloneNode(true);
+    if (button && !button.closest("[data-settings-button]")) {
+      const replacement = document.createElement("label");
+      replacement.className = "rule-switch notification-alert-toggle";
       replacement.dataset.settingsButton = "true";
+      replacement.innerHTML = '<input id="orderAlertToggle" type="checkbox">开启新订单提醒';
       button.replaceWith(replacement);
-      button = replacement;
-      button.addEventListener("click", (event) => {
-        event.preventDefault();
+      button = replacement.querySelector("input");
+      button.addEventListener("change", () => {
         toggleAlerts(button);
       });
     }
-    if (button && button.parentElement !== $("#newOrderAlertSlot"))
-      $("#newOrderAlertSlot").append(button);
+    const alertControl = button?.closest(".notification-alert-toggle") || button;
+    if (alertControl && alertControl.parentElement !== $("#newOrderAlertSlot"))
+      $("#newOrderAlertSlot").append(alertControl);
     syncAlertButton(button);
     const form = $("#settingsForm"),
       email = $("#newOrderEmailInput");
