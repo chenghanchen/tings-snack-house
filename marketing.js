@@ -317,7 +317,7 @@
               : wizardPreview(w),
       next =
         w.step === 4
-          ? ""
+          ? `<div class="wizard-footer-actions">${["referral", "referral_code"].includes(w.type) ? '<button class="text-btn" data-save-referral>保存设置</button>' : '<button class="text-btn" data-save="draft">保存草稿</button><button class="primary" data-save="published">立即发布</button>'}</div>`
           : `<button class="primary" data-wizard-next>${w.step === 1 ? "下一步" : "继续"} →</button>`,
       previous =
         w.step > 1
@@ -400,7 +400,7 @@
   }
   function wizardPreview(w) {
     if (w.type === "referral" || w.type === "referral_code")
-      return `<div class="wizard-preview"><p class="eyebrow">PREVIEW</p><h3>${w.type === "referral_code" ? "推荐码规则" : "推荐奖励券规则"}</h3><b>${previewDescription(w)}</b><p>${w.type === "referral_code" ? `${Number(w.referralDays) ? `有效期 ${w.referralDays} 天` : "长期有效"} · ${Number(w.referralUseLimit) ? `每码最多 ${w.referralUseLimit} 次` : "不限使用次数"}` : `${Number(w.rewardDays) ? `有效期 ${w.rewardDays} 天` : "长期有效"} · 每券限用一次`}</p><div class="wizard-preview-actions"><button class="text-btn" data-save-referral>保存设置</button></div></div>`;
+      return `<div class="wizard-preview"><p class="eyebrow">PREVIEW</p><h3>${w.type === "referral_code" ? "推荐码规则" : "推荐奖励券规则"}</h3><b>${previewDescription(w)}</b><p>${w.type === "referral_code" ? `${Number(w.referralDays) ? `有效期 ${w.referralDays} 天` : "长期有效"} · ${Number(w.referralUseLimit) ? `每码最多 ${w.referralUseLimit} 次` : "不限使用次数"}` : `${Number(w.rewardDays) ? `有效期 ${w.rewardDays} 天` : "长期有效"} · 每券限用一次`}</p></div>`;
     const scope =
       w.targetMode === "products"
         ? `指定 ${w.productIds.size || 0} 件商品`
@@ -413,7 +413,7 @@
         : w.type !== "referral"
           ? `<p>${w.allowCouponStack ? "可与优惠券／推荐码叠加" : "不可与其他优惠同时使用"}</p>`
           : "";
-    return `<div class="wizard-form wizard-schedule"><h3>设置活动时间</h3><p class="muted">留空即为立即开始、长期有效。</p><div class="two">${field("开始时间", input("wizStartsAt", w.startsAt, 'type="datetime-local"'))}${field("结束时间", input("wizEndsAt", w.endsAt, 'type="datetime-local"'))}</div></div><div class="wizard-preview"><p class="eyebrow">PREVIEW</p><h3>${esc(w.name || (w.type === "referral" ? "推荐奖励" : "未命名活动"))}</h3><b>${previewDescription(w)}</b><p>${w.type === "coupon" || w.type === "referral" ? (w.customerScope === "new" ? "仅新顾客" : "所有顾客") : `${w.customerScope === "new" ? "仅新顾客 · " : "所有顾客 · "}${scope}`}</p><p>${w.startsAt ? timeText({ starts_at: w.startsAt, ends_at: w.endsAt }) : "立即开始 — 长期有效"}</p>${stackNote}<div class="wizard-preview-actions">${w.type === "referral" ? '<button class="text-btn" data-save-referral>保存设置</button>' : '<button class="text-btn" data-save="draft">保存草稿</button><button class="primary" data-save="published">立即发布</button>'}</div></div>`;
+    return `<div class="wizard-form wizard-schedule"><h3>设置活动时间</h3><p class="muted">留空即为立即开始、长期有效。</p><div class="two">${field("开始时间", input("wizStartsAt", w.startsAt, 'type="datetime-local"'))}${field("结束时间", input("wizEndsAt", w.endsAt, 'type="datetime-local"'))}</div></div><div class="wizard-preview"><p class="eyebrow">PREVIEW</p><h3>${esc(w.name || (w.type === "referral" ? "推荐奖励" : "未命名活动"))}</h3><b>${previewDescription(w)}</b><p>${w.type === "coupon" || w.type === "referral" ? (w.customerScope === "new" ? "仅新顾客" : "所有顾客") : `${w.customerScope === "new" ? "仅新顾客 · " : "所有顾客 · "}${scope}`}</p><p>${w.startsAt ? timeText({ starts_at: w.startsAt, ends_at: w.endsAt }) : "立即开始 — 长期有效"}</p>${stackNote}</div>`;
   }
   function collect(step) {
     if (!wizard) return;
