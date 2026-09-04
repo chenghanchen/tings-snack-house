@@ -18,8 +18,6 @@
     confirm: "\u786e\u8ba4\u8ba2\u5355",
     pickup: "\u81ea\u53d6",
     delivery: "\u914d\u9001",
-    details: "\u67e5\u770b\u8be6\u60c5",
-    collapse: "\u6536\u8d77\u8be6\u60c5",
     time: "\u4e0b\u5355\u65f6\u95f4\uff1a",
     customer: "\u987e\u5ba2\u4fe1\u606f",
     name: "\u59d3\u540d",
@@ -249,6 +247,19 @@
           T.reject +
           "</button>"
         : "";
+    const footerAction = x.cancellation_requested
+      ? '<div class="cancellation-actions">' + cancel + "</div>"
+      : action && !x.archived
+        ? '<button class="advance-order ' +
+          action.kind +
+          '" data-card-advance="' +
+          x.id +
+          '" data-target="' +
+          action.target +
+          '">' +
+          action.label +
+          "</button>"
+        : "";
     const snapshot = x.promotion_snapshot || {},
       tags = [];
     if (x.coupon_code)
@@ -326,7 +337,7 @@
           esc(x.customer_note) +
           "</p></div></section>"
         : "") +
-      '<section class="card-section">' +
+      '<section class="card-section staff-note-section">' +
       staff +
       "</section></div>";
     return (
@@ -371,25 +382,12 @@
       cash(x.total_amount ?? x.subtotal) +
       "</b></div></div>" +
       detail +
-      '<div class="order-footer"><button class="detail-toggle" data-card-toggle="' +
-      x.id +
-      '">' +
-      T.details +
-      '</button><div class="order-footer-right">' +
-      (x.cancellation_requested
-        ? '<div class="cancellation-actions">' + cancel + "</div>"
-        : action && !x.archived
-          ? '<button class="advance-order ' +
-            action.kind +
-            '" data-card-advance="' +
-            x.id +
-            '" data-target="' +
-            action.target +
-            '">' +
-            action.label +
-            "</button>"
-          : "") +
-      "</div></div></article>"
+      (footerAction
+        ? '<div class="order-footer"><div class="order-footer-right">' +
+          footerAction +
+          "</div></div>"
+        : "") +
+      "</article>"
     );
   };
   const render = async () => {
@@ -514,22 +512,7 @@
     const collapsed = node.classList.toggle("is-collapsed");
     if (collapsed) expandedOrderIds.delete(String(node.dataset.orderId));
     else expandedOrderIds.add(String(node.dataset.orderId));
-    node
-      .querySelectorAll("[data-card-toggle]")
-      .forEach((toggle) => (toggle.textContent = collapsed ? T.details : T.collapse));
   };
-  /* This runs before legacy order handlers, so the compact-card toggle only fires once. */
-  root.addEventListener(
-    "click",
-    (event) => {
-      const button = event.target.closest("[data-card-toggle]");
-      if (!button) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      toggleDetails(button.closest(".order-card"));
-    },
-    true,
-  );
   root.addEventListener("click", (event) => {
     const node = event.target.closest(".order-card");
     if (
