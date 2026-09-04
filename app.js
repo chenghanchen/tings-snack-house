@@ -2097,7 +2097,9 @@ function lookupOrderCard(order) {
   const cancelForm = canCancel
     ? `<form class="lookup-cancel-form" data-cancel-form hidden><label>再次输入手机号码<input name="cancelPhone" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" required placeholder="请输入10位手机号码"></label><label>取消原因<textarea name="cancelReason" required maxlength="100" placeholder="请说明取消原因（最多100字）"></textarea><small class="lookup-cancel-count">0 / 100</small></label><button type="submit" class="lookup-cancel-submit">提交取消申请</button></form>`
     : "";
-  const actions = `<div class="lookup-actions"><button type="button" class="lookup-detail-button" data-lookup-details>查看详情</button>${canCancel ? `<button type="button" class="lookup-cancel-button" data-show-cancel>申请取消订单</button>` : ""}</div>`;
+  const actions = canCancel
+    ? '<div class="lookup-actions"><button type="button" class="lookup-cancel-button" data-show-cancel>申请取消订单</button></div>'
+    : "";
   const itemCount = items.reduce(
     (sum, item) => sum + Number(item.qty || 0),
     0,
@@ -2164,16 +2166,6 @@ $("#lookupResult").onclick = async (clickEvent) => {
     $("#lookupQuery").focus();
     return;
   }
-  const detailButton = clickEvent.target.closest("[data-lookup-details]");
-  if (detailButton) {
-    const card = detailButton.closest(".lookup-order-card"),
-      details = card.querySelector(".lookup-details"),
-      open = details.hidden;
-    details.hidden = !open;
-    card.classList.toggle("is-expanded", open);
-    detailButton.textContent = open ? "收起详情" : "查看详情";
-    return;
-  }
   const showCancel = clickEvent.target.closest("[data-show-cancel]");
   if (showCancel) {
     const card = showCancel.closest(".lookup-order-card"),
@@ -2181,7 +2173,15 @@ $("#lookupResult").onclick = async (clickEvent) => {
     form.hidden = false;
     showCancel.hidden = true;
     form.querySelector('[name="cancelPhone"]').focus();
+    return;
   }
+  if (clickEvent.target.closest("button,input,textarea,select,a,form")) return;
+  const card = clickEvent.target.closest(".lookup-order-card");
+  if (!card) return;
+  const details = card.querySelector(".lookup-details"),
+    open = details.hidden;
+  details.hidden = !open;
+  card.classList.toggle("is-expanded", open);
 };
 $("#lookupResult").oninput = (event) => {
   if (event.target.name !== "cancelReason") return;
