@@ -2100,7 +2100,7 @@ function lookupOrderCard(order) {
     ? `<p class="lookup-note cancellation-reason"><b>取消原因</b>${escapeHtml(order.cancellation_reason)}</p>`
     : "";
   const cancelForm = canCancel
-    ? `<form class="lookup-cancel-form" data-cancel-form hidden><label>再次输入手机号码<input name="cancelPhone" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" required placeholder="请输入10位手机号码"></label><label>取消原因<textarea name="cancelReason" required maxlength="100" placeholder="请说明取消原因（最多100字）"></textarea><small class="lookup-cancel-count">0 / 100</small></label><button type="submit" class="lookup-cancel-submit">提交取消申请</button></form>`
+    ? `<form class="lookup-cancel-form" data-cancel-form hidden><label>再次输入手机号码<input name="cancelPhone" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" required placeholder="请输入10位手机号码"></label><label>取消原因<textarea name="cancelReason" required maxlength="100" placeholder="请说明取消原因（最多100字）"></textarea><small class="lookup-cancel-count">0 / 100</small></label><div class="lookup-cancel-form-actions"><button type="submit" class="lookup-cancel-submit">提交取消申请</button><button type="button" class="lookup-cancel-close" data-close-cancel>关闭</button></div></form>`
     : "";
   const actions = canCancel
     ? '<div class="lookup-actions"><button type="button" class="lookup-cancel-button" data-show-cancel>申请取消订单</button></div>'
@@ -2178,6 +2178,17 @@ $("#lookupResult").onclick = async (clickEvent) => {
     form.hidden = false;
     showCancel.hidden = true;
     form.querySelector('[name="cancelPhone"]').focus();
+    return;
+  }
+  const closeCancel = clickEvent.target.closest("[data-close-cancel]");
+  if (closeCancel) {
+    const card = closeCancel.closest(".lookup-order-card"),
+      form = closeCancel.closest("[data-cancel-form]"),
+      showButton = card.querySelector("[data-show-cancel]");
+    form.reset();
+    form.querySelector(".lookup-cancel-count").textContent = "0 / 100";
+    form.hidden = true;
+    showButton.hidden = false;
     return;
   }
   if (clickEvent.target.closest("button,input,textarea,select,a,form")) return;
