@@ -2093,7 +2093,12 @@ function lookupOrderCard(order) {
     order.cancellation_rejected_at && order.staff_note
       ? `<p class="lookup-note staff lookup-rejection-note"><b>店主说明</b>${escapeHtml(order.staff_note)}<small>更新于 ${formatChicagoTime(order.staff_note_updated_at)}</small></p>`
       : "";
-  const notes = `${order.customer_note ? `<p class="lookup-note"><b>订单备注</b>${escapeHtml(order.customer_note)}</p>` : ""}${order.cancellation_reason ? `<p class="lookup-note cancellation-reason"><b>取消原因</b>${escapeHtml(order.cancellation_reason)}</p>` : ""}`;
+  const notes = order.customer_note
+    ? `<p class="lookup-note"><b>订单备注</b>${escapeHtml(order.customer_note)}</p>`
+    : "";
+  const cancellationReasonNote = order.cancellation_reason
+    ? `<p class="lookup-note cancellation-reason"><b>取消原因</b>${escapeHtml(order.cancellation_reason)}</p>`
+    : "";
   const cancelForm = canCancel
     ? `<form class="lookup-cancel-form" data-cancel-form hidden><label>再次输入手机号码<input name="cancelPhone" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" required placeholder="请输入10位手机号码"></label><label>取消原因<textarea name="cancelReason" required maxlength="100" placeholder="请说明取消原因（最多100字）"></textarea><small class="lookup-cancel-count">0 / 100</small></label><button type="submit" class="lookup-cancel-submit">提交取消申请</button></form>`
     : "";
@@ -2105,7 +2110,7 @@ function lookupOrderCard(order) {
     0,
   );
   const cancellationStatus = meta.requested || order.status === "已取消";
-  return `<article class="lookup-order-card" data-lookup-order="${escapeHtml(order.order_number)}"><header><div><span class="lookup-order-label">订单号</span><b>${escapeHtml(order.order_number)}</b><small>下单时间：${formatChicagoTime(order.created_at)}</small></div><strong class="lookup-status ${cancellationStatus ? "cancelled" : ""}">${escapeHtml(meta.title)}</strong></header>${lookupProgress(order)}${rejectionNote}<p class="lookup-address">${address}<i>›</i></p>${order.cancellation_requested ? `<p class="lookup-cancel-requested">取消申请中：${escapeHtml(order.cancellation_reason || "等待店主确认")}</p>` : ""}<section class="lookup-items-preview"><div class="lookup-thumbs">${thumbs || '<div class="lookup-item-thumb">🍬</div>'}</div><div><ul>${itemLines}</ul></div></section><div class="lookup-total"><small class="lookup-item-count">共 ${itemCount} 件商品</small><span>合计</span><b>${dollars(order.total_amount)}</b></div><section class="lookup-details" hidden><div class="lookup-detail-list">${detailRows}</div>${promo}<div class="lookup-amounts"><div><span>商品小计</span><b>${dollars(order.subtotal)}</b></div>${discount ? `<div><span>已优惠</span><b>−${dollars(discount)}</b></div>` : ""}${feeRow}<div><span>税</span><b>${dollars(order.tax_amount)}</b></div><div class="lookup-final"><span>订单总额</span><b>${dollars(order.total_amount)}</b></div></div>${notes}</section>${cancelForm}${actions}</article>`;
+  return `<article class="lookup-order-card" data-lookup-order="${escapeHtml(order.order_number)}"><header><div><span class="lookup-order-label">订单号</span><b>${escapeHtml(order.order_number)}</b><small>下单时间：${formatChicagoTime(order.created_at)}</small></div><strong class="lookup-status ${cancellationStatus ? "cancelled" : ""}">${escapeHtml(meta.title)}</strong></header>${lookupProgress(order)}${rejectionNote}${cancellationReasonNote}<p class="lookup-address">${address}<i>›</i></p><section class="lookup-items-preview"><div class="lookup-thumbs">${thumbs || '<div class="lookup-item-thumb">🍬</div>'}</div><div><ul>${itemLines}</ul></div></section><div class="lookup-total"><small class="lookup-item-count">共 ${itemCount} 件商品</small><span>合计</span><b>${dollars(order.total_amount)}</b></div><section class="lookup-details" hidden><div class="lookup-detail-list">${detailRows}</div>${promo}<div class="lookup-amounts"><div><span>商品小计</span><b>${dollars(order.subtotal)}</b></div>${discount ? `<div><span>已优惠</span><b>−${dollars(discount)}</b></div>` : ""}${feeRow}<div><span>税</span><b>${dollars(order.tax_amount)}</b></div><div class="lookup-final"><span>订单总额</span><b>${dollars(order.total_amount)}</b></div></div>${notes}</section>${cancelForm}${actions}</article>`;
 }
 var lastLookupQuery = "",
   lastLookupOrders = [],
