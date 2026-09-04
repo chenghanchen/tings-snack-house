@@ -2026,19 +2026,22 @@ function lookupTimeline(order) {
       state: "rejected",
     });
   }
-  const title = status === "待确认"
+  const titleStatus = wasRejected
+    ? order.cancellation_rejected_stage || order.cancellation_stage || status
+    : status;
+  const title = titleStatus === "待确认"
       ? "待确认"
-      : status === "已确认"
+      : titleStatus === "已确认"
         ? "正在准备"
-        : status === "配送中"
+        : titleStatus === "配送中"
           ? "正在配送"
-          : status === "等待取单"
+          : titleStatus === "等待取单"
             ? "等待取单"
-            : status === "已完成"
+            : titleStatus === "已完成"
               ? pickup
                 ? "订单已取"
                 : "配送完成"
-              : status;
+              : titleStatus;
   return { pickup, steps, title, cancelled: wasRejected, requested: false };
 }
 function lookupProgress(order) {
