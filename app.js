@@ -791,7 +791,7 @@ renderProducts = function (filter = "全部") {
               ? 'loading="eager" fetchpriority="high" decoding="async"'
               : 'loading="lazy" decoding="async"',
           opts = gs.length
-            ? `<div class="product-options">${gs.map((g) => `<div class="option-group"><strong>${escapeHtml(g.name)}</strong>${g.values.map((v) => `<button class="option-choice ${selected[p.id]?.[g.id] === v.id ? "selected" : ""}" data-choice="${p.id}" data-group="${g.id}" data-value="${v.id}">${escapeHtml(v.name)}</button>`).join("")}</div>`).join("")}</div>`
+            ? `<div class="product-options">${gs.map((g) => `<div class="option-group">${g.values.map((v) => `<button class="option-choice ${selected[p.id]?.[g.id] === v.id ? "selected" : ""}" data-choice="${p.id}" data-group="${g.id}" data-value="${v.id}">${escapeHtml(v.name)}</button>`).join("")}</div>`).join("")}</div>`
             : "";
         const price = item ? dollars(item.price) : dollars(p.price),
           action =
