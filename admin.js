@@ -46,34 +46,15 @@ const startAdmin = () => {
     if (error) toast(error.message);
     return data || [];
   }
-  let orderTab = "current",
-    productRows = [],
+  let productRows = [],
     categoryRows = [],
     isAcceptingOrders = true,
-    orderPausedUntil = null;
+    orderPausedUntil = null,
+    boot = async () => {};
+  // Order cards, filtering, notes, cancellation and status controls are owned
+  // by order-cards.js. Keep this hook limited to alerts and shared admin data.
   queueMicrotask(() => {
-    const esc = (v) =>
-        String(v ?? "").replace(
-          /[&<>"']/g,
-          (c) =>
-            ({
-              "&": "&amp;",
-              "<": "&lt;",
-              ">": "&gt;",
-              '"': "&quot;",
-              "'": "&#39;",
-            })[c],
-        ),
-      chicago = (v) =>
-        v
-          ? new Intl.DateTimeFormat("zh-CN", {
-              timeZone: "America/Chicago",
-              dateStyle: "medium",
-              timeStyle: "short",
-              hour12: false,
-            }).format(new Date(v))
-          : "",
-      head = $("#orders .panel-head");
+    const head = $("#orders .panel-head");
     let alertsReady = false,
       audioContext;
     function updateAlertButton() {
@@ -130,186 +111,6 @@ const startAdmin = () => {
       );
     $("#orderAlertToggle")?.addEventListener("click", enableAlerts);
     updateAlertButton();
-    orders = async function () {
-      const all = await data("orders"),
-        q = ($("#orderSearch")?.value || "").toLowerCase(),
-        list = all
-          .filter((x) => (orderTab === "history") === !!x.archived)
-          .filter(
-            (x) =>
-              !q ||
-              [
-                x.order_number,
-                x.customer_name,
-                x.phone,
-                new Date(x.created_at).toLocaleDateString(),
-              ]
-                .join(" ")
-                .toLowerCase()
-                .includes(q),
-          );
-      $("#ordersTitle").textContent =
-        orderTab === "history" ? "已完成" : "进行中";
-      $("#allOrders").textContent = all.filter((x) => !x.archived).length;
-      $("#newOrders").textContent = all.filter(
-        (x) => x.status === "待确认" && !x.archived,
-      ).length;
-      $("#orderBadge").textContent = all.filter(
-        (x) => x.status === "待确认" && !x.archived,
-      ).length;
-      $("#todayAmount").textContent = money(
-        all
-          .filter((x) => !x.archived)
-          .reduce((s, x) => s + Number(x.total_amount || x.subtotal), 0),
-      );
-      $("#ordersList").innerHTML =
-        list
-          .map((x) => {
-            const delivery = x.fulfillment === "delivery",
-              address =
-                delivery && x.address
-                  ? '<p class="order-meta address-summary">配送地址：' +
-                    esc(x.address) +
-                    ' <button class="text-btn" data-copy-address="' +
-                    x.id +
-                    '" data-address="' +
-                    encodeURIComponent(x.address) +
-                    '">复制地址</button></p>'
-                  : "",
-              note =
-                '<div class="staff-note-editor"><label>店主说明<textarea data-staff-note="' +
-                x.id +
-                '" rows="3" placeholder="填写给顾客看的订单说明">' +
-                esc(x.staff_note || "") +
-                '</textarea></label><button data-save-note="' +
-                x.id +
-                '">保存说明</button>' +
-                (x.staff_note_updated_at
-                  ? "<small>更新于：" +
-                    chicago(x.staff_note_updated_at) +
-                    "</small>"
-                  : "") +
-                "</div>",
-              editor = x.archived
-                ? '<p class="muted">已归档</p>'
-                : '<div class="order-editor"><label>订单状态<select data-status="' +
-                  x.id +
-                  '">' +
-                  orderStatusOptions(x) +
-                  '</select></label><label>取货方式<select data-fulfillment="' +
-                  x.id +
-                  '"><option value="pickup" ' +
-                  (x.fulfillment === "pickup" ? "selected" : "") +
-                  '>到店自取</option><option value="delivery" ' +
-                  (delivery ? "selected" : "") +
-                  '>配送</option></select></label><label>配送费（美元）<input data-fee="' +
-                  x.id +
-                  '" type="number" min="0" step="0.01" value="' +
-                  Number(x.delivery_fee || 0).toFixed(2) +
-                  '" ' +
-                  (delivery ? "" : "disabled") +
-                  '></label><button data-save-order="' +
-                  x.id +
-                  '">保存配送设置</button>' +
-                  (x.cancellation_requested
-                    ? '<button data-approve-cancel="' +
-                      x.id +
-                      '">确认取消</button><button data-reject-cancel="' +
-                      x.id +
-                      '">拒绝取消</button>'
-                    : "") +
-                  "</div>";
-            return (
-              '<article class="order-card"><div class="order-top"><div><h3>' +
-              esc(x.order_number) +
-              " · " +
-              esc(x.customer_name) +
-              '</h3><p class="order-meta">' +
-              esc(x.phone) +
-              " · 下单时间：" +
-              chicago(x.created_at) +
-              '</p></div><span class="status">' +
-              esc(x.status) +
-              "</span></div>" +
-              (x.cancellation_requested
-                ? '<p class="order-meta">⚠ 顾客申请取消</p>'
-                : "") +
-              '<p class="order-items">' +
-              (x.items || [])
-                .map(
-                  (i) =>
-                    esc(i.name) +
-                    (i.variant_label ? " · " + esc(i.variant_label) : "") +
-                    " × " +
-                    i.qty,
-                )
-                .join("、") +
-              "</p>" +
-              (delivery ? "" : '<p class="order-meta">到店自取</p>') +
-              address +
-              (x.customer_note
-                ? '<p class="order-meta">顾客备注：' +
-                  esc(x.customer_note) +
-                  "</p>"
-                : "") +
-              '<p class="order-meta">商品小计 ' +
-              money(x.subtotal || 0) +
-              " · 税 " +
-              money(x.tax_amount || 0) +
-              " · 配送 " +
-              money(x.delivery_fee || 0) +
-              " · 应付 " +
-              money(x.total_amount || x.subtotal || 0) +
-              "</p>" +
-              note +
-              editor +
-              "</article>"
-            );
-          })
-          .join("") || '<p class="muted">没有符合条件的订单。</p>';
-    };
-    $("#ordersList").onclick = async (e) => {
-      const copy = e.target.dataset.copyAddress,
-        noteId = e.target.dataset.saveNote,
-        id =
-          e.target.dataset.saveOrder ||
-          e.target.dataset.approveCancel ||
-          e.target.dataset.rejectCancel;
-      if (copy) {
-        try {
-          await navigator.clipboard.writeText(
-            decodeURIComponent(e.target.dataset.address || ""),
-          );
-          toast("配送地址已复制");
-        } catch {
-          toast("无法复制地址，请手动复制");
-        }
-        return;
-      }
-      if (noteId) {
-        const input = $('[data-staff-note="' + noteId + '"]'),
-          { error } = await db.rpc("owner_update_order_note", {
-            p_order_id: noteId,
-            p_staff_note: input?.value || "",
-          });
-        toast(error ? error.message : "店主说明已保存");
-        if (!error) orders();
-        return;
-      }
-      if (!id) return;
-      if (e.target.dataset.rejectCancel) {
-        const { error } = await db.rpc("owner_reject_cancellation", {
-          p_order_id: id,
-        });
-        toast(error ? error.message : "已拒绝取消申请");
-        return orders();
-      }
-      if (e.target.dataset.approveCancel) return saveOrderUpdate(id, "已取消");
-      if (e.target.dataset.saveOrder) {
-        const status = $('[data-status="' + id + '"]')?.value || "待确认";
-        return saveOrderUpdate(id, status);
-      }
-    };
     boot = async function () {
       await settings();
       db.channel("order-alert-v2")
@@ -321,7 +122,7 @@ const startAdmin = () => {
               toast("收到一笔新订单！");
               announce(p.new);
             }
-            orders();
+            window.orders?.();
           },
         )
         .on(
@@ -572,57 +373,6 @@ const startAdmin = () => {
     categories();
     draggingCategory = null;
   });
-  function orderStatusOptions(order) {
-    return (
-      order.fulfillment === "delivery"
-        ? ["待确认", "已确认", "配送中", "已完成", "已取消"]
-        : ["待确认", "已确认", "已完成", "已取消"]
-    )
-      .map(
-        (s) => `<option ${s === order.status ? "selected" : ""}>${s}</option>`,
-      )
-      .join("");
-  }
-  async function orders() {
-    const o = await data("orders"),
-      q = ($("#orderSearch")?.value || "").toLowerCase(),
-      list = o
-        .filter((x) => (orderTab === "history") === !!x.archived)
-        .filter(
-          (x) =>
-            !q ||
-            [
-              x.order_number,
-              x.customer_name,
-              x.phone,
-              new Date(x.created_at).toLocaleDateString(),
-            ]
-              .join(" ")
-              .toLowerCase()
-              .includes(q),
-        );
-    $("#ordersTitle").textContent =
-      orderTab === "history" ? "已完成" : "进行中";
-    $("#allOrders").textContent = o.filter((x) => !x.archived).length;
-    $("#newOrders").textContent = o.filter(
-      (x) => x.status === "待确认" && !x.archived,
-    ).length;
-    $("#orderBadge").textContent = o.filter(
-      (x) => x.status === "待确认" && !x.archived,
-    ).length;
-    $("#todayAmount").textContent = money(
-      o
-        .filter((x) => !x.archived)
-        .reduce((s, x) => s + Number(x.total_amount || x.subtotal), 0),
-    );
-    $("#ordersList").innerHTML =
-      list
-        .map(
-          (x) =>
-            `<article class="order-card"><div class="order-top"><div><h3>${x.order_number} · ${x.customer_name}</h3><p class="order-meta">${x.phone} · ${new Date(x.created_at).toLocaleString()}</p></div><span class="status">${x.status}</span></div>${x.cancellation_requested ? '<p class="order-meta">⚠ 顾客申请取消</p>' : ""}<p class="order-items">${(x.items || []).map((i) => `${i.name}${i.variant_label ? " · " + i.variant_label : ""} × ${i.qty}`).join("、")}</p>${x.customer_note ? `<p class="order-meta">顾客备注：${x.customer_note}</p>` : ""}<p class="order-meta">商品小计 ${money(x.subtotal || 0)} · 税 ${money(x.tax_amount || 0)} · 配送 ${money(x.delivery_fee || 0)} · 应付 ${money(x.total_amount || x.subtotal || 0)}</p>${x.archived ? '<p class="muted">已归档</p>' : `<div class="order-editor"><label>订单状态<select data-status="${x.id}">${orderStatusOptions(x)}</select></label><label>取货方式<select data-fulfillment="${x.id}"><option value="pickup" ${x.fulfillment === "pickup" ? "selected" : ""}>到店自取</option><option value="delivery" ${x.fulfillment === "delivery" ? "selected" : ""}>配送</option></select></label><label>配送费（美元）<input data-fee="${x.id}" type="number" min="0" step="0.01" value="${Number(x.delivery_fee || 0).toFixed(2)}" ${x.fulfillment === "pickup" ? "disabled" : ""}></label><button data-save-order="${x.id}">保存配送设置</button>${x.cancellation_requested ? `<button data-approve-cancel="${x.id}">确认取消</button><button data-reject-cancel="${x.id}">拒绝取消</button>` : ""}</div>`}</article>`,
-        )
-        .join("") || '<p class="muted">没有符合条件的订单。</p>';
-  }
   async function products() {
     const [p, v, c] = await Promise.all([
       data("products"),
@@ -963,34 +713,6 @@ const startAdmin = () => {
       }
       login();
     };
-  async function boot() {
-    await settings();
-    db.channel("order-alert")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "orders" },
-        (p) => {
-          toast("收到一笔新订单！");
-          orders();
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "products" },
-        products,
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "categories" },
-        categories,
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "shop_settings" },
-        settings,
-      )
-      .subscribe();
-  }
   document.querySelectorAll("aside nav button").forEach(
     (b) =>
       (b.onclick = () => {
@@ -1005,65 +727,6 @@ const startAdmin = () => {
         if (b.dataset.view === "settings") settings();
       }),
   );
-  async function saveOrderUpdate(id, status) {
-    const fulfillment = $(`[data-fulfillment="${id}"]`)?.value || "pickup",
-      feeInput = $(`[data-fee="${id}"]`),
-      deliveryFee =
-        fulfillment === "pickup" ? 0 : Math.max(0, +feeInput?.value || 0);
-    if (fulfillment === "pickup" && status === "配送中")
-      return toast("配送中的订单请先改为已确认，再改为到店自取");
-    const { error } = await db.rpc("owner_update_order", {
-      p_order_id: id,
-      p_status: status,
-      p_fulfillment: fulfillment,
-      p_delivery_fee: deliveryFee,
-    });
-    toast(error ? error.message : "订单已更新");
-    orders();
-  }
-  $("#ordersList").onclick = async (e) => {
-    const id =
-      e.target.dataset.saveOrder ||
-      e.target.dataset.approveCancel ||
-      e.target.dataset.rejectCancel;
-    if (!id) return;
-    if (e.target.dataset.rejectCancel) {
-      const { error } = await db.rpc("owner_reject_cancellation", {
-        p_order_id: id,
-      });
-      toast(error ? error.message : "已拒绝取消申请");
-      return orders();
-    }
-    if (e.target.dataset.approveCancel) return saveOrderUpdate(id, "已取消");
-    if (e.target.dataset.saveOrder) {
-      const status = $(`[data-status="${id}"]`)?.value || "待确认";
-      return saveOrderUpdate(id, status);
-    }
-  };
-  $("#ordersList").onchange = async (e) => {
-    if (e.target.dataset.fulfillment) {
-      const id = e.target.dataset.fulfillment,
-        fee = $(`[data-fee="${id}"]`);
-      if (e.target.value === "pickup") {
-        fee.value = "0.00";
-        fee.disabled = true;
-      } else fee.disabled = false;
-      return;
-    }
-    if (!e.target.dataset.status) return;
-    await saveOrderUpdate(e.target.dataset.status, e.target.value);
-  };
-  document.querySelectorAll("[data-order-tab]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        orderTab = b.dataset.orderTab;
-        document
-          .querySelectorAll("[data-order-tab]")
-          .forEach((x) => x.classList.toggle("active-order-tab", x === b));
-        orders();
-      }),
-  );
-  $("#orderSearch").oninput = orders;
   $("#newProduct").onclick = () => openProduct();
   $("#closeProduct").onclick = () => $("#productDialog").close();
   $("#productsList").onclick = async (e) => {
@@ -1497,11 +1160,6 @@ const startAdmin = () => {
     if (session) await db.auth.signOut();
     login();
   })();
-  if (false) eval(
-    atob(
-      "LyogQ29tcGFjdCwgZXhwYW5kYWJsZSBvd25lciBvcmRlciBjYXJkcy4gKi8KKCgpPT57CiAgY29uc3Qgcm9vdD1kb2N1bWVudC5xdWVyeVNlbGVjdG9yKCcjb3JkZXJzTGlzdCcpOwogIGlmKCFyb290KXJldHVybjsKICBjb25zdCBleHBhbmRlZFN0eWxlPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ3N0eWxlJyk7CiAgZXhwYW5kZWRTdHlsZS50ZXh0Q29udGVudD0nI29yZGVyc0xpc3Qub3JkZXItY2FyZC1saXN0IC5vcmRlci1jYXJkOm5vdCguaXMtY29sbGFwc2VkKSAub3JkZXItY29tcGFjdHtkaXNwbGF5Om5vbmV9JzsKICBkb2N1bWVudC5oZWFkLmFwcGVuZChleHBhbmRlZFN0eWxlKTsKICBjb25zdCBjbGllbnQ9d2luZG93LnN1cGFiYXNlLmNyZWF0ZUNsaWVudChUSU5HU19TVVBBQkFTRS51cmwsVElOR1NfU1VQQUJBU0UuYW5vbktleSk7CiAgY29uc3QgVD17CiAgICBwZW5kaW5nOidcdTVmODVcdTc4NmVcdThiYTQnLGNvbmZpcm1lZDonXHU1ZGYyXHU3ODZlXHU4YmE0JyxkZWxpdmVyaW5nOidcdTkxNGRcdTkwMDFcdTRlMmQnLGNvbXBsZXRlOidcdTVkZjJcdTViOGNcdTYyMTAnLGNhbmNlbGxlZDonXHU1ZGYyXHU1M2Q2XHU2ZDg4JywKICAgIHByZXBhcmluZzonXHU2YjYzXHU1NzI4XHU1MWM2XHU1OTA3JyxpbkRlbGl2ZXJ5OidcdTZiNjNcdTU3MjhcdTkxNGRcdTkwMDEnLGNvbmZpcm06J1x1Nzg2ZVx1OGJhNFx1OGJhMlx1NTM1NScscGlja3VwOidcdTgxZWFcdTUzZDYnLHdhaXRpbmdQaWNrdXA6J1x1N2I0OVx1NWY4NVx1NTNkNlx1NTM1NScsZGVsaXZlcnk6J1x1OTE0ZFx1OTAwMScsZGV0YWlsczonXHU2N2U1XHU3NzBiXHU4YmU2XHU2MGM1Jyxjb2xsYXBzZTonXHU2NTM2XHU4ZDc3XHU4YmU2XHU2MGM1JywKICAgIHRpbWU6J1x1NGUwYlx1NTM1NVx1NjVmNlx1OTVmNFx1ZmYxYScsY3VzdG9tZXI6J1x1OTg3ZVx1NWJhMlx1NGZlMVx1NjA2ZicsbmFtZTonXHU1OWQzXHU1NDBkJyxwaG9uZTonXHU3NTM1XHU4YmRkJyxhZGRyZXNzOidcdTkxNGRcdTkwMDFcdTU3MzBcdTU3NDAnLGNvcHk6J1x1NTkwZFx1NTIzNlx1NTczMFx1NTc0MCcsCiAgICBpdGVtczonXHU1NTQ2XHU1NGMxXHU4YmU2XHU3ZWM2Jyx2YXJpYW50OidcdTllZDhcdThiYTRcdTg5YzRcdTY4M2MnLG5vSXRlbXM6J1x1NjY4Mlx1NjVlMFx1NTU0Nlx1NTRjMVx1NjYwZVx1N2VjNlx1MzAwMicsc3VidG90YWw6J1x1NTU0Nlx1NTRjMVx1NWMwZlx1OGJhMScsZmVlOidcdTkxNGRcdTkwMDFcdThkMzknLHdhaXZlZDonXHVmZjA4XHU1ZGYyXHU1MWNmXHU1MTRkXHVmZjA5Jyx0YXg6J1x1N2EwZScsdG90YWw6J1x1OGJhMlx1NTM1NVx1NjAzYlx1OTg5ZCcsZGlzY291bnQ6J1x1NWRmMlx1NGYxOFx1NjBlMCcsY291cG9uOidcdTRmMThcdTYwZTBcdTUyMzgnLHJlZmVycmFsOidcdTYzYThcdTgzNTBcdTc4MDEnLGNhbXBhaWduOidcdTZkM2JcdTUyYTgnLGNvbG9uOidcdWZmMWEnLAogICAgY3VzdG9tZXJOb3RlOidcdTk4N2VcdTViYTJcdTU5MDdcdTZjZTgnLG93bmVyTm90ZTonXHU1ZTk3XHU0ZTNiXHU4YmY0XHU2NjBlJyxub3RlUGxhY2Vob2xkZXI6J1x1NTg2Ylx1NTE5OVx1N2VkOVx1OTg3ZVx1NWJhMlx1NzcwYlx1NzY4NFx1OGJhMlx1NTM1NVx1OGJmNFx1NjYwZScsc2F2ZU5vdGU6J1x1NGZkZFx1NWI1OFx1OGJmNFx1NjYwZScsdXBkYXRlZDonXHU2NmY0XHU2NWIwXHU0ZThlXHVmZjFhJywKICAgIGNhbmNlbDonXHU1M2Q2XHU2ZDg4XHU4YmEyXHU1MzU1JyxhcHByb3ZlOidcdTc4NmVcdThiYTRcdTUzZDZcdTZkODgnLHJlamVjdDonXHU2MmQyXHU3ZWRkXHU1M2Q2XHU2ZDg4JyxhcmNoaXZlZDonXHU1ZGYyXHU1ZjUyXHU2ODYzJyxjYW5jZWxSZXF1ZXN0ZWQ6J1x1OTg3ZVx1NWJhMlx1NWRmMlx1NjNkMFx1NGVhNFx1NTNkNlx1NmQ4OFx1NzUzM1x1OGJmN1x1ZmYwY1x1OGJmN1x1NTcyOFx1NTNmM1x1NGUwYlx1NjViOVx1Nzg2ZVx1OGJhNFx1NjIxNlx1NjJkMlx1N2VkZFx1MzAwMicsCiAgICBjb3BpZWQ6J1x1OTE0ZFx1OTAwMVx1NTczMFx1NTc0MFx1NWRmMlx1NTkwZFx1NTIzNicsY29weUZhaWw6J1x1NjVlMFx1NmNkNVx1NTkwZFx1NTIzNlx1NTczMFx1NTc0MFx1ZmYwY1x1OGJmN1x1NjI0Ylx1NTJhOFx1NTkwZFx1NTIzNicsbm90ZVNhdmVkOidcdTVlOTdcdTRlM2JcdThiZjRcdTY2MGVcdTVkZjJcdTRmZGRcdTViNTgnLG9yZGVyVXBkYXRlZDonXHU4YmEyXHU1MzU1XHU1ZGYyXHU2NmY0XHU2NWIwJyxjYW5jZWxDb25maXJtOidcdTc4NmVcdTViOWFcdTg5ODFcdTUzZDZcdTZkODhcdThmZDlcdTdiMTRcdThiYTJcdTUzNTVcdTU0MTdcdWZmMWZcdTUzZDZcdTZkODhcdTU0MGVcdTVlOTNcdTViNThcdTRmMWFcdTgxZWFcdTUyYThcdTYwNjJcdTU5MGRcdTMwMDInLGFwcHJvdmVDb25maXJtOidcdTc4NmVcdTViOWFcdTc4NmVcdThiYTRcdTUzZDZcdTZkODhcdThmZDlcdTdiMTRcdThiYTJcdTUzNTVcdTU0MTdcdWZmMWZcdTVlOTNcdTViNThcdTRmMWFcdTgxZWFcdTUyYThcdTYwNjJcdTU5MGRcdTMwMDInLHJlamVjdERvbmU6J1x1NWRmMlx1NjJkMlx1N2VkZFx1NTNkNlx1NmQ4OFx1NzUzM1x1OGJmNycsaGlzdG9yeTonXHU1Mzg2XHU1M2YyXHU4YmEyXHU1MzU1JyxjdXJyZW50OidcdTVmNTNcdTUyNGRcdThiYTJcdTUzNTUnLGVtcHR5OidcdTZjYTFcdTY3MDlcdTdiMjZcdTU0MDhcdTY3NjFcdTRlZjZcdTc2ODRcdThiYTJcdTUzNTVcdTMwMDInCiAgfTsKICBjb25zdCBlc2M9dj0+U3RyaW5nKHY/PycnKS5yZXBsYWNlKC9bJjw+Il0vZyxjPT4oeycmJzonJmFtcDsnLCc8JzonJmx0OycsJz4nOicmZ3Q7JywnIic6JyZxdW90Oyd9W2NdKSk7CiAgY29uc3QgY2FzaD12PT4nJCcrTnVtYmVyKHZ8fDApLnRvRml4ZWQoMik7CiAgY29uc3QgdGltZT12PT52P25ldyBJbnRsLkRhdGVUaW1lRm9ybWF0KCd6aC1DTicse3RpbWVab25lOidBbWVyaWNhL0NoaWNhZ28nLGRhdGVTdHlsZTonbWVkaXVtJyx0aW1lU3R5bGU6J3Nob3J0Jyxob3VyMTI6ZmFsc2V9KS5mb3JtYXQobmV3IERhdGUodikpOicnOwogIGNvbnN0IHRhYj0oKT0+ZG9jdW1lbnQucXVlcnlTZWxlY3RvcignW2RhdGEtb3JkZXItdGFiXS5hY3RpdmUtb3JkZXItdGFiJyk/LmRhdGFzZXQub3JkZXJUYWJ8fCdjdXJyZW50JzsKICBjb25zdCBzdGFnZT14PT54LnN0YXR1cz09PVQuY29uZmlybWVkP1QucHJlcGFyaW5nOnguc3RhdHVzPT09VC53YWl0aW5nUGlja3VwP1Qud2FpdGluZ1BpY2t1cDp4LnN0YXR1cz09PVQuZGVsaXZlcmluZz9ULmluRGVsaXZlcnk6eC5zdGF0dXM7CiAgY29uc3QgbmV4dD14PT54LnN0YXR1cz09PVQucGVuZGluZz97bGFiZWw6VC5jb25maXJtLHRhcmdldDpULmNvbmZpcm1lZCxraW5kOicnfTp4LnN0YXR1cz09PVQuY29uZmlybWVkP3tsYWJlbDpULnByZXBhcmluZyx0YXJnZXQ6eC5mdWxmaWxsbWVudD09PSdkZWxpdmVyeSc/VC5kZWxpdmVyaW5nOlQud2FpdGluZ1BpY2t1cCxraW5kOidwcmVwYXJlJ306eC5zdGF0dXM9PT1ULndhaXRpbmdQaWNrdXA/e2xhYmVsOlQud2FpdGluZ1BpY2t1cCx0YXJnZXQ6VC5jb21wbGV0ZSxraW5kOidwaWNrdXAnfTp4LnN0YXR1cz09PVQuZGVsaXZlcmluZz97bGFiZWw6VC5pbkRlbGl2ZXJ5LHRhcmdldDpULmNvbXBsZXRlLGtpbmQ6J2RlbGl2ZXJpbmcnfTpudWxsOwogIGNvbnN0IGNvbG9yPXg9Pnguc3RhdHVzPT09VC5wZW5kaW5nPyh4LmZ1bGZpbGxtZW50PT09J3BpY2t1cCc/J3BlbmRpbmctcGlja3VwJzoncGVuZGluZy1kZWxpdmVyeScpOicnOwogIGNvbnN0IGl0ZW09aT0+ewogICAgY29uc3QgcXR5PU51bWJlcihpLnF0eXx8MSkscHJpY2U9TnVtYmVyKGkucHJpY2U/P2kudW5pdF9wcmljZT8/MCksdG90YWw9TnVtYmVyKGkudG90YWw/P2kuc3VidG90YWw/P3ByaWNlKnF0eSksaW1hZ2U9aS5pbWFnZXx8aS5wcm9kdWN0X2ltYWdlfHwnJzsKICAgIGNvbnN0IHRodW1iPWltYWdlPyc8aW1nIHNyYz0iJytlc2MoaW1hZ2UpKyciIGFsdD0iIj4nOicmIzEyNzg1MjsnOwogICAgcmV0dXJuICc8ZGl2IGNsYXNzPSJvcmRlci1pdGVtLWRldGFpbCI+PGRpdiBjbGFzcz0ib3JkZXItaXRlbS10aHVtYiI+Jyt0aHVtYisnPC9kaXY+PGRpdiBjbGFzcz0ib3JkZXItaXRlbS1tYWluIj48Yj4nK2VzYyhpLm5hbWV8fFQuaXRlbXMpKyc8L2I+PHNtYWxsPiAnK2VzYyhpLnZhcmlhbnRfbGFiZWx8fGkub3B0aW9uX2xhYmVsfHxULnZhcmlhbnQpKycgPHNwYW4gY2xhc3M9Im9yZGVyLWl0ZW0tcXR5Ij4mdGltZXM7ICcrcXR5Kyc8L3NwYW4+PC9zbWFsbD48L2Rpdj48c3BhbiBjbGFzcz0ib3JkZXItaXRlbS1wcmljZSI+JytjYXNoKHRvdGFsKSsnPC9zcGFuPjwvZGl2Pic7CiAgfTsKICBjb25zdCBjb21wYWN0SXRlbXM9eD0+KHguaXRlbXN8fFtdKS5tYXAoaT0+ZXNjKGkubmFtZXx8VC5pdGVtcykrKGkudmFyaWFudF9sYWJlbD8nICcrZXNjKGkudmFyaWFudF9sYWJlbCk6JycpKycgJnRpbWVzOyAnK051bWJlcihpLnF0eXx8MSkpLmpvaW4oJzsgJyl8fFQubm9JdGVtczsKICBjb25zdCBjYXJkPXg9PnsKICAgIGNvbnN0IGRlbGl2ZXJ5PXguZnVsZmlsbG1lbnQ9PT0nZGVsaXZlcnknLGFjdGlvbj1uZXh0KHgpLGN1c3RvbWVyTm90ZT1TdHJpbmcoeC5jdXN0b21lcl9ub3RlPz94Lm5vdGU/P3gub3JkZXJfbm90ZT8/JycpLnRyaW0oKSxpdGVtcz0oeC5pdGVtc3x8W10pLm1hcChpdGVtKS5qb2luKCcnKXx8JzxwIGNsYXNzPSJtdXRlZCI+JytULm5vSXRlbXMrJzwvcD4nLHNuYXBzaG90PXgucHJvbW90aW9uX3NuYXBzaG90fHx7fSxjYW1wYWlnbk5hbWU9U3RyaW5nKHNuYXBzaG90LmNhbXBhaWduX25hbWV8fCgoeC5wcm9tb3Rpb25fa2luZCYmIVsnY291cG9uJywncmVmZXJyYWwnXS5pbmNsdWRlcyh4LnByb21vdGlvbl9raW5kKSk/eC5wcm9tb3Rpb25fbmFtZTonJyl8fCcnKS50cmltKCksY29kZUtpbmQ9c25hcHNob3QuY29kZV9raW5kfHwoeC5wcm9tb3Rpb25fa2luZD09PSdyZWZlcnJhbCc/J3JlZmVycmFsJzooeC5jb3Vwb25fY29kZT8nY291cG9uJzonJykpLGNvZGU9U3RyaW5nKHguY291cG9uX2NvZGV8fHNuYXBzaG90LmNvZGV8fCcnKS50cmltKCksY29kZU5hbWU9U3RyaW5nKHNuYXBzaG90LmNvZGVfbmFtZXx8JycpLnRyaW0oKSxkaXNjb3VudEFtb3VudD1NYXRoLm1heCgwLE51bWJlcih4LmRpc2NvdW50X2Ftb3VudHx8MCkpLGZlZVJvdz1kZWxpdmVyeT8nPHA+PHNwYW4+JytULmZlZSsnPC9zcGFuPjxzcGFuIGNsYXNzPSJmZWUtdmFsdWUiPicrKE51bWJlcih4LmRlbGl2ZXJ5X2ZlZXx8MCk9PT0wPyc8c21hbGw+JytULndhaXZlZCsnPC9zbWFsbD4nOicnKSsnPGI+JytjYXNoKHguZGVsaXZlcnlfZmVlKSsnPC9iPjwvc3Bhbj48L3A+JzonJyxwcm9tb3Rpb25UYWdzPSgoY29kZXx8Y29kZU5hbWUpPyc8c3BhbiBjbGFzcz0icHJvbW90aW9uLXRhZyI+JysoY29kZUtpbmQ9PT0ncmVmZXJyYWwnP1QucmVmZXJyYWw6VC5jb3Vwb24pK1QuY29sb24rZXNjKGNvZGV8fGNvZGVOYW1lKSsnPC9zcGFuPic6JycpKyhjYW1wYWlnbk5hbWU/JzxzcGFuIGNsYXNzPSJwcm9tb3Rpb24tdGFnIj4nK1QuY2FtcGFpZ24rVC5jb2xvbitlc2MoY2FtcGFpZ25OYW1lKSsnPC9zcGFuPic6JycpOwogICAgY29uc3QgYWRkcmVzcz1kZWxpdmVyeSYmeC5hZGRyZXNzPyc8ZGl2PjxzcGFuPicrVC5hZGRyZXNzKyc8L3NwYW4+PGRpdiBjbGFzcz0iY3VzdG9tZXItYWRkcmVzcyI+PGI+Jytlc2MoeC5hZGRyZXNzKSsnPC9iPjxidXR0b24gY2xhc3M9InRleHQtYnRuIiBkYXRhLWNhcmQtY29weT0iJyt4LmlkKyciIGRhdGEtYWRkcmVzcz0iJytlbmNvZGVVUklDb21wb25lbnQoeC5hZGRyZXNzKSsnIj4nK1QuY29weSsnPC9idXR0b24+PC9kaXY+PC9kaXY+JzonJzsKICAgIGNvbnN0IHNlbGVjdD14LmFyY2hpdmVkPyc8c3BhbiBjbGFzcz0ic3RhdHVzLXN0YWdlIj4nKyhkZWxpdmVyeT8nJiMxMjg2NjM7ICc6JyYjMTI4NzE3OyAnKSsoZGVsaXZlcnk/VC5kZWxpdmVyeTpULnBpY2t1cCkrJzwvc3Bhbj4nOic8c2VsZWN0IGNsYXNzPSJmdWxmaWxsbWVudC1zZWxlY3QiIGRhdGEtY2FyZC1mdWxmaWxsbWVudD0iJyt4LmlkKyciPjxvcHRpb24gdmFsdWU9InBpY2t1cCIgJysoZGVsaXZlcnk/Jyc6J3NlbGVjdGVkJykrJz4mIzEyODcxNzsgJytULnBpY2t1cCsnPC9vcHRpb24+PG9wdGlvbiB2YWx1ZT0iZGVsaXZlcnkiICcrKGRlbGl2ZXJ5PydzZWxlY3RlZCc6JycpKyc+JiMxMjg2NjM7ICcrVC5kZWxpdmVyeSsnPC9vcHRpb24+PC9zZWxlY3Q+JzsKICAgIGNvbnN0IHN0YWZmPSc8ZGl2IGNsYXNzPSJzdGFmZi1ub3RlLWVkaXRvciI+PGxhYmVsPicrVC5vd25lck5vdGUrJzx0ZXh0YXJlYSBkYXRhLWNhcmQtbm90ZT0iJyt4LmlkKyciIHJvd3M9IjEiIHBsYWNlaG9sZGVyPSInK1Qubm90ZVBsYWNlaG9sZGVyKyciPicrZXNjKHguc3RhZmZfbm90ZXx8JycpKyc8L3RleHRhcmVhPjwvbGFiZWw+PGJ1dHRvbiBkYXRhLWNhcmQtc2F2ZS1ub3RlPSInK3guaWQrJyI+JytULnNhdmVOb3RlKyc8L2J1dHRvbj4nKyh4LnN0YWZmX25vdGVfdXBkYXRlZF9hdD8nPHNtYWxsPicrVC51cGRhdGVkK3RpbWUoeC5zdGFmZl9ub3RlX3VwZGF0ZWRfYXQpKyc8L3NtYWxsPic6JycpKyc8L2Rpdj4nOwogICAgY29uc3QgY2FuY2VsPXguYXJjaGl2ZWQ/JzxzcGFuIGNsYXNzPSJtdXRlZCI+JytULmFyY2hpdmVkKyc8L3NwYW4+Jzp4LmNhbmNlbGxhdGlvbl9yZXF1ZXN0ZWQ/JzxidXR0b24gY2xhc3M9ImFwcHJvdmUtY2FuY2VsIiBkYXRhLWNhcmQtYXBwcm92ZT0iJyt4LmlkKyciPicrVC5hcHByb3ZlKyc8L2J1dHRvbj48YnV0dG9uIGRhdGEtY2FyZC1yZWplY3Q9IicreC5pZCsnIj4nK1QucmVqZWN0Kyc8L2J1dHRvbj4nOic8YnV0dG9uIGRhdGEtY2FyZC1jYW5jZWw9IicreC5pZCsnIj4nK1QuY2FuY2VsKyc8L2J1dHRvbj4nOwogICAgY29uc3QgZGV0YWlsPSc8ZGl2IGNsYXNzPSJvcmRlci1kZXRhaWwiPjxzZWN0aW9uIGNsYXNzPSJjYXJkLXNlY3Rpb24iPjxwIGNsYXNzPSJjYXJkLWxhYmVsIj4nK1QuY3VzdG9tZXIrJzwvcD48ZGl2IGNsYXNzPSJjdXN0b21lci1kZXRhaWxzIj48ZGl2PjxzcGFuPicrVC5uYW1lKyc8L3NwYW4+PGI+Jytlc2MoeC5jdXN0b21lcl9uYW1lKSsnPC9iPjwvZGl2PjxkaXY+PHNwYW4+JytULnBob25lKyc8L3NwYW4+PGI+Jytlc2MoeC5waG9uZSkrJzwvYj48L2Rpdj4nK2FkZHJlc3MrJzwvZGl2Pjwvc2VjdGlvbj48c2VjdGlvbiBjbGFzcz0iY2FyZC1zZWN0aW9uIj48cCBjbGFzcz0iY2FyZC1sYWJlbCI+JytULml0ZW1zKyc8L3A+PGRpdiBjbGFzcz0ib3JkZXItaXRlbXMtZGV0YWlsIj4nK2l0ZW1zKyc8L2Rpdj48L3NlY3Rpb24+PHNlY3Rpb24gY2xhc3M9ImNhcmQtc2VjdGlvbiI+PGRpdiBjbGFzcz0iY2FyZC10b3RhbHMiPjxwPjxzcGFuPicrVC5zdWJ0b3RhbCsnPC9zcGFuPjxzcGFuPicrY2FzaCh4LnN1YnRvdGFsKSsnPC9zcGFuPjwvcD4nKyhkaXNjb3VudEFtb3VudD4wfHxwcm9tb3Rpb25UYWdzPyc8cCBjbGFzcz0iZGlzY291bnQtcm93Ij48c3BhbiBjbGFzcz0icHJvbW90aW9uLXRhZ3MiPicrcHJvbW90aW9uVGFncysnPC9zcGFuPjxzcGFuIGNsYXNzPSJkaXNjb3VudC1hbW91bnQiPjxzcGFuPicrVC5kaXNjb3VudCsnPC9zcGFuPjxzcGFuPi0nK2Nhc2goZGlzY291bnRBbW91bnQpKyc8L3NwYW4+PC9zcGFuPjwvcD4nOicnKSsnJytmZWVSb3crJzxwPjxzcGFuPicrVC50YXgrJzwvc3Bhbj48c3Bhbj4nK2Nhc2goeC50YXhfYW1vdW50KSsnPC9zcGFuPjwvcD48cD48c3Bhbj4nK1QudG90YWwrJzwvc3Bhbj48c3Bhbj4nK2Nhc2goeC50b3RhbF9hbW91bnQ/P3guc3VidG90YWwpKyc8L3NwYW4+PC9wPjwvZGl2Pjwvc2VjdGlvbj4nKyhjdXN0b21lck5vdGU/JzxzZWN0aW9uIGNsYXNzPSJjYXJkLXNlY3Rpb24iPjxwIGNsYXNzPSJjYXJkLWxhYmVsIj4nK1QuY3VzdG9tZXJOb3RlKyc8L3A+PHAgY2xhc3M9ImN1c3RvbWVyLW5vdGUiPicrZXNjKGN1c3RvbWVyTm90ZSkrJzwvcD48L3NlY3Rpb24+JzonJykrJzxzZWN0aW9uIGNsYXNzPSJjYXJkLXNlY3Rpb24iPicrc3RhZmYrJzwvc2VjdGlvbj48L2Rpdj4nOwogICAgcmV0dXJuICc8YXJ0aWNsZSBjbGFzcz0ib3JkZXItY2FyZCBpcy1jb2xsYXBzZWQgJytjb2xvcih4KSsnIiBkYXRhLW9yZGVyLWlkPSInK3guaWQrJyIgZGF0YS1vcmRlci1zdGF0dXM9IicrZXNjKHguc3RhdHVzKSsnIiBkYXRhLWRlbGl2ZXJ5LWZlZT0iJytOdW1iZXIoeC5kZWxpdmVyeV9mZWV8fDApKyciPjxkaXYgY2xhc3M9Im9yZGVyLXRvcCI+PGRpdj48ZGl2IGNsYXNzPSJvcmRlci10aXRsZS13cmFwIj48aDM+Jytlc2MoeC5vcmRlcl9udW1iZXIpKyc8L2gzPjxzcGFuIGNsYXNzPSJzdGF0dXMtc3RhZ2UiPicrZXNjKHN0YWdlKHgpKSsnPC9zcGFuPicrc2VsZWN0Kyc8L2Rpdj48cCBjbGFzcz0ib3JkZXItdGltZSI+JytULnRpbWUrdGltZSh4LmNyZWF0ZWRfYXQpKyc8L3A+PC9kaXY+JysoYWN0aW9uJiYheC5hcmNoaXZlZD8nPGJ1dHRvbiBjbGFzcz0iYWR2YW5jZS1vcmRlciAnK2FjdGlvbi5raW5kKyciIGRhdGEtY2FyZC1hZHZhbmNlPSInK3guaWQrJyIgZGF0YS10YXJnZXQ9IicrYWN0aW9uLnRhcmdldCsnIj4nK2FjdGlvbi5sYWJlbCsnPC9idXR0b24+JzonJykrJzwvZGl2PicrKHguY2FuY2VsbGF0aW9uX3JlcXVlc3RlZD8nPHAgY2xhc3M9ImNhbmNlbGxhdGlvbi1hbGVydCI+JytULmNhbmNlbFJlcXVlc3RlZCsnPC9wPic6JycpKyc8ZGl2IGNsYXNzPSJvcmRlci1jb21wYWN0Ij48cCBjbGFzcz0iY29tcGFjdC1pdGVtcyI+Jytjb21wYWN0SXRlbXMoeCkrJzwvcD48ZGl2IGNsYXNzPSJjb21wYWN0LW1ldGEiPjxzcGFuPicrZXNjKHguY3VzdG9tZXJfbmFtZSkrJyAnK2VzYyh4LnBob25lKSsnPC9zcGFuPjxiPicrY2FzaCh4LnRvdGFsX2Ftb3VudD8/eC5zdWJ0b3RhbCkrJzwvYj48L2Rpdj48L2Rpdj4nK2RldGFpbCsnPGRpdiBjbGFzcz0ib3JkZXItZm9vdGVyIj48YnV0dG9uIGNsYXNzPSJkZXRhaWwtdG9nZ2xlIiBkYXRhLWNhcmQtdG9nZ2xlPSInK3guaWQrJyI+JytULmRldGFpbHMrJzwvYnV0dG9uPjxkaXYgY2xhc3M9Im9yZGVyLWZvb3Rlci1yaWdodCI+JytjYW5jZWwrJzwvZGl2PjwvZGl2PjwvYXJ0aWNsZT4nOwogIH07CiAgY29uc3QgcmVuZGVyPWFzeW5jKCk9PnsKICAgIGNvbnN0IGFsbD1hd2FpdCBkYXRhKCdvcmRlcnMnKSxzZWxlY3RlZD10YWIoKSxxdWVyeT0oJCgnI29yZGVyU2VhcmNoJyk/LnZhbHVlfHwnJykudHJpbSgpLnRvTG93ZXJDYXNlKCk7CiAgICBjb25zdCBsaXN0PWFsbC5maWx0ZXIoeD0+KHNlbGVjdGVkPT09J2hpc3RvcnknKT09PSEheC5hcmNoaXZlZCkuZmlsdGVyKHg9PiFxdWVyeXx8W3gub3JkZXJfbnVtYmVyLHguY3VzdG9tZXJfbmFtZSx4LnBob25lLHRpbWUoeC5jcmVhdGVkX2F0KV0uam9pbignICcpLnRvTG93ZXJDYXNlKCkuaW5jbHVkZXMocXVlcnkpKTsKICAgICQoJyNvcmRlcnNUaXRsZScpLnRleHRDb250ZW50PXNlbGVjdGVkPT09J2hpc3RvcnknP1QuaGlzdG9yeTpULmN1cnJlbnQ7CiAgICAkKCcjYWxsT3JkZXJzJykudGV4dENvbnRlbnQ9YWxsLmZpbHRlcih4PT4heC5hcmNoaXZlZCkubGVuZ3RoOwogICAgJCgnI25ld09yZGVycycpLnRleHRDb250ZW50PWFsbC5maWx0ZXIoeD0+eC5zdGF0dXM9PT1ULnBlbmRpbmcmJiF4LmFyY2hpdmVkKS5sZW5ndGg7CiAgICAkKCcjb3JkZXJCYWRnZScpLnRleHRDb250ZW50PWFsbC5maWx0ZXIoeD0+eC5zdGF0dXM9PT1ULnBlbmRpbmcmJiF4LmFyY2hpdmVkKS5sZW5ndGg7CiAgICAkKCcjdG9kYXlBbW91bnQnKS50ZXh0Q29udGVudD1tb25leShhbGwuZmlsdGVyKHg9PiF4LmFyY2hpdmVkKS5yZWR1Y2UoKHN1bSx4KT0+c3VtK051bWJlcih4LnRvdGFsX2Ftb3VudHx8eC5zdWJ0b3RhbHx8MCksMCkpOwogICAgcm9vdC5jbGFzc0xpc3QuYWRkKCdvcmRlci1jYXJkLWxpc3QnKTsKICAgIHJvb3QuaW5uZXJIVE1MPWxpc3QubWFwKGNhcmQpLmpvaW4oJycpfHwnPHAgY2xhc3M9Im11dGVkIj4nK1QuZW1wdHkrJzwvcD4nOwogICAgcm9vdC5xdWVyeVNlbGVjdG9yQWxsKCd0ZXh0YXJlYVtkYXRhLWNhcmQtbm90ZV0nKS5mb3JFYWNoKGZpZWxkPT57ZmllbGQuc3R5bGUuaGVpZ2h0PSdhdXRvJztmaWVsZC5zdHlsZS5oZWlnaHQ9TWF0aC5tYXgoNDAsZmllbGQuc2Nyb2xsSGVpZ2h0KSsncHgnfSk7CiAgfTsKICBjb25zdCBzYXZlPWFzeW5jKG5vZGUsc3RhdHVzLGZ1bGZpbGxtZW50KT0+ewogICAgY29uc3QgZmVlPWZ1bGZpbGxtZW50PT09J3BpY2t1cCc/MDpOdW1iZXIobm9kZS5kYXRhc2V0LmRlbGl2ZXJ5RmVlfHwwKTsKICAgIGNvbnN0IHJlc3VsdD1hd2FpdCBjbGllbnQucnBjKCdvd25lcl91cGRhdGVfb3JkZXInLHtwX29yZGVyX2lkOm5vZGUuZGF0YXNldC5vcmRlcklkLHBfc3RhdHVzOnN0YXR1cyxwX2Z1bGZpbGxtZW50OmZ1bGZpbGxtZW50LHBfZGVsaXZlcnlfZmVlOmZlZX0pOwogICAgdG9hc3QocmVzdWx0LmVycm9yP3Jlc3VsdC5lcnJvci5tZXNzYWdlOlQub3JkZXJVcGRhdGVkKTsKICAgIGlmKCFyZXN1bHQuZXJyb3IpcmVuZGVyKCk7CiAgfTsKICByb290LmFkZEV2ZW50TGlzdGVuZXIoJ2lucHV0JyxlPT57aWYoZS50YXJnZXQubWF0Y2hlcygndGV4dGFyZWFbZGF0YS1jYXJkLW5vdGVdJykpe2UudGFyZ2V0LnN0eWxlLmhlaWdodD0nYXV0byc7ZS50YXJnZXQuc3R5bGUuaGVpZ2h0PU1hdGgubWF4KDQwLGUudGFyZ2V0LnNjcm9sbEhlaWdodCkrJ3B4J319KTsKICByb290LmFkZEV2ZW50TGlzdGVuZXIoJ2NoYW5nZScsZT0+e2lmKCFlLnRhcmdldC5kYXRhc2V0LmNhcmRGdWxmaWxsbWVudClyZXR1cm47Y29uc3Qgbm9kZT1lLnRhcmdldC5jbG9zZXN0KCcub3JkZXItY2FyZCcpO3NhdmUobm9kZSxub2RlLmRhdGFzZXQub3JkZXJTdGF0dXMsZS50YXJnZXQudmFsdWUpfSk7CiAgcm9vdC5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsYXN5bmMgZT0+ewogICAgY29uc3Qgbm9kZT1lLnRhcmdldC5jbG9zZXN0KCcub3JkZXItY2FyZCcpO2lmKCFub2RlKXJldHVybjsKICAgIGNvbnN0IGlkPW5vZGUuZGF0YXNldC5vcmRlcklkLGZ1bGZpbGxtZW50PW5vZGUucXVlcnlTZWxlY3RvcignW2RhdGEtY2FyZC1mdWxmaWxsbWVudF0nKT8udmFsdWV8fCdwaWNrdXAnOwogICAgaWYoZS50YXJnZXQuZGF0YXNldC5jYXJkVG9nZ2xlKXtjb25zdCBjb2xsYXBzZWQ9bm9kZS5jbGFzc0xpc3QudG9nZ2xlKCdpcy1jb2xsYXBzZWQnKTtlLnRhcmdldC50ZXh0Q29udGVudD1jb2xsYXBzZWQ/VC5kZXRhaWxzOlQuY29sbGFwc2U7cmV0dXJufQogICAgaWYoZS50YXJnZXQuZGF0YXNldC5jYXJkQ29weSl7dHJ5e2F3YWl0IG5hdmlnYXRvci5jbGlwYm9hcmQud3JpdGVUZXh0KGRlY29kZVVSSUNvbXBvbmVudChlLnRhcmdldC5kYXRhc2V0LmFkZHJlc3N8fCcnKSk7dG9hc3QoVC5jb3BpZWQpfWNhdGNoe3RvYXN0KFQuY29weUZhaWwpfXJldHVybn0KICAgIGlmKGUudGFyZ2V0LmRhdGFzZXQuY2FyZFNhdmVOb3RlKXtjb25zdCBmaWVsZD1ub2RlLnF1ZXJ5U2VsZWN0b3IoJ1tkYXRhLWNhcmQtbm90ZV0nKTtjb25zdCByZXN1bHQ9YXdhaXQgY2xpZW50LnJwYygnb3duZXJfdXBkYXRlX29yZGVyX25vdGUnLHtwX29yZGVyX2lkOmlkLHBfc3RhZmZfbm90ZTpmaWVsZD8udmFsdWV8fCcnfSk7dG9hc3QocmVzdWx0LmVycm9yP3Jlc3VsdC5lcnJvci5tZXNzYWdlOlQubm90ZVNhdmVkKTtpZighcmVzdWx0LmVycm9yKXJlbmRlcigpO3JldHVybn0KICAgIGlmKGUudGFyZ2V0LmRhdGFzZXQuY2FyZEFkdmFuY2UpcmV0dXJuIHNhdmUobm9kZSxlLnRhcmdldC5kYXRhc2V0LnRhcmdldCxmdWxmaWxsbWVudCk7CiAgICBpZihlLnRhcmdldC5kYXRhc2V0LmNhcmRDYW5jZWwpe2lmKGNvbmZpcm0oVC5jYW5jZWxDb25maXJtKSlyZXR1cm4gc2F2ZShub2RlLFQuY2FuY2VsbGVkLGZ1bGZpbGxtZW50KTtyZXR1cm59CiAgICBpZihlLnRhcmdldC5kYXRhc2V0LmNhcmRBcHByb3ZlKXtpZihjb25maXJtKFQuYXBwcm92ZUNvbmZpcm0pKXJldHVybiBzYXZlKG5vZGUsVC5jYW5jZWxsZWQsZnVsZmlsbG1lbnQpO3JldHVybn0KICAgIGlmKGUudGFyZ2V0LmRhdGFzZXQuY2FyZFJlamVjdCl7Y29uc3QgcmVzdWx0PWF3YWl0IGNsaWVudC5ycGMoJ293bmVyX3JlamVjdF9jYW5jZWxsYXRpb24nLHtwX29yZGVyX2lkOmlkfSk7dG9hc3QocmVzdWx0LmVycm9yP3Jlc3VsdC5lcnJvci5tZXNzYWdlOlQucmVqZWN0RG9uZSk7aWYoIXJlc3VsdC5lcnJvcilyZW5kZXIoKX0KICB9KTsKICBzZXRUaW1lb3V0KCgpPT57b3JkZXJzPXJlbmRlcjtyZW5kZXIoKX0sMCk7Cn0pKCk7Cg==",
-    ),
-  );
 };
 startAdmin();
 (() => {
