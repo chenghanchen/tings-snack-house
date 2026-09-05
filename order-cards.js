@@ -8,6 +8,8 @@
   );
   const $ = (selector) => document.querySelector(selector);
   const T = {
+    confirmCancel: "确认取消",
+    cancelling: "取消中…",
     pending: "\u5f85\u786e\u8ba4",
     confirmed: "\u5df2\u786e\u8ba4",
     delivering: "\u914d\u9001\u4e2d",
@@ -135,11 +137,14 @@
               ? { label: T.inDelivery, target: T.complete, kind: "delivering" }
               : null;
   const color = (x) =>
-    x.status === T.pending
+    (x.fulfillment === "delivery"
+      ? "fulfillment-delivery-card"
+      : "fulfillment-pickup-card") +
+    (x.status === T.pending
       ? x.fulfillment === "pickup"
-        ? "pending-pickup"
-        : "pending-delivery"
-      : "";
+        ? " pending-pickup"
+        : " pending-delivery"
+      : "");
   const item = (i) => {
     const qty = Number(i.qty || 1),
       price = Number(i.price ?? i.unit_price ?? 0),
@@ -268,6 +273,13 @@
           action.label +
           "</button>"
         : "";
+    const cancelAction = !x.archived && !x.cancellation_requested
+      ? '<button class="cancel-order" type="button" data-card-cancel="' +
+        x.id +
+        '" data-cancel-state="idle">' +
+        T.cancel +
+        "</button>"
+      : "";
     const snapshot = x.promotion_snapshot || {},
       tags = [];
     if (x.coupon_code)
@@ -391,8 +403,10 @@
       cash(x.total_amount ?? x.subtotal) +
       "</b></div></div>" +
       detail +
-      (footerAction
-        ? '<div class="order-footer"><div class="order-footer-right">' +
+      (cancelAction || footerAction
+        ? '<div class="order-footer"><div class="order-footer-left">' +
+          cancelAction +
+          '</div><div class="order-footer-right">' +
           footerAction +
           "</div></div>"
         : "") +
@@ -473,6 +487,17 @@
     });
     toast(result.error ? result.error.message : T.orderUpdated);
     if (!result.error) render();
+    return !result.error;
+  };
+  const resetCancelButtons = (except) => {
+    root
+      .querySelectorAll("[data-card-cancel][data-cancel-state='confirm']")
+      .forEach((button) => {
+        if (button === except) return;
+        button.dataset.cancelState = "idle";
+        button.classList.remove("is-confirming");
+        button.textContent = T.cancel;
+      });
   };
   const noteTimers = new Map();
   const saveNote = async (field) => {
@@ -532,6 +557,7 @@
     )
       return;
     if (Date.now() < suppressCardToggleUntil) return;
+    resetCancelButtons();
     toggleDetails(node);
   });
   root.addEventListener("input", (e) => {
@@ -547,6 +573,7 @@
   });
   root.addEventListener("change", (e) => {
     if (!e.target.dataset.cardFulfillment) return;
+    resetCancelButtons();
     const node = e.target.closest(".order-card");
     save(node, node.dataset.orderStatus, e.target.value);
   });
@@ -556,6 +583,27 @@
     const id = node.dataset.orderId,
       fulfillment =
         node.querySelector("[data-card-fulfillment]")?.value || "pickup";
+    const cancelButton = e.target.closest("[data-card-cancel]");
+    if (cancelButton) {
+      if (cancelButton.dataset.cancelState !== "confirm") {
+        resetCancelButtons(cancelButton);
+        cancelButton.dataset.cancelState = "confirm";
+        cancelButton.classList.add("is-confirming");
+        cancelButton.textContent = T.confirmCancel;
+        return;
+      }
+      cancelButton.disabled = true;
+      cancelButton.textContent = T.cancelling;
+      const saved = await save(node, T.cancelled, fulfillment);
+      if (!saved) {
+        cancelButton.disabled = false;
+        cancelButton.dataset.cancelState = "idle";
+        cancelButton.classList.remove("is-confirming");
+        cancelButton.textContent = T.cancel;
+      }
+      return;
+    }
+    resetCancelButtons();
     if (e.target.dataset.cardCopy) {
       try {
         await navigator.clipboard.writeText(
@@ -569,10 +617,6 @@
     }
     if (e.target.dataset.cardAdvance)
       return save(node, e.target.dataset.target, fulfillment);
-    if (e.target.dataset.cardCancel) {
-      if (confirm(T.cancelConfirm)) return save(node, T.cancelled, fulfillment);
-      return;
-    }
     if (e.target.dataset.cardApprove) {
       if (confirm(T.approveConfirm))
         return save(node, T.cancelled, fulfillment);
