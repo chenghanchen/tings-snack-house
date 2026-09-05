@@ -132,7 +132,7 @@
               kind: "prepare",
             }
           : x.status === "等待取单"
-            ? { label: "等待取单", target: T.complete, kind: "delivering" }
+            ? { label: "等待取单", target: T.complete, kind: "pickup-ready" }
             : x.status === T.delivering
               ? { label: T.inDelivery, target: T.complete, kind: "delivering" }
               : null;
@@ -190,6 +190,16 @@
           : stageText === T.complete
             ? " status-completed"
             : "",
+      stageTone =
+        stageText === T.pending
+          ? " status-pending"
+          : stageText === T.preparing
+            ? " status-preparing"
+            : stageText === T.inDelivery
+              ? " status-delivering"
+              : stageText === "等待取单"
+                ? " status-waiting-pickup"
+                : "",
       action = next(x),
       items =
         (x.items || []).map(item).join("") ||
@@ -377,6 +387,7 @@
       '</h3><span class="status-stage' +
       (x.cancellation_requested ? " cancellation-pending" : "") +
       stageClass +
+      stageTone +
       '">' +
       esc(stageText) +
       "</span>" +
