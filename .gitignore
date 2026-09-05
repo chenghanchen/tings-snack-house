@@ -1,0 +1,8 @@
+# Local previews, exports, and media-generation artifacts.
+.build/
+.video-deps/
+output/
+*.pptx
+*.inspect.ndjson
+order-card-preview.html
+order-card-preview.svg
