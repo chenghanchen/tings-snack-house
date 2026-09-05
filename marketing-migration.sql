@@ -74,6 +74,37 @@ create policy "owner manages coupons" on public.marketing_coupons for all to aut
 create policy "owner reads coupon redemptions" on public.coupon_redemptions for select to authenticated using ((auth.jwt()->>'email')='chenghanchen1@gmail.com');
 create policy "owner reads referrals" on public.customer_referrals for select to authenticated using ((auth.jwt()->>'email')='chenghanchen1@gmail.com');
 
+-- Keep direct RPC calls aligned with the customer site's configured hours.
+create or replace function public.store_is_open_now() returns boolean
+language plpgsql stable security definer set search_path=public as $$
+declare
+  hours jsonb; schedule jsonb; local_now timestamp; local_date text; day_key text;
+  start_text text; end_text text; start_min integer; end_min integer; current_min integer;
+begin
+  select coalesce(content->'storeSettings'->'hours','{}'::jsonb) into hours
+  from public.shop_settings where id=1;
+  if hours->'days' is null then return true; end if;
+  local_now := timezone('America/Chicago', now());
+  local_date := to_char(local_now, 'YYYY-MM-DD');
+  day_key := case extract(dow from local_now)::integer
+    when 0 then 'sun' when 1 then 'mon' when 2 then 'tue' when 3 then 'wed'
+    when 4 then 'thu' when 5 then 'fri' else 'sat' end;
+  select item into schedule
+  from jsonb_array_elements(coalesce(hours->'special','[]'::jsonb)) as item
+  where item->>'date'=local_date limit 1;
+  if schedule is null then schedule := hours->'days'->day_key; end if;
+  if schedule is null or coalesce((schedule->>'open')::boolean, true)=false then return false; end if;
+  start_text := schedule->>'start'; end_text := schedule->>'end';
+  if start_text !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' or end_text !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' then return true; end if;
+  start_min := split_part(start_text,':',1)::integer*60 + split_part(start_text,':',2)::integer;
+  end_min := split_part(end_text,':',1)::integer*60 + split_part(end_text,':',2)::integer;
+  current_min := extract(hour from local_now)::integer*60 + extract(minute from local_now)::integer;
+  if start_min=end_min then return true; end if;
+  return case when start_min<end_min then current_min>=start_min and current_min<end_min
+    else current_min>=start_min or current_min<end_min end;
+exception when others then return true;
+end $$;
+
 drop function if exists public.submit_shop_order(text,text,text,text,text,text,jsonb);
 create or replace function public.submit_shop_order(
   p_customer_name text, p_phone text, p_email text, p_fulfillment text,
@@ -88,6 +119,7 @@ declare
   selected_name text:=null; selected_kind text:=null; coupon_uses integer:=0; coupon_used boolean:=false; prior_orders integer:=0;
   referral_phone text:=null; referral_code text; taxable numeric(10,2);
 begin
+  if not public.store_is_open_now() then raise exception '当前不在营业时间，请在营业时间内下单'; end if;
   if p_phone !~ '^[0-9]{10}$' then raise exception '请输入 10 位数字电话号码'; end if;
   if p_fulfillment not in ('delivery','pickup') then raise exception '取货方式无效'; end if;
   if p_fulfillment='delivery' and coalesce(trim(p_address),'')='' then raise exception '请填写配送地址'; end if;

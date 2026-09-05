@@ -243,9 +243,73 @@ function updateCartProgressNotice(subtotal, count) {
     notice.textContent = `🚗 再购买${dollars(freeDelivery - subtotal)}即可免费配送`;
   else notice.textContent = "🚗 您已达到免配送门槛";
 }
+const STORE_TIME_ZONE = "America/Chicago";
+const STORE_DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const chicagoDateFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: STORE_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  weekday: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+function getStoreHoursStatus(now = new Date()) {
+  const hours = settings?.content?.storeSettings?.hours;
+  if (!hours?.days || typeof hours.days !== "object")
+    return { open: true, configured: false, message: "" };
+  const parts = Object.fromEntries(
+    chicagoDateFormatter
+      .formatToParts(now)
+      .filter(({ type }) => type !== "literal")
+      .map(({ type, value }) => [type, value]),
+  );
+  const date = `${parts.year}-${parts.month}-${parts.day}`;
+  const weekday =
+    { Sun: "sun", Mon: "mon", Tue: "tue", Wed: "wed", Thu: "thu", Fri: "fri", Sat: "sat" }[
+      parts.weekday
+    ] || STORE_DAY_KEYS[0];
+  const special = Array.isArray(hours.special)
+    ? hours.special.find((row) => row?.date === date)
+    : null;
+  const schedule = special || hours.days[weekday];
+  if (!schedule || schedule.open === false)
+    return { open: false, configured: true, date, weekday, schedule, message: "当前不在营业时间，请在营业时间内下单" };
+  const parseMinutes = (value) => {
+    const match = String(value || "").match(/^(\d{2}):(\d{2})$/);
+    if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) return null;
+    return Number(match[1]) * 60 + Number(match[2]);
+  };
+  const start = parseMinutes(schedule.start),
+    end = parseMinutes(schedule.end),
+    current = Number(parts.hour) * 60 + Number(parts.minute);
+  // Invalid legacy values should not unexpectedly lock the shop; valid values
+  // are enforced, including schedules that cross midnight.
+  if (start === null || end === null)
+    return { open: true, configured: true, date, weekday, schedule, message: "" };
+  const open = start === end ? true : start < end ? current >= start && current < end : current >= start || current < end;
+  return {
+    open,
+    configured: true,
+    date,
+    weekday,
+    schedule,
+    message: open ? "" : "当前不在营业时间，请在营业时间内下单",
+  };
+}
+function getStoreOrderAvailability() {
+  if (settings.is_accepting_orders === false)
+    return { accepting: false, message: "店铺暂不接单", hours: getStoreHoursStatus() };
+  const hours = getStoreHoursStatus();
+  return { accepting: hours.open, message: hours.message, hours };
+}
+window.getStoreHoursStatus = getStoreHoursStatus;
+window.getStoreOrderAvailability = getStoreOrderAvailability;
 function renderCart() {
   const t = totals(),
-    accepting = settings.is_accepting_orders !== false,
+    availability = getStoreOrderAvailability(),
+    accepting = availability.accepting,
     checkout = $("#checkout"),
     paused = $("#orderPausedMessage");
   $("#cartCount").textContent = t.count;
@@ -260,8 +324,11 @@ function renderCart() {
     )
     .join("");
   checkout.disabled = !t.count || !accepting;
-  checkout.innerHTML = accepting ? "我挑好啦！ <span>→</span>" : "店铺暂不接单";
-  if (paused) paused.hidden = accepting;
+  checkout.innerHTML = accepting ? "我挑好啦！ <span>→</span>" : availability.message;
+  if (paused) {
+    paused.hidden = accepting;
+    paused.textContent = availability.message;
+  }
   $("#cartItems").insertAdjacentHTML(
     "beforeend",
     cart.length
@@ -423,7 +490,11 @@ $("#continueShopping").onclick = () => {
 };
 $("#overlay").onclick = () => toggleCart(false);
 $("#checkout").onclick = () => {
-  if (settings.is_accepting_orders === false) return;
+  const availability = getStoreOrderAvailability();
+  if (!availability.accepting) {
+    renderCart();
+    return;
+  }
   if (
     typeof window.validateCartBeforeCheckout === "function" &&
     !window.validateCartBeforeCheckout()
@@ -1317,7 +1388,10 @@ async function refreshScheduledOrderAvailability() {
     renderCart();
   }
 }
-setInterval(refreshScheduledOrderAvailability, 30000);
+setInterval(() => {
+  refreshScheduledOrderAvailability();
+  renderCart();
+}, 30000);
 setTimeout(refreshScheduledOrderAvailability, 500);
 
 /* Keep customer interactions local: only the changed card and cart row are updated. */
@@ -1389,7 +1463,8 @@ function cartRowMarkup(item) {
 }
 function refreshCartLocally() {
   const totalsNow = totals(),
-    accepting = settings.is_accepting_orders !== false,
+    availability = getStoreOrderAvailability(),
+    accepting = availability.accepting,
     checkout = $("#checkout"),
     paused = $("#orderPausedMessage"),
     list = $("#cartItems");
@@ -1434,8 +1509,11 @@ function refreshCartLocally() {
   } else encouragement?.remove();
   list.scrollTop = beforeScroll;
   checkout.disabled = !totalsNow.count || !accepting;
-  checkout.innerHTML = accepting ? "我挑好啦！ <span>→</span>" : "店铺暂不接单";
-  if (paused) paused.hidden = accepting;
+  checkout.innerHTML = accepting ? "我挑好啦！ <span>→</span>" : availability.message;
+  if (paused) {
+    paused.hidden = accepting;
+    paused.textContent = availability.message;
+  }
   const pickup = $("#fulfillment")?.value === "pickup",
     feeRow = pickup
       ? ""

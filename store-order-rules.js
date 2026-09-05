@@ -138,7 +138,14 @@
     }
     return true;
   }
+  function validBusinessHours() {
+    const availability = window.getStoreOrderAvailability?.();
+    if (!availability || availability.accepting) return true;
+    showNotice(availability.message || "当前不在营业时间，请在营业时间内下单");
+    return false;
+  }
   function validOrder() {
+    if (!validBusinessHours()) return false;
     const delivery = $("#fulfillment")?.value === "delivery";
     if (!validMinimum(delivery)) return false;
     const scheduled = $("#scheduledFor")?.value;
@@ -162,7 +169,7 @@
   }
   window.validateCartBeforeCheckout = () => {
     applyRules();
-    return validMinimum(false);
+    return validBusinessHours() && validMinimum(false);
   };
   function wrapSubmit() {
     if (!form || form.dataset.rulesBound) return;
