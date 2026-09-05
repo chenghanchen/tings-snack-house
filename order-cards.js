@@ -182,6 +182,7 @@
       .join("&#65307; ") || T.noItems;
   const card = (x) => {
     const delivery = x.fulfillment === "delivery",
+      cancellationReason = String(x.cancellation_reason || "").trim(),
       stageText = stage(x),
       stageClass =
         stageText === T.cancelled
@@ -385,12 +386,10 @@
       time(x.created_at) +
       "</p></div>" +
       "</div>" +
-      (x.cancellation_requested
+      (cancellationReason
         ? '<p class="cancellation-alert">' +
-          T.cancelRequested +
-          (x.cancellation_reason
-            ? "<br><b>取消原因：</b>" + esc(x.cancellation_reason)
-            : "") +
+          "<b>取消原因：</b>" +
+          esc(cancellationReason) +
           "</p>"
         : "") +
       '<div class="order-compact"><p class="compact-items">' +
