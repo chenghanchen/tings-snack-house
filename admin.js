@@ -678,8 +678,8 @@ const startAdmin = () => {
     footerYear: "2026",
   };
   const imageSettings = [
-    ["heroBackgroundImage", "首页插画", "hero-snack-illustration-v1.png"],
-    ["storyBackgroundImage", "页尾插画", "footer-composite-v1.png"],
+    ["heroBackgroundImage", "首页插画", "hero-snack-illustration-v1.webp"],
+    ["storyBackgroundImage", "页尾插画", "footer-composite-v1.webp"],
   ];
   const deliveryContentDefaults = {
       deliveryEyebrow: "LOCAL DELIVERY",

@@ -281,6 +281,16 @@ function renderCart() {
       .join("<br>") +
     `<hr><div class="order-amounts"><div><span>商品小计</span><span>${dollars(t.subtotal)}</span></div>${t.autoDiscount > 0 ? `<div><span>商品活动优惠（已计入小计）</span><span>−${dollars(t.autoDiscount)}</span></div>` : ""}${feeRow}<div><span>税（${Number(settings.tax_rate || 10.5)}%）</span><span>${dollars(t.tax)}</span></div><div><b>最终应付金额</b><b>${dollars(t.total)}</b></div></div>`;
 }
+function optimizedBundledImage(value) {
+  const image = String(value || "");
+  return (
+    {
+      "hero-snack-illustration-v1.png": "hero-snack-illustration-v1.webp",
+      "footer-composite-v1.png": "footer-composite-v1.webp",
+      "footer-snack-illustration-v1.png": "footer-snack-illustration-v1.webp",
+    }[image] || image
+  );
+}
 function applySettings(s) {
   settings = s || {};
   const c = s.content || {},
@@ -310,19 +320,21 @@ function applySettings(s) {
   const heroArt = $("#heroArt"),
     heroImage = $("#heroIllustration"),
     story = $("#story");
-  if (c.heroBackgroundImage) {
+  const heroBackgroundImage = optimizedBundledImage(c.heroBackgroundImage),
+    storyBackgroundImage = optimizedBundledImage(c.storyBackgroundImage);
+  if (heroBackgroundImage) {
     const preload = new Image();
     preload.fetchPriority = "high";
-    preload.src = c.heroBackgroundImage;
-    heroArt.style.backgroundImage = `url("${c.heroBackgroundImage}")`;
+    preload.src = heroBackgroundImage;
+    heroArt.style.backgroundImage = `url("${heroBackgroundImage}")`;
   } else heroArt.style.removeProperty("background-image");
   heroImage.hidden = true;
   heroImage.removeAttribute("src");
   story.classList.add("footer-composite");
-  if (c.storyBackgroundImage)
+  if (storyBackgroundImage)
     story.style.setProperty(
       "background-image",
-      `url("${c.storyBackgroundImage}")`,
+      `url("${storyBackgroundImage}")`,
       "important",
     );
   else story.style.removeProperty("background-image");
