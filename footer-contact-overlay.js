@@ -86,18 +86,12 @@
     });
   }
   async function start() {
-    if (!window.supabase || !window.TINGS_SUPABASE)
+    if (!window.TingsStorefront?.settingsReady)
       return setTimeout(start, 150);
-    const db = window.supabase.createClient(
-        window.TINGS_SUPABASE.url,
-        window.TINGS_SUPABASE.anonKey,
-      ),
-      { data, error } = await db
-        .from("shop_settings")
-        .select("content")
-        .eq("id", 1)
-        .maybeSingle();
-    if (!error && data) render(data);
+    const settings =
+      window.TingsStorefront.settings ||
+      (await window.TingsStorefront.settingsReady);
+    if (settings) render(settings);
   }
-  window.addEventListener("load", () => setTimeout(start, 260));
+  start();
 })();

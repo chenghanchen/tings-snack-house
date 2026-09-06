@@ -174,32 +174,32 @@
     notify("商品排序已同步到顾客网站");
     render();
   }
-  async function optimizeCatalogImages(button) {
-    if (!window.TingsImage?.optimizeCatalogImages)
-      return notify("图片优化工具正在加载，请稍后再试");
+  async function migrateCatalogImages(button) {
+    if (!window.TingsImage?.migrateCatalogImages)
+      return notify("图片迁移工具正在加载，请稍后再试");
     if (button.dataset.confirmed !== "true") {
       button.dataset.confirmed = "true";
-      button.textContent = "再次点击确认优化";
-      notify("将替换现有商品主图与规格图为优化后的 WebP；请再次点击确认");
+      button.textContent = "再次点击确认迁移";
+      notify("将把 Base64 商品图迁移到 Supabase Storage；请再次点击确认");
       return;
     }
-    const originalLabel = "优化全部商品图片";
+    const originalLabel = "迁移商品图到云存储";
     button.disabled = true;
     try {
-      const summary = await window.TingsImage.optimizeCatalogImages(db, {
+      const summary = await window.TingsImage.migrateCatalogImages(db, {
         onProgress: ({ done, total }) => {
-          button.textContent = `正在优化 ${done}/${total}`;
+          button.textContent = `正在迁移 ${done}/${total}`;
         },
       });
-      const savedMB = (summary.savedBytes / 1024 / 1024).toFixed(1);
+      const savedMB = (summary.removedBytes / 1024 / 1024).toFixed(1);
       notify(
         summary.total
-          ? `已优化 ${summary.converted} 张图片，节省约 ${savedMB} MB${summary.failed ? `；${summary.failed} 张未处理` : ""}`
-          : "没有需要优化的商品图片",
+          ? `已迁移 ${summary.migrated} 张图片，数据库减少约 ${savedMB} MB${summary.failed ? `；${summary.failed} 张未处理` : ""}`
+          : "没有需要迁移的 Base64 商品图片",
       );
       await render();
     } catch (error) {
-      notify(error.message || "批量优化图片失败，请稍后重试");
+      notify(error.message || "商品图片迁移失败，请稍后重试");
     } finally {
       button.disabled = false;
       delete button.dataset.confirmed;
@@ -338,14 +338,14 @@
       optimizeButton.id = "optimizeProductImages";
       optimizeButton.type = "button";
       optimizeButton.className = newButton.className;
-      optimizeButton.textContent = "优化商品图";
+      optimizeButton.textContent = "迁移商品图到云存储";
       const toolbar = document.createElement("div");
       toolbar.className = "category-product-toolbar";
       toolbar.append(newButton, optimizeButton);
       panel.querySelector("#categoryProductList")?.before(toolbar);
       panel.querySelector(".panel-head")?.remove();
       optimizeButton.addEventListener("click", () =>
-        optimizeCatalogImages(optimizeButton),
+        migrateCatalogImages(optimizeButton),
       );
       newButton.addEventListener("click", () => {
         addCategoryDialog();

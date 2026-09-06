@@ -18,6 +18,81 @@ const db = window.supabase.createClient(
   );
 const CART_STORAGE_KEY = "tings-snack-house-cart-v1";
 const CART_STORAGE_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
+const STOREFRONT_CONTENT_FIELDS = [
+    "heroEyebrow",
+    "heroTitle",
+    "heroEmphasis",
+    "heroIntro",
+    "heroButton",
+    "deliveryEyebrow",
+    "deliveryTitle",
+    "footerHours",
+    "footerYear",
+    "deliveryBackgroundColor",
+    "deliveryBackgroundImage",
+    "heroBackgroundImage",
+    "storeSettings",
+    "siteAppearance",
+    "footerAppearance",
+    "activityAnnouncementImage",
+  ],
+  STOREFRONT_SETTINGS_SELECT = [
+    "id",
+    "name",
+    "english",
+    "delivery",
+    "delivery_fee",
+    "free_delivery_threshold",
+    "tax_rate",
+    "low_stock_threshold",
+    "is_accepting_orders",
+    "pickup_address",
+    "pickup_note",
+    "order_paused_until",
+    ...STOREFRONT_CONTENT_FIELDS.map(
+      (key) =>
+        `${key}:content-${["storeSettings", "siteAppearance", "footerAppearance"].includes(key) ? ">" : ">>"}${key}`,
+    ),
+  ].join(",");
+
+function normalizeStorefrontSettings(row) {
+  if (!row) return null;
+  const normalized = { ...row, content: {} };
+  STOREFRONT_CONTENT_FIELDS.forEach((key) => {
+    if (row[key] !== null && row[key] !== undefined)
+      normalized.content[key] = row[key];
+    delete normalized[key];
+  });
+  return normalized;
+}
+
+function createStorefrontSharedState() {
+  let resolveSettings, resolveCampaigns;
+  const state = {
+    settings: null,
+    campaigns: null,
+    settingsReady: new Promise((resolve) => (resolveSettings = resolve)),
+    campaignsReady: new Promise((resolve) => (resolveCampaigns = resolve)),
+    publishSettings(value) {
+      state.settings = value || {};
+      if (resolveSettings) {
+        resolveSettings(state.settings);
+        resolveSettings = null;
+      }
+    },
+    publishCampaigns(value) {
+      state.campaigns = value || [];
+      if (resolveCampaigns) {
+        resolveCampaigns(state.campaigns);
+        resolveCampaigns = null;
+      }
+    },
+  };
+  return state;
+}
+
+const storefrontShared = (window.TingsStorefront =
+  window.TingsStorefront || createStorefrontSharedState());
 let products = [],
   categories = [],
   groups = [],
@@ -293,6 +368,8 @@ function optimizedBundledImage(value) {
 }
 function applySettings(s) {
   settings = s || {};
+  window.settings = settings;
+  storefrontShared.publishSettings(settings);
   const c = s.content || {},
     deliveryCopy = `配送费 ${dollars(s.delivery_fee || 5)}；商品小计满 ${dollars(s.free_delivery_threshold || 50)} 免费配送。`;
   document.title = `${s.name}｜${s.english}`;
@@ -1278,10 +1355,14 @@ function reloadCardCampaigns() {
     .select("*")
     .then(({ data }) => {
       cardCampaigns = data || [];
-      renderProducts(
-        document.querySelector("#filters .active")?.dataset.filter || "全部",
-      );
-      refreshCartLocally();
+      storefrontShared.publishCampaigns(cardCampaigns);
+      if (products.length) {
+        renderProducts(
+          document.querySelector("#filters .active")?.dataset.filter ||
+            "全部",
+        );
+        refreshCartLocally();
+      }
     });
 }
 reloadCardCampaigns();
@@ -1648,48 +1729,70 @@ renderCart = function () {
   if (cartRestoreCompleted) saveCartLocally();
 };
 refreshCartLocally = renderCart;
-/* First paint only waits for the product list; supporting catalog data follows without blocking it. */
+/* Start every catalogue request together, then commit one stable product-grid render. */
 loadShop = async function () {
   const version = ++shopLoadVersion,
     grid = $("#productGrid"),
     settingsRequest = db
       .from("shop_settings")
-      .select("*")
+      .select(STOREFRONT_SETTINGS_SELECT)
       .eq("id", 1)
-      .maybeSingle();
+      .maybeSingle()
+      .then((result) => ({
+        ...result,
+        data: normalizeStorefrontSettings(result.data),
+      })),
+    productsRequest = db
+      .from("products")
+      .select("*")
+      .eq("is_active", true)
+      .order("position")
+      .order("id"),
+    categoriesRequest = db
+      .from("categories")
+      .select("*")
+      .order("position")
+      .order("id"),
+    groupsRequest = db
+      .from("product_option_groups")
+      .select("*")
+      .order("position"),
+    valuesRequest = db
+      .from("product_option_values")
+      .select("*")
+      .order("position"),
+    variantsRequest = db
+      .from("product_variants")
+      .select("*")
+      .order("position"),
+    salesRequest = db.rpc("get_public_product_sales");
   // Storefront copy and the hero art are independent of the catalogue. Start
   // them immediately so they are not delayed behind all product-related data.
   settingsRequest.then((result) => {
-    if (version === shopLoadVersion && result.data) applySettings(result.data);
+    if (version !== shopLoadVersion) return;
+    if (result.data) applySettings(result.data);
+    else if (!storefrontShared.settings)
+      storefrontShared.publishSettings(settings);
   });
-  const { data: productRows, error: productError } = await db
-    .from("products")
-    .select("*")
-    .eq("is_active", true)
-    .order("position")
-    .order("id");
+  const [p, c, s, g, v, vr, sales] = await Promise.all([
+    productsRequest,
+    categoriesRequest,
+    settingsRequest,
+    groupsRequest,
+    valuesRequest,
+    variantsRequest,
+    salesRequest,
+    storefrontShared.campaignsReady,
+  ]);
   if (version !== shopLoadVersion) return;
-  if (productError) {
-    console.error(productError);
+  if (p.error) {
+    console.error(p.error);
     if (!products.length)
       grid.innerHTML =
         '<p class="catalog-load-error">商品暂时无法加载。<button type="button" data-retry-catalog>重新加载</button></p>';
     return;
   }
-  products = productRows || [];
-  grid.classList.remove("product-grid-loading");
-  renderProducts(
-    document.querySelector("#filters .active")?.dataset.filter || "全部",
-  );
-  const [c, s, g, v, vr, sales] = await Promise.all([
-    db.from("categories").select("*").order("position").order("id"),
-    settingsRequest,
-    db.from("product_option_groups").select("*").order("position"),
-    db.from("product_option_values").select("*").order("position"),
-    db.from("product_variants").select("*").order("position"),
-    db.rpc("get_public_product_sales"),
-  ]);
-  if (version !== shopLoadVersion) return;
+  products = p.data || [];
   categories = c.data || [];
   groups = g.data || [];
   values = v.data || [];
@@ -1706,11 +1809,11 @@ loadShop = async function () {
       "部分店铺数据加载较慢，商品已优先展示。",
       c.error || s.error || g.error || v.error || vr.error || sales.error,
     );
-  if (s.data) applySettings(s.data);
   if (catalogDetailsReady && !cartRestoreCompleted) {
     restoreSavedCart();
     cartRestoreCompleted = true;
   }
+  grid.classList.remove("product-grid-loading");
   renderFilters();
   renderProducts(
     document.querySelector("#filters .active")?.dataset.filter || "全部",
@@ -2243,11 +2346,4 @@ $("#lookupResult").onsubmit = async (event) => {
     return;
   }
   await loadLookupResults(lastLookupQuery);
-};
-
-/* Keep the global settings reference current for separately-loaded modules. */
-const applySettingsWithSharedState = applySettings;
-applySettings = function (data) {
-  window.settings = data || {};
-  return applySettingsWithSharedState(data);
 };

@@ -38,20 +38,21 @@
     );
   }
   async function start() {
-    if (!window.supabase || !window.TINGS_SUPABASE)
+    if (
+      !window.TingsStorefront?.settingsReady ||
+      !window.TingsStorefront?.campaignsReady
+    )
       return setTimeout(start, 160);
-    const db = window.supabase.createClient(
-        window.TINGS_SUPABASE.url,
-        window.TINGS_SUPABASE.anonKey,
-      ),
-      now = new Date(),
+    const now = new Date(),
       [campaigns, settings] = await Promise.all([
-        db.from("marketing_campaigns").select("*").eq("active", true),
-        db.from("shop_settings").select("content").eq("id", 1).maybeSingle(),
+        window.TingsStorefront.campaigns ||
+          window.TingsStorefront.campaignsReady,
+        window.TingsStorefront.settings ||
+          window.TingsStorefront.settingsReady,
       ]);
-    if (campaigns.error) return;
-    const list = (campaigns.data || []).filter(
+    const list = (campaigns || []).filter(
       (item) =>
+        item.active !== false &&
         (!item.status || item.status === "published") &&
         (!item.starts_at || new Date(item.starts_at) <= now) &&
         (!item.ends_at || new Date(item.ends_at) >= now),
@@ -60,7 +61,7 @@
     addStyle();
     const hero = document.querySelector(".hero");
     if (!hero || document.querySelector(".activity-announcement")) return;
-    const image = settings.data?.content?.activityAnnouncementImage || "",
+    const image = settings?.content?.activityAnnouncementImage || "",
       style = image
         ? ` style="--activity-announcement-image:url('${esc(image)}')"`
         : "";
@@ -78,5 +79,5 @@
           ?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
   }
-  window.addEventListener("load", () => setTimeout(start, 250));
+  start();
 })();

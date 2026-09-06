@@ -255,11 +255,12 @@
       if (!file) return;
       if (!file.type.startsWith("image/")) return toast("请选择图片格式的插图");
       try {
-        const result = await window.TingsImage?.optimizeFile(file, {
+        const result = await window.TingsImage?.uploadOptimizedFile(db, file, {
           maxDimension: 1920,
           quality: 0.84,
+          folder: "appearance/announcement",
         });
-        const image = result?.dataUrl;
+        const image = result?.publicUrl;
         if (!image) throw new Error("插图读取失败，请重新选择图片");
         form.dataset.activityAnnouncementImage = image;
         preview.innerHTML = `<img src="${image}" alt="活动公告栏背景">`;
@@ -312,19 +313,28 @@
       upload.onclick = () => {
         upload.value = "";
       };
-      upload.onchange = (e) => {
+      upload.onchange = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
         if (!file.type.startsWith("image/"))
           return toast("请选择图片格式的二维码");
-        const reader = new FileReader();
-        reader.onerror = () => toast("二维码读取失败，请重新选择图片");
-        reader.onload = () => {
-          form.dataset[`footerQr_${id}`] = reader.result;
-          preview.innerHTML = `<img src="${reader.result}" alt="${label} 二维码">`;
+        try {
+          const result = await window.TingsImage?.uploadOptimizedFile(
+            db,
+            file,
+            {
+              maxDimension: 800,
+              quality: 0.92,
+              folder: "appearance/qr",
+            },
+          );
+          if (!result?.publicUrl) throw new Error("二维码上传失败");
+          form.dataset[`footerQr_${id}`] = result.publicUrl;
+          preview.innerHTML = `<img src="${result.publicUrl}" alt="${label} 二维码">`;
           toast(`${label} 二维码已添加，请点击“保存店铺外观”`);
-        };
-        reader.readAsDataURL(file);
+        } catch (error) {
+          toast(error.message || "二维码上传失败，请重新选择图片");
+        }
       };
     });
   }

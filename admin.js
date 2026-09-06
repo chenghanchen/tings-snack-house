@@ -15,20 +15,18 @@ const startAdmin = () => {
   }
   async function readOptimizedImage(file, options = {}) {
     if (!file) return "";
-    if (window.TingsImage?.optimizeFile) {
-      const result = await window.TingsImage.optimizeFile(file, options);
-      if (result.changed)
-        toast(
-          `图片已优化为 WebP${result.width ? `（${result.width} × ${result.height}）` : ""}`,
-        );
-      return result.dataUrl;
-    }
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error("图片读取失败"));
-      reader.onload = () => resolve(reader.result);
-      reader.readAsDataURL(file);
-    });
+    if (!window.TingsImage?.uploadOptimizedFile)
+      throw new Error("图片云存储工具尚未加载");
+    const result = await window.TingsImage.uploadOptimizedFile(
+      db,
+      file,
+      options,
+    );
+    if (result.changed)
+      toast(
+        `图片已优化为 WebP${result.width ? `（${result.width} × ${result.height}）` : ""}`,
+      );
+    return result.publicUrl;
   }
   async function data(table) {
     const column =
@@ -477,6 +475,7 @@ const startAdmin = () => {
             const image = await readOptimizedImage(file, {
               maxDimension: 1920,
               quality: 0.84,
+              folder: "appearance/delivery",
             });
             form.dataset[key] = image;
             $(`#${key}Preview`).innerHTML = `<img src="${image}" alt="">`;
@@ -543,6 +542,7 @@ const startAdmin = () => {
             const image = await readOptimizedImage(file, {
               maxDimension: 1920,
               quality: 0.84,
+              folder: `appearance/${key}`,
             });
             form.dataset[key] = image;
             $(`#${key}Preview`).innerHTML = `<img src="${image}" alt="">`;
@@ -746,6 +746,7 @@ const startAdmin = () => {
       const image = await readOptimizedImage(file, {
         maxDimension: 1200,
         quality: 0.82,
+        folder: "products",
       });
       $("#productDialog").dataset.image = image;
       $("#imagePreview").innerHTML = `<img src="${image}">`;
@@ -942,6 +943,7 @@ const startAdmin = () => {
       const image = await readOptimizedImage(file, {
         maxDimension: 1200,
         quality: 0.82,
+        folder: "variants",
       });
       editVariants[key] = {
         ...(editVariants[key] || {}),

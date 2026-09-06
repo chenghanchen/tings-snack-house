@@ -1,7 +1,8 @@
-/* Shared image processing for product photos and storefront illustrations.
-   Images remain in the existing database fields, but are resized and encoded
-   before they ever become a Base64 value in Supabase. */
+/* Shared admin image processing for product photos and storefront artwork.
+   Images are resized and encoded before upload to Supabase Storage; table
+   fields retain only their public CDN URLs. */
 (() => {
+  const STORAGE_BUCKET = "storefront-images";
   const dataUrlBytes = (value) => {
     const encoded = String(value || "").split(",")[1] || "";
     return Math.floor((encoded.length * 3) / 4);
@@ -39,8 +40,10 @@
   ) {
     if (!blob?.type?.startsWith("image/"))
       throw new Error("请选择图片格式的文件");
-    // Do not flatten animations or vector artwork into a static raster image.
-    if (blob.type === "image/gif" || blob.type === "image/svg+xml")
+    if (blob.type === "image/svg+xml")
+      throw new Error("请先将 SVG 图片转换为 PNG、JPEG 或 WebP");
+    // Do not flatten animations into a static raster image.
+    if (blob.type === "image/gif")
       return { blob, changed: false, skipped: true };
     const image = await loadImage(blob);
     const scale = Math.min(
@@ -74,6 +77,49 @@
     };
   }
 
+  const extensionForType = (type) =>
+    ({
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "image/gif": "gif",
+    })[type] || "bin";
+
+  async function uploadBlob(
+    db,
+    blob,
+    { folder = "uploads", cacheControl = "31536000" } = {},
+  ) {
+    const safeFolder = String(folder || "uploads")
+        .replace(/[^a-z0-9/_-]+/gi, "-")
+        .replace(/^\/+|\/+$/g, ""),
+      token = globalThis.crypto?.randomUUID?.() ||
+        `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      path = `${safeFolder}/${token}.${extensionForType(blob.type)}`,
+      { error } = await db.storage.from(STORAGE_BUCKET).upload(path, blob, {
+        cacheControl,
+        contentType: blob.type || "application/octet-stream",
+        upsert: false,
+      });
+    if (error) {
+      const setupHint = /bucket|row-level security|unauthorized/i.test(
+        error.message || "",
+      )
+        ? "请先执行 supabase-storage-migration.sql 配置图片云存储。"
+        : "";
+      throw new Error(`${error.message || "图片上传失败"}${setupHint}`);
+    }
+    const { data } = db.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+    if (!data?.publicUrl) throw new Error("无法生成图片公开地址");
+    return { path, publicUrl: data.publicUrl };
+  }
+
+  async function uploadOptimizedFile(db, file, options = {}) {
+    const result = await optimizeFile(file, options),
+      uploaded = await uploadBlob(db, result.blob, options);
+    return { ...result, ...uploaded };
+  }
+
   async function optimizeDataUrl(value, options) {
     if (!/^data:image\//i.test(String(value || "")))
       return { dataUrl: value, changed: false, skipped: true, originalBytes: 0, optimizedBytes: 0 };
@@ -89,7 +135,7 @@
     };
   }
 
-  async function optimizeCatalogImages(db, { onProgress } = {}) {
+  async function migrateCatalogImages(db, { onProgress } = {}) {
     const [productsResult, variantsResult] = await Promise.all([
       db.from("products").select("id, image"),
       db.from("product_variants").select("id, image"),
@@ -97,30 +143,60 @@
     if (productsResult.error || variantsResult.error)
       throw productsResult.error || variantsResult.error;
     const jobs = [
-      ...(productsResult.data || []).map((row) => ({ ...row, table: "products" })),
-      ...(variantsResult.data || []).map((row) => ({ ...row, table: "product_variants" })),
+      ...(productsResult.data || []).map((row) => ({
+        ...row,
+        table: "products",
+        folder: "products",
+      })),
+      ...(variantsResult.data || []).map((row) => ({
+        ...row,
+        table: "product_variants",
+        folder: "variants",
+      })),
     ].filter((row) => /^data:image\//i.test(String(row.image || "")));
-    const summary = { total: jobs.length, done: 0, converted: 0, skipped: 0, failed: 0, savedBytes: 0 };
+    const summary = {
+      total: jobs.length,
+      done: 0,
+      migrated: 0,
+      failed: 0,
+      removedBytes: 0,
+    };
     for (const job of jobs) {
+      let uploaded;
       try {
-        const result = await optimizeDataUrl(job.image, {
-          maxDimension: 1200,
-          quality: 0.82,
-        });
-        if (result.changed) {
-          const update = { image: result.dataUrl };
-          if (job.table === "products") update.updated_at = new Date().toISOString();
-          const { error } = await db.from(job.table).update(update).eq("id", job.id);
-          if (error) throw error;
-          summary.converted += 1;
-          summary.savedBytes += Math.max(0, result.originalBytes - result.optimizedBytes);
-        } else summary.skipped += 1;
+        const optimized = await optimizeDataUrl(job.image, {
+            maxDimension: 1200,
+            quality: 0.82,
+          }),
+          blob = await fetch(optimized.dataUrl).then((response) =>
+            response.blob(),
+          );
+        uploaded = await uploadBlob(db, blob, { folder: job.folder });
+        const update = { image: uploaded.publicUrl };
+        if (job.table === "products")
+          update.updated_at = new Date().toISOString();
+        const { error } = await db
+          .from(job.table)
+          .update(update)
+          .eq("id", job.id);
+        if (error) {
+          await db.storage.from(STORAGE_BUCKET).remove([uploaded.path]);
+          throw error;
+        }
+        summary.migrated += 1;
+        summary.removedBytes += Math.max(
+          0,
+          String(job.image).length - uploaded.publicUrl.length,
+        );
       } catch (error) {
-        console.warn("图片优化失败", job.table, job.id, error);
+        console.warn("图片云存储迁移失败", job.table, job.id, error);
         summary.failed += 1;
+        if (/bucket|row-level security|unauthorized/i.test(error.message || ""))
+          throw error;
+      } finally {
+        summary.done += 1;
+        onProgress?.({ ...summary, job });
       }
-      summary.done += 1;
-      onProgress?.({ ...summary, job });
     }
     return summary;
   }
@@ -128,6 +204,8 @@
   window.TingsImage = {
     optimizeFile,
     optimizeDataUrl,
-    optimizeCatalogImages,
+    uploadBlob,
+    uploadOptimizedFile,
+    migrateCatalogImages,
   };
 })();
