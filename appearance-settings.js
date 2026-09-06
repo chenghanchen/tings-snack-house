@@ -3,8 +3,8 @@
   const $ = (selector) => document.querySelector(selector);
   const contentDefaults = {
     heroEyebrow: "今日の小さなごほうび",
-    heroTitle: "把喜欢的零食，",
-    heroEmphasis: "装进日常里。",
+    heroTitle: "把喜欢的零食",
+    heroEmphasis: "装进日常里",
     heroIntro:
       "从童年味道到新鲜人气款，挑一袋让心情变好的中国零食。下单即为您预留，无需在线付款。",
     heroButton: "开始挑选",
