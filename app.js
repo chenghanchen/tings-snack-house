@@ -10,7 +10,7 @@ const db = window.supabase.createClient(
       (c) =>
         ({
           "&": "&amp;",
-          "<": "&gt;",
+          "<": "&lt;",
           ">": "&gt;",
           '"': "&quot;",
           "'": "&#39;",
