@@ -31,6 +31,7 @@ const STOREFRONT_CONTENT_FIELDS = [
     "deliveryBackgroundColor",
     "deliveryBackgroundImage",
     "heroBackgroundImage",
+    "storyBackgroundImage",
     "storeSettings",
     "siteAppearance",
     "footerAppearance",
@@ -376,6 +377,7 @@ function optimizedBundledImage(value) {
     }[image] || image
   );
 }
+let storyBackgroundRequestVersion = 0;
 function applySettings(s) {
   settings = s || {};
   window.settings = settings;
@@ -418,13 +420,21 @@ function applySettings(s) {
   heroImage.hidden = true;
   heroImage.removeAttribute("src");
   story.classList.add("footer-composite");
-  if (storyBackgroundImage)
+  const storyRequestVersion = ++storyBackgroundRequestVersion;
+  if (storyBackgroundImage) {
     story.style.setProperty(
-      "background-image",
+      "--story-background-image",
       `url("${storyBackgroundImage}")`,
-      "important",
     );
-  else story.style.removeProperty("background-image");
+    const probe = new Image();
+    probe.decoding = "async";
+    probe.fetchPriority = "low";
+    probe.onerror = () => {
+      if (storyRequestVersion === storyBackgroundRequestVersion)
+        story.style.removeProperty("--story-background-image");
+    };
+    probe.src = storyBackgroundImage;
+  } else story.style.removeProperty("--story-background-image");
 }
 $("#filters").onclick = (e) => {
   if (!e.target.dataset.filter) return;

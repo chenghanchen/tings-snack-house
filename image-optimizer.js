@@ -36,39 +36,75 @@
 
   async function optimizeBlob(
     blob,
-    { maxDimension = 1200, quality = 0.82 } = {},
+    {
+      maxDimension = 1200,
+      quality = 0.82,
+      forceWebp = false,
+      maxBytes = 0,
+      minQuality = 0.58,
+    } = {},
   ) {
     if (!blob?.type?.startsWith("image/"))
       throw new Error("请选择图片格式的文件");
     if (blob.type === "image/svg+xml")
       throw new Error("请先将 SVG 图片转换为 PNG、JPEG 或 WebP");
-    // Do not flatten animations into a static raster image.
+    // Do not silently flatten animations into a static storefront image.
+    if (blob.type === "image/gif" && forceWebp)
+      throw new Error("此处不支持 GIF，请上传 PNG、JPEG 或 WebP 图片");
     if (blob.type === "image/gif")
       return { blob, changed: false, skipped: true };
     const image = await loadImage(blob);
-    const scale = Math.min(
+    const naturalWidth = image.naturalWidth || image.width,
+      naturalHeight = image.naturalHeight || image.height,
+      scale = Math.min(
       1,
-      maxDimension / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height),
+      maxDimension / Math.max(naturalWidth, naturalHeight),
     );
-    const width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
-    const height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
+    let width = Math.max(1, Math.round(naturalWidth * scale)),
+      height = Math.max(1, Math.round(naturalHeight * scale)),
+      currentQuality = quality,
+      webp = null;
     const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext("2d", { alpha: true });
-    context.drawImage(image, 0, 0, width, height);
-    const webp = await canvasToBlob(canvas, quality);
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d", { alpha: true });
+      context.clearRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+      webp = await canvasToBlob(canvas, currentQuality);
+      if (!webp || !maxBytes || webp.size <= maxBytes) break;
+      if (currentQuality > minQuality) {
+        currentQuality = Math.max(minQuality, currentQuality - 0.07);
+      } else {
+        const sizeRatio = Math.sqrt(maxBytes / webp.size),
+          dimensionScale = Math.min(0.88, Math.max(0.65, sizeRatio * 0.94));
+        width = Math.max(1, Math.round(width * dimensionScale));
+        height = Math.max(1, Math.round(height * dimensionScale));
+      }
+    }
     if (!webp) return { blob, changed: false, skipped: true };
+    if (maxBytes && webp.size > maxBytes)
+      throw new Error(
+        `图片优化后仍超过 ${Math.ceil(maxBytes / 1024)} KB，请选择构图更简单或尺寸更小的图片`,
+      );
     // Keep a tiny original only when WebP would increase its payload notably.
-    if (webp.size > blob.size * 1.02)
+    if (!forceWebp && webp.size > blob.size * 1.02)
       return { blob, changed: false, skipped: true };
-    return { blob: webp, changed: true, skipped: false, width, height };
+    return {
+      blob: webp,
+      changed: blob.type !== "image/webp" || webp.size !== blob.size,
+      skipped: false,
+      width,
+      height,
+      quality: currentQuality,
+    };
   }
 
-  async function optimizeFile(file, options) {
+  async function optimizeFile(file, options = {}) {
     const originalBytes = file?.size || 0;
-    const result = await optimizeBlob(file, options);
-    const dataUrl = await blobToDataUrl(result.blob);
+    const { includeDataUrl = true, ...optimizeOptions } = options,
+      result = await optimizeBlob(file, optimizeOptions),
+      dataUrl = includeDataUrl ? await blobToDataUrl(result.blob) : undefined;
     return {
       ...result,
       dataUrl,
@@ -115,7 +151,10 @@
   }
 
   async function uploadOptimizedFile(db, file, options = {}) {
-    const result = await optimizeFile(file, options),
+    const result = await optimizeFile(file, {
+        ...options,
+        includeDataUrl: false,
+      }),
       uploaded = await uploadBlob(db, result.blob, options);
     return { ...result, ...uploaded };
   }

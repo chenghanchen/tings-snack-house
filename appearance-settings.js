@@ -366,8 +366,6 @@
       const input = $("#" + inputId),
         label = input?.closest("label");
       if (!label) return;
-      if (sectionId === "heroImageControl" || sectionId === "footerImageControl")
-        label.querySelector("small")?.remove();
       const preview = label.nextElementSibling,
         reset = preview?.nextElementSibling,
         section = document.createElement("section");

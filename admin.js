@@ -22,10 +22,15 @@ const startAdmin = () => {
       file,
       options,
     );
-    if (result.changed)
+    if (result.changed) {
+      const format = result.blob?.type === "image/webp" ? "WebP" : "网页图片",
+        size = result.optimizedBytes
+          ? `，${Math.ceil(result.optimizedBytes / 1024)} KB`
+          : "";
       toast(
-        `图片已优化为 WebP${result.width ? `（${result.width} × ${result.height}）` : ""}`,
+        `图片已优化为 ${format}${result.width ? `（${result.width} × ${result.height}${size}）` : size}`,
       );
+    }
     return result.publicUrl;
   }
   async function data(table) {
@@ -426,8 +431,32 @@ const startAdmin = () => {
     footerYear: "2026",
   };
   const imageSettings = [
-    ["heroBackgroundImage", "首页插画", "hero-snack-illustration-v1.webp"],
-    ["storyBackgroundImage", "页尾插画", "footer-composite-v1.webp"],
+    [
+      "heroBackgroundImage",
+      "首页背景图片",
+      "hero-snack-illustration-v1.webp",
+      {
+        folder: "hero",
+        maxDimension: 1920,
+        quality: 0.84,
+        forceWebp: true,
+        maxBytes: 256 * 1024,
+      },
+      "建议比例 16:9；系统会自动压缩、转为 WebP 并上传云存储。",
+    ],
+    [
+      "storyBackgroundImage",
+      "页尾背景图片",
+      "footer-composite-v1.webp",
+      {
+        folder: "footer",
+        maxDimension: 2048,
+        quality: 0.84,
+        forceWebp: true,
+        maxBytes: 180 * 1024,
+      },
+      "建议比例 8:3；系统会自动压缩、转为 WebP，并控制在 180 KB 内后上传云存储。",
+    ],
   ];
   const deliveryContentDefaults = {
       deliveryEyebrow: "LOCAL DELIVERY",
@@ -532,18 +561,14 @@ const startAdmin = () => {
       const save = form.querySelector("button.primary");
       save.insertAdjacentHTML(
         "beforebegin",
-        `<section id="imageSettings"><hr><h3>网站插画与背景图片</h3><p class="muted">下方显示的是顾客网站当前使用的图片。上传新图后点击“保存店铺设置”即可发布；删除图片会恢复默认设计。</p>${imageSettings.map(([key, label]) => `<label>${label}<input id="${key}Upload" type="file" accept="image/*"><small>建议上传清晰、体积较小的 JPG、PNG 或 WebP 图片。</small></label><div id="${key}Preview" class="image-preview"></div><button class="text-btn" type="button" data-remove-image="${key}">恢复默认图片</button>`).join("")}<button class="text-btn" type="button" id="restoreWebsiteDefaults">恢复默认内容与图片</button></section>`,
+        `<section id="imageSettings"><hr><h3>网站插画与背景图片</h3><p class="muted">下方显示的是顾客网站当前使用的图片。上传后只保存云存储 URL，不会把图片内容写入店铺设置；保存后无需重新部署网站。</p>${imageSettings.map(([key, label, , , hint]) => `<label>${label}<input id="${key}Upload" type="file" accept="image/png,image/jpeg,image/webp"><small>${hint}</small></label><div id="${key}Preview" class="image-preview"></div><button class="text-btn" type="button" data-remove-image="${key}">恢复默认图片</button>`).join("")}<button class="text-btn" type="button" id="restoreWebsiteDefaults">恢复默认内容与图片</button></section>`,
       );
-      imageSettings.forEach(([key]) => {
+      imageSettings.forEach(([key, , , uploadOptions]) => {
         $(`#${key}Upload`).onchange = async (e) => {
           const file = e.target.files[0];
           if (!file) return;
           try {
-            const image = await readOptimizedImage(file, {
-              maxDimension: 1920,
-              quality: 0.84,
-              folder: `appearance/${key}`,
-            });
+            const image = await readOptimizedImage(file, uploadOptions);
             form.dataset[key] = image;
             $(`#${key}Preview`).innerHTML = `<img src="${image}" alt="">`;
           } catch (error) {
