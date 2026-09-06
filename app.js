@@ -67,12 +67,15 @@ function normalizeStorefrontSettings(row) {
 }
 
 function createStorefrontSharedState() {
-  let resolveSettings, resolveCampaigns;
+  let resolveSettings, resolveCampaigns, resolveSiteAppearance;
   const state = {
     settings: null,
     campaigns: null,
     settingsReady: new Promise((resolve) => (resolveSettings = resolve)),
     campaignsReady: new Promise((resolve) => (resolveCampaigns = resolve)),
+    siteAppearanceReady: new Promise(
+      (resolve) => (resolveSiteAppearance = resolve),
+    ),
     publishSettings(value) {
       state.settings = value || {};
       if (resolveSettings) {
@@ -85,6 +88,13 @@ function createStorefrontSharedState() {
       if (resolveCampaigns) {
         resolveCampaigns(state.campaigns);
         resolveCampaigns = null;
+      }
+    },
+    registerSiteAppearance(handler) {
+      state.applySiteAppearance = handler;
+      if (resolveSiteAppearance) {
+        resolveSiteAppearance(handler);
+        resolveSiteAppearance = null;
       }
     },
   };
@@ -1774,16 +1784,18 @@ loadShop = async function () {
     else if (!storefrontShared.settings)
       storefrontShared.publishSettings(settings);
   });
-  const [p, c, s, g, v, vr, sales] = await Promise.all([
-    productsRequest,
-    categoriesRequest,
-    settingsRequest,
-    groupsRequest,
-    valuesRequest,
-    variantsRequest,
-    salesRequest,
-    storefrontShared.campaignsReady,
-  ]);
+  const [p, c, s, g, v, vr, sales, , applySiteAppearance] =
+    await Promise.all([
+      productsRequest,
+      categoriesRequest,
+      settingsRequest,
+      groupsRequest,
+      valuesRequest,
+      variantsRequest,
+      salesRequest,
+      storefrontShared.campaignsReady,
+      storefrontShared.siteAppearanceReady,
+    ]);
   if (version !== shopLoadVersion) return;
   if (p.error) {
     console.error(p.error);
@@ -1813,6 +1825,7 @@ loadShop = async function () {
     restoreSavedCart();
     cartRestoreCompleted = true;
   }
+  applySiteAppearance(s.data || settings);
   grid.classList.remove("product-grid-loading");
   renderFilters();
   renderProducts(

@@ -52,3 +52,12 @@
 .lookup-address{margin:5px 0}.lookup-address-content>span{font-size:13px}.lookup-order-card{cursor:pointer}.lookup-order-card :is(button,input,textarea,select,a,form){cursor:auto}.lookup-order-card button{cursor:pointer}
 .lookup-order-card.is-pickup{background:#e5fff1}.lookup-order-card.is-delivery{background:#f5f7ff}.lookup-order-card header>div,.lookup-order-card .lookup-items-preview,.lookup-order-card .lookup-address-content>span,.lookup-order-card .lookup-item-count{color:#000}.lookup-note.cancellation-reason{color:#1f1f1f}
 .product-action-wrap .stock-warning{font-size:12px}
+
+/* Keep the loading shell and the first product row on the same footprint. */
+:root{--catalog-card-min-height:327px}
+#productGrid>.product,.catalog-skeleton i{min-height:var(--catalog-card-min-height)}
+#productGrid>.product{animation:catalog-card-enter 150ms ease-out both}
+.catalog-skeleton i{border-radius:5px}
+@keyframes catalog-card-enter{from{opacity:0}to{opacity:1}}
+@media(max-width:780px){:root{--catalog-card-min-height:307px}}
+@media(prefers-reduced-motion:reduce){#productGrid>.product{animation:none}}

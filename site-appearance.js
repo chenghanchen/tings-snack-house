@@ -17,15 +17,15 @@
       `<style id="siteAppearanceStyles">.shop{--site-cols:${c.desktopCols};--site-mobile-cols:${c.mobileCols}}.product-grid{grid-template-columns:repeat(var(--site-cols),1fr)}.product-image img{object-fit:${c.imageFit}}body[data-card-style="cute"] .product{border-radius:18px;padding:15px;box-shadow:0 8px 22px #503b2414}body[data-card-style="cute"] .product-image{border-radius:14px}body[data-card-style="clean"] .product{background:transparent;padding:0;border:0}body[data-card-style="classic"] .product{border:1px solid var(--line);box-shadow:0 3px 10px #0000000c}@media(max-width:780px){.product-grid{grid-template-columns:repeat(var(--site-mobile-cols),1fr)}}${c.showDescription ? "" : ".product>p:not(.stock-warning){display:none}"}</style>`,
     );
   }
-  async function start() {
-    if (!window.TingsStorefront?.settingsReady)
-      return setTimeout(start, 150);
-    const settings =
-        window.TingsStorefront.settings ||
-        (await window.TingsStorefront.settingsReady),
-      c = merge(def, settings?.content?.siteAppearance);
+  function apply(settings) {
+    const c = merge(def, settings?.content?.siteAppearance);
     document.body.dataset.cardStyle = c.cardStyle;
     style(c);
   }
-  start();
+  function register() {
+    if (!window.TingsStorefront?.registerSiteAppearance)
+      return setTimeout(register, 150);
+    window.TingsStorefront.registerSiteAppearance(apply);
+  }
+  register();
 })();
