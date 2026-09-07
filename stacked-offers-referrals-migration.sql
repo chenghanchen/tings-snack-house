@@ -41,11 +41,22 @@ where s.id=1 and (r.referral_amount is null or r.referral_min_spend is null or r
 alter table public.referral_reward_settings enable row level security;
 drop policy if exists "owner manages referral reward settings" on public.referral_reward_settings;
 drop policy if exists "admin manages referral reward settings" on public.referral_reward_settings;
-create policy "admin manages referral reward settings" on public.referral_reward_settings for all to anon, authenticated using (true) with check (true);
+revoke all on table public.referral_reward_settings from public, anon, authenticated;
+grant select, insert, update, delete on table public.referral_reward_settings to authenticated;
+create policy "owner manages referral reward settings"
+on public.referral_reward_settings for all to authenticated
+using ((select auth.jwt() ->> 'email') = 'chenghanchen1@gmail.com')
+with check ((select auth.jwt() ->> 'email') = 'chenghanchen1@gmail.com');
+alter table public.customer_referrals enable row level security;
 drop policy if exists "owner reads referrals" on public.customer_referrals;
 drop policy if exists "owner manages referrals" on public.customer_referrals;
 drop policy if exists "admin manages referrals" on public.customer_referrals;
-create policy "admin manages referrals" on public.customer_referrals for all to anon, authenticated using (true) with check (true);
+revoke all on table public.customer_referrals from public, anon, authenticated;
+grant select, insert, update, delete on table public.customer_referrals to authenticated;
+create policy "owner manages referrals"
+on public.customer_referrals for all to authenticated
+using ((select auth.jwt() ->> 'email') = 'chenghanchen1@gmail.com')
+with check ((select auth.jwt() ->> 'email') = 'chenghanchen1@gmail.com');
 
 -- A coupon may independently prohibit combining with any applicable activity.
 alter table public.marketing_coupons

@@ -1081,33 +1081,16 @@ function previewOffer() {
       const [
         { data: campaigns },
         { data: coupons },
-        { data: refs },
-        { data: reward },
         orderCheck,
-        referralUseCheck,
       ] = await Promise.all([
         db.from("marketing_campaigns").select("*"),
         db.from("marketing_coupons").select("*"),
-        db
-          .from("customer_referrals")
-          .select("referral_code,created_at,referral_amount,referral_min_spend,referral_valid_days,referral_max_uses"),
-        db
-          .from("referral_reward_settings")
-          .select("*")
-          .eq("id", 1)
-          .maybeSingle(),
         phone
           ? db
               .from("orders")
               .select("id", { count: "exact", head: true })
               .eq("phone", phone)
           : Promise.resolve({ count: 1 }),
-        code
-          ? db
-              .from("orders")
-              .select("id", { count: "exact", head: true })
-              .eq("coupon_code", code)
-          : Promise.resolve({ count: 0 }),
       ]);
       const isNew = !!phone && Number(orderCheck.count || 0) === 0;
       let bestBenefit = 0,
@@ -1173,28 +1156,20 @@ function previewOffer() {
         isReferralCode = false,
         message = campaignName ? `已自动享受${campaignName}。` : "";
       if (code) {
-        const referral = (refs || []).find((x) => x.referral_code === code),
-          referralUses = Number(referralUseCheck.count || 0);
-        if (referral) {
-          const r = reward || { amount: 5, min_spend: 35 };
-          const amount = Number(referral.referral_amount ?? r.referral_amount ?? r.amount ?? 5),
-            minSpend = Number(referral.referral_min_spend ?? r.referral_min_spend ?? r.min_spend ?? 35),
-            validDays = Number(referral.referral_valid_days ?? r.referral_valid_days ?? r.valid_days ?? 0),
-            maxUses = Number(referral.referral_max_uses ?? r.referral_max_uses ?? 0),
-            expiresAt =
-              validDays > 0 && referral.created_at
-                ? new Date(referral.created_at).getTime() + validDays * 86400000
-                : 0,
-            isExpired = expiresAt && expiresAt <= Date.now(),
-            isExhausted = maxUses > 0 && referralUses >= maxUses;
-          if (
-            isNew &&
-            !isExpired &&
-            !isExhausted &&
-            t.subtotal >= minSpend
-          ) {
+        const { data: referralOffer, error: referralError } = await db.rpc(
+          "preview_referral_offer",
+          {
+            p_code: code,
+            p_phone: phone,
+            p_subtotal: t.subtotal,
+            p_campaign_discount: campaignDiscount,
+          },
+        );
+        if (referralError) throw referralError;
+        if (referralOffer?.is_referral) {
+          if (referralOffer.valid) {
             codeDiscount = Math.min(
-              amount,
+              Number(referralOffer.discount || 0),
               Math.max(0, t.subtotal - campaignDiscount),
             );
             codeName = "推荐码优惠";
