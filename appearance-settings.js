@@ -521,5 +521,7 @@
     bindFooterContacts();
   }
 
-  window.addEventListener("load", () => setTimeout(setup, 220));
+  const start = () => setTimeout(setup, 220);
+  if (document.readyState === "complete") start();
+  else window.addEventListener("load", start, { once: true });
 })();

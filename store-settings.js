@@ -617,5 +617,7 @@
       screen("profile");
     }
   }
-  window.addEventListener("load", () => setTimeout(setup, 300));
+  const start = () => setTimeout(setup, 300);
+  if (document.readyState === "complete") start();
+  else window.addEventListener("load", start, { once: true });
 })();

@@ -1,0 +1,8 @@
+{
+  "name": "tings-snack-house",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/media-cleanup-core.test.mjs tests/release-contracts.test.mjs",
+    "release:check": "node scripts/release-check.mjs"
+  }
+}

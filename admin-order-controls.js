@@ -256,5 +256,7 @@
     moveDateControlsBesideTabs();
     if (!setupAlertSettings()) setTimeout(start, 150);
   }
-  window.addEventListener("load", () => setTimeout(start, 80));
+  const startWhenReady = () => setTimeout(start, 80);
+  if (document.readyState === "complete") startWhenReady();
+  else window.addEventListener("load", startWhenReady, { once: true });
 })();

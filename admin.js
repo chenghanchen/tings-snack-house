@@ -113,41 +113,45 @@ const startAdmin = () => {
     $("#orderAlertToggle")?.addEventListener("click", enableAlerts);
     updateAlertButton();
     boot = async function () {
-      await settings();
-      if (
-        $("#loginForm, #newPasswordForm") ||
-        !$("#settingsForm") ||
-        !$("#ordersList")
-      )
-        return;
-      db.channel("order-alert-v2")
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "orders" },
-          (p) => {
-            if (p.new?.status === "待确认") {
-              toast("收到一笔新订单！");
-              announce(p.new);
-            }
-            window.orders?.();
-          },
+      try {
+        await settings();
+        if (
+          $("#loginForm, #newPasswordForm") ||
+          !$("#settingsForm") ||
+          !$("#ordersList")
         )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "products" },
-          products,
-        )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "categories" },
-          categories,
-        )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "shop_settings" },
-          settings,
-        )
-        .subscribe();
+          return;
+        db.channel("order-alert-v2")
+          .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "orders" },
+            (p) => {
+              if (p.new?.status === "待确认") {
+                toast("收到一笔新订单！");
+                announce(p.new);
+              }
+              window.orders?.();
+            },
+          )
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "products" },
+            products,
+          )
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "categories" },
+            categories,
+          )
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "shop_settings" },
+            settings,
+          )
+          .subscribe();
+      } finally {
+        window.finishAdminBoot?.();
+      }
     };
   });
   async function savePositions(table, rows) {
@@ -777,7 +781,7 @@ const startAdmin = () => {
         logoutButton.disabled = false;
         return toast(error.message);
       }
-      login();
+      location.reload();
     };
   document.querySelectorAll("aside nav button").forEach(
     (b) =>

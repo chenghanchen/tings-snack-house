@@ -588,7 +588,9 @@
       .subscribe();
     render();
   }
-  window.addEventListener("load", () => setTimeout(setup, 120));
+  const start = () => setTimeout(setup, 120);
+  if (document.readyState === "complete") start();
+  else window.addEventListener("load", start, { once: true });
 })();
 
 /* Expanding a category is a local view change, not a database reload. */

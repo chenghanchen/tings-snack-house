@@ -18,6 +18,7 @@ const db = window.supabase.createClient(
   );
 const CART_STORAGE_KEY = "tings-snack-house-cart-v1";
 const CART_STORAGE_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
+const STOREFRONT_SNAPSHOT_RPC = "get_storefront_snapshot";
 const STOREFRONT_CONTENT_FIELDS = [
     "heroEyebrow",
     "heroTitle",
@@ -67,11 +68,102 @@ function normalizeStorefrontSettings(row) {
   return normalized;
 }
 
+let storefrontSnapshotFallbackWarned = false,
+  storefrontSnapshotUnavailable = false;
+function snapshotResult(data) {
+  return { data, error: null };
+}
+function normalizeStorefrontSnapshot(snapshot) {
+  const arrayKeys = [
+    "products",
+    "categories",
+    "option_groups",
+    "option_values",
+    "variants",
+    "product_sales",
+    "campaigns",
+  ];
+  if (
+    !snapshot ||
+    typeof snapshot !== "object" ||
+    Array.isArray(snapshot) ||
+    !Object.prototype.hasOwnProperty.call(snapshot, "settings") ||
+    arrayKeys.some((key) => !Array.isArray(snapshot[key]))
+  )
+    return null;
+  return {
+    p: snapshotResult(snapshot.products),
+    c: snapshotResult(snapshot.categories),
+    s: snapshotResult(normalizeStorefrontSettings(snapshot.settings)),
+    g: snapshotResult(snapshot.option_groups),
+    v: snapshotResult(snapshot.option_values),
+    vr: snapshotResult(snapshot.variants),
+    sales: snapshotResult(snapshot.product_sales),
+    campaigns: snapshotResult(snapshot.campaigns),
+  };
+}
+async function loadLegacyStorefrontData() {
+  const [p, c, s, g, v, vr, sales, campaigns] = await Promise.all([
+    db
+      .from("products")
+      .select("*")
+      .eq("is_active", true)
+      .order("position")
+      .order("id"),
+    db.from("categories").select("*").order("position").order("id"),
+    db
+      .from("shop_settings")
+      .select(STOREFRONT_SETTINGS_SELECT)
+      .eq("id", 1)
+      .maybeSingle()
+      .then((result) => ({
+        ...result,
+        data: normalizeStorefrontSettings(result.data),
+      })),
+    db.from("product_option_groups").select("*").order("position"),
+    db.from("product_option_values").select("*").order("position"),
+    db.from("product_variants").select("*").order("position"),
+    db.rpc("get_public_product_sales"),
+    db.from("marketing_campaigns").select("*"),
+  ]);
+  return { p, c, s, g, v, vr, sales, campaigns };
+}
+async function loadStorefrontData() {
+  if (storefrontSnapshotUnavailable) return loadLegacyStorefrontData();
+  let snapshotError;
+  try {
+    const { data, error } = await db.rpc(STOREFRONT_SNAPSHOT_RPC);
+    const snapshot = error ? null : normalizeStorefrontSnapshot(data);
+    if (snapshot) return snapshot;
+    snapshotError = error || "快照格式无效";
+  } catch (error) {
+    snapshotError = error;
+  }
+  storefrontSnapshotUnavailable = true;
+  if (!storefrontSnapshotFallbackWarned) {
+    storefrontSnapshotFallbackWarned = true;
+    console.warn(
+      "店铺快照尚不可用，已兼容使用原公开接口。",
+      snapshotError,
+    );
+  }
+  return loadLegacyStorefrontData();
+}
+
 function createStorefrontSharedState() {
   let resolveSettings, resolveCampaigns, resolveSiteAppearance;
+  const campaignSubscribers = new Set();
+  const notifyCampaignSubscriber = (subscriber, campaigns, revision) => {
+    try {
+      subscriber(campaigns, revision);
+    } catch (error) {
+      console.error("活动组件更新失败。", error);
+    }
+  };
   const state = {
     settings: null,
     campaigns: null,
+    campaignRevision: 0,
     settingsReady: new Promise((resolve) => (resolveSettings = resolve)),
     campaignsReady: new Promise((resolve) => (resolveCampaigns = resolve)),
     siteAppearanceReady: new Promise(
@@ -84,12 +176,36 @@ function createStorefrontSharedState() {
         resolveSettings = null;
       }
     },
-    publishCampaigns(value) {
+    publishCampaigns(value, expectedRevision) {
+      if (
+        expectedRevision !== undefined &&
+        expectedRevision !== state.campaignRevision
+      )
+        return false;
       state.campaigns = value || [];
+      state.campaignRevision += 1;
       if (resolveCampaigns) {
         resolveCampaigns(state.campaigns);
         resolveCampaigns = null;
       }
+      campaignSubscribers.forEach((subscriber) =>
+        notifyCampaignSubscriber(
+          subscriber,
+          state.campaigns,
+          state.campaignRevision,
+        ),
+      );
+      return true;
+    },
+    subscribeCampaigns(subscriber) {
+      campaignSubscribers.add(subscriber);
+      if (state.campaigns !== null)
+        notifyCampaignSubscriber(
+          subscriber,
+          state.campaigns,
+          state.campaignRevision,
+        );
+      return () => campaignSubscribers.delete(subscriber);
     },
     registerSiteAppearance(handler) {
       state.applySiteAppearance = handler;
@@ -1397,11 +1513,18 @@ renderProducts = function (filter) {
     updateProductCardOffer(card, p, item, action);
   });
 };
+let cardCampaignReloadVersion = 0;
 function reloadCardCampaigns() {
+  const version = ++cardCampaignReloadVersion;
   return db
     .from("marketing_campaigns")
     .select("*")
-    .then(({ data }) => {
+    .then(({ data, error }) => {
+      if (version !== cardCampaignReloadVersion) return;
+      if (error) {
+        console.warn("活动数据实时更新失败。", error);
+        return;
+      }
       cardCampaigns = data || [];
       storefrontShared.publishCampaigns(cardCampaigns);
       if (products.length) {
@@ -1413,7 +1536,6 @@ function reloadCardCampaigns() {
       }
     });
 }
-reloadCardCampaigns();
 db.channel("marketing-catalog-live")
   .on(
     "postgres_changes",
@@ -1777,64 +1899,23 @@ renderCart = function () {
   if (cartRestoreCompleted) saveCartLocally();
 };
 refreshCartLocally = renderCart;
-/* Start every catalogue request together, then commit one stable product-grid render. */
+/* Prefer one read-only snapshot request; older deployments fall back automatically. */
 loadShop = async function () {
   const version = ++shopLoadVersion,
-    grid = $("#productGrid"),
-    settingsRequest = db
-      .from("shop_settings")
-      .select(STOREFRONT_SETTINGS_SELECT)
-      .eq("id", 1)
-      .maybeSingle()
-      .then((result) => ({
-        ...result,
-        data: normalizeStorefrontSettings(result.data),
-      })),
-    productsRequest = db
-      .from("products")
-      .select("*")
-      .eq("is_active", true)
-      .order("position")
-      .order("id"),
-    categoriesRequest = db
-      .from("categories")
-      .select("*")
-      .order("position")
-      .order("id"),
-    groupsRequest = db
-      .from("product_option_groups")
-      .select("*")
-      .order("position"),
-    valuesRequest = db
-      .from("product_option_values")
-      .select("*")
-      .order("position"),
-    variantsRequest = db
-      .from("product_variants")
-      .select("*")
-      .order("position"),
-    salesRequest = db.rpc("get_public_product_sales");
-  // Storefront copy and the hero art are independent of the catalogue. Start
-  // them immediately so they are not delayed behind all product-related data.
-  settingsRequest.then((result) => {
-    if (version !== shopLoadVersion) return;
-    if (result.data) applySettings(result.data);
-    else if (!storefrontShared.settings)
-      storefrontShared.publishSettings(settings);
-  });
-  const [p, c, s, g, v, vr, sales, , applySiteAppearance] =
-    await Promise.all([
-      productsRequest,
-      categoriesRequest,
-      settingsRequest,
-      groupsRequest,
-      valuesRequest,
-      variantsRequest,
-      salesRequest,
-      storefrontShared.campaignsReady,
-      storefrontShared.siteAppearanceReady,
-    ]);
+    campaignRevision = storefrontShared.campaignRevision,
+    grid = $("#productGrid");
+  const [storefrontData, applySiteAppearance] = await Promise.all([
+    loadStorefrontData(),
+    storefrontShared.siteAppearanceReady,
+  ]);
   if (version !== shopLoadVersion) return;
+  const { p, c, s, g, v, vr, sales, campaigns } = storefrontData;
+  if (s.data) applySettings(s.data);
+  else if (!storefrontShared.settings)
+    storefrontShared.publishSettings(settings);
+  const snapshotCampaigns = campaigns.data || [];
+  if (storefrontShared.publishCampaigns(snapshotCampaigns, campaignRevision))
+    cardCampaigns = snapshotCampaigns;
   if (p.error) {
     console.error(p.error);
     if (!products.length)
@@ -1854,10 +1935,24 @@ loadShop = async function () {
     ]),
   );
   catalogDetailsReady = !(g.error || v.error || vr.error);
-  if (c.error || s.error || g.error || v.error || vr.error || sales.error)
+  if (
+    c.error ||
+    s.error ||
+    g.error ||
+    v.error ||
+    vr.error ||
+    sales.error ||
+    campaigns.error
+  )
     console.warn(
       "部分店铺数据加载较慢，商品已优先展示。",
-      c.error || s.error || g.error || v.error || vr.error || sales.error,
+      c.error ||
+        s.error ||
+        g.error ||
+        v.error ||
+        vr.error ||
+        sales.error ||
+        campaigns.error,
     );
   if (catalogDetailsReady && !cartRestoreCompleted) {
     restoreSavedCart();

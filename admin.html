@@ -1,27 +1,30 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-admin-state="checking">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
     <title>婷婷的零食屋｜店主后台</title>
     <script>
-      document.documentElement.classList.add("admin-booting");
+      document.documentElement.classList.add(
+        "admin-booting",
+        "admin-auth-screen",
+      );
       window.finishAdminBoot = () => {
+        window.adminCoreDataReady = true;
+        if (
+          document.documentElement.dataset.adminState === "loading-modules"
+        )
+          return;
         document.documentElement.classList.remove("admin-booting");
+        if (
+          document.documentElement.dataset.adminState === "loading-data"
+        )
+          document.documentElement.dataset.adminState = "ready";
       };
-      window.setTimeout(window.finishAdminBoot, 8000);
+      window.armAdminBootFallback = () =>
+        window.setTimeout(window.finishAdminBoot, 8000);
     </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="admin.css?v=20260903g" />
-    <link rel="stylesheet" href="order-cards.css?v=20260905b" />
-    <link rel="stylesheet" href="order-tab.css?v=20260901a" />
-    <link rel="stylesheet" href="marketing-wizard.css?v=20260904o" />
-    <link rel="stylesheet" href="shop-status.css?v=20260901a" />
+    <link rel="stylesheet" href="admin-login.css?v=20260908a" />
   </head>
   <body>
     <div class="admin-boot-loader" role="status" aria-live="polite">
@@ -327,15 +330,6 @@
     <div id="toast" role="status"></div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20260828a"></script>
-    <script src="image-optimizer.js?v=20260908c"></script>
-    <script src="admin.js?v=20260908c"></script>
-    <script src="admin-mobile-nav.js?v=20260828a"></script>
-    <script src="order-cards.js?v=20260908b"></script>
-    <script src="marketing.js?v=20260904d"></script>
-    <script src="legacy-product-editor-bridge.js?v=20260828a"></script>
-    <script src="category-product-manager.js?v=20260906a"></script>
-    <script src="appearance-settings.js?v=20260908c"></script>
-    <script src="store-settings.js?v=20260908b"></script>
-    <script src="admin-order-controls.js?v=20260908b"></script>
+    <script src="admin-auth.js?v=20260908a"></script>
   </body>
 </html>

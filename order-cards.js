@@ -7,6 +7,13 @@
     TINGS_SUPABASE.anonKey,
   );
   const $ = (selector) => document.querySelector(selector);
+  const toast = (message) => {
+    const node = $("#toast");
+    if (!node) return;
+    node.textContent = message;
+    node.classList.add("show");
+    setTimeout(() => node.classList.remove("show"), 2800);
+  };
   const isCurrentOrdersView = () =>
     root.isConnected &&
     $("#ordersList") === root &&

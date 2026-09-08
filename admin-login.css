@@ -1,0 +1,167 @@
+:root {
+  --ink: #293730;
+  --cream: #f8f3e8;
+  --paper: #fffdf8;
+  --red: #d75b4b;
+  --sage: #a8bc9b;
+  --line: #ded7c9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html.admin-auth-screen body {
+  display: block;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font: 14px "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+}
+
+html.admin-auth-screen body > aside,
+html.admin-auth-screen body > #mobileNavBackdrop,
+html.admin-auth-screen body > dialog {
+  display: none;
+}
+
+html.admin-auth-screen.admin-booting body > main,
+html.admin-auth-screen.admin-booting body > #toast {
+  visibility: hidden;
+}
+
+.admin-boot-loader {
+  display: none;
+}
+
+html.admin-auth-screen.admin-booting .admin-boot-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+html.admin-auth-screen main {
+  width: min(500px, calc(100vw - 36px));
+  margin: 0 auto;
+  padding: clamp(64px, 12vh, 120px) 0 48px;
+}
+
+html.admin-auth-screen main > header {
+  margin-bottom: 28px;
+}
+
+html.admin-auth-screen .eyebrow {
+  margin: 0 0 9px;
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+html.admin-auth-screen h1 {
+  margin: 0;
+  font-family: Georgia, "Songti SC", serif;
+  font-size: clamp(32px, 7vw, 42px);
+  letter-spacing: 1px;
+}
+
+html.admin-auth-screen .panel {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  padding: clamp(24px, 6vw, 34px);
+}
+
+html.admin-auth-screen .muted {
+  margin: 0 0 24px;
+  color: #758077;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+html.admin-auth-screen label {
+  display: block;
+  margin: 17px 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+html.admin-auth-screen input {
+  width: 100%;
+  margin-top: 7px;
+  border: 1px solid var(--line);
+  background: #fffdf8;
+  padding: 11px;
+  color: var(--ink);
+  font: inherit;
+  outline-color: var(--sage);
+}
+
+html.admin-auth-screen .primary,
+html.admin-auth-screen .text-btn {
+  min-height: 40px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+html.admin-auth-screen .primary {
+  border: 0;
+  background: var(--red);
+  color: white;
+  padding: 10px 16px;
+}
+
+html.admin-auth-screen .text-btn {
+  border: 0;
+  background: transparent;
+  color: var(--red);
+  padding: 10px 12px;
+}
+
+html.admin-auth-screen button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+html.admin-auth-screen #toast {
+  position: fixed;
+  right: 26px;
+  bottom: 25px;
+  z-index: 110;
+  max-width: min(420px, calc(100vw - 36px));
+  background: var(--ink);
+  color: white;
+  padding: 13px 17px;
+  box-shadow: 0 10px 25px #0002;
+  font-size: 12px;
+  transform: translateY(100px);
+  transition: transform 0.25s;
+}
+
+html.admin-auth-screen #toast.show {
+  transform: none;
+}
+
+@media (max-width: 520px) {
+  html.admin-auth-screen main {
+    padding-top: 54px;
+  }
+
+  html.admin-auth-screen .panel {
+    padding: 23px 20px;
+  }
+
+  html.admin-auth-screen form .primary,
+  html.admin-auth-screen form .text-btn {
+    width: 100%;
+  }
+}
