@@ -7,6 +7,10 @@
     TINGS_SUPABASE.anonKey,
   );
   const $ = (selector) => document.querySelector(selector);
+  const isCurrentOrdersView = () =>
+    root.isConnected &&
+    $("#ordersList") === root &&
+    !$("#loginForm, #newPasswordForm");
   const T = {
     confirmCancel: "确认取消",
     cancelling: "取消中…",
@@ -424,12 +428,14 @@
     );
   };
   const render = async () => {
+    if (!isCurrentOrdersView()) return;
     /* This module is isolated from admin.js, so it must not rely on its private data() helper. */
     const { data: orders, error } = await client
       .from("orders")
       .select("*")
       .order("created_at", { ascending: false })
       .order("id", { ascending: true });
+    if (!isCurrentOrdersView()) return;
     if (error) {
       toast(error.message);
       return;

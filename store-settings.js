@@ -1,6 +1,12 @@
 /* Operational store settings: desktop side navigation and mobile drill-down pages. */
 (() => {
   const $ = (s) => document.querySelector(s),
+    isAuthView = () => !!$("#loginForm, #newPasswordForm"),
+    isCurrentSettingsForm = (form) =>
+      !!form &&
+      form.isConnected &&
+      $("#settingsForm") === form &&
+      !isAuthView(),
     esc = (v) =>
       String(v ?? "").replace(
         /[&<>"']/g,
@@ -463,6 +469,7 @@
         .select("content,pickup_address,pickup_note,new_order_email")
         .eq("id", 1)
         .maybeSingle();
+      if (!isCurrentSettingsForm(form)) return;
       if (readError) throw readError;
       if (!current) throw new Error("未找到店铺设置，请刷新后重试");
 
@@ -565,8 +572,11 @@
     }
   }
   async function setup() {
+    if (isAuthView()) return;
     if (!window.supabase || !window.TINGS_SUPABASE || !build())
       return setTimeout(setup, 180);
+    const form = $("#settingsForm");
+    if (!isCurrentSettingsForm(form)) return;
     db ??= window.supabase.createClient(
       window.TINGS_SUPABASE.url,
       window.TINGS_SUPABASE.anonKey,
@@ -581,6 +591,12 @@
         )
         .eq("id", 1)
         .maybeSingle();
+      if (
+        !isCurrentSettingsForm(form) ||
+        !layout.isConnected ||
+        $("#storeSettingsLayout") !== layout
+      )
+        return;
       if (error || !data) {
         console.error(
           "Store settings could not be loaded",

@@ -213,7 +213,7 @@
     await subscribeAlerts();
     toast("新订单提醒已开启");
   }
-  async function setupAlertSettings() {
+  function setupAlertSettings() {
     const pickup = $("#pickupSettings"),
       oldButton = $("#orderAlertToggle");
     if (!pickup || !oldButton) return false;
@@ -251,6 +251,7 @@
       heading.append(controls);
   }
   function start() {
+    if ($("#loginForm, #newPasswordForm")) return;
     setupDateControls();
     moveDateControlsBesideTabs();
     if (!setupAlertSettings()) setTimeout(start, 150);

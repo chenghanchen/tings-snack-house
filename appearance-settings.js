@@ -1,6 +1,12 @@
 /* Split public-site presentation controls from operational store settings. */
 (() => {
   const $ = (selector) => document.querySelector(selector);
+  const isAuthView = () => !!$("#loginForm, #newPasswordForm");
+  const isCurrentAppearanceForm = (form) =>
+    !!form &&
+    form.isConnected &&
+    $("#appearanceForm") === form &&
+    !isAuthView();
   const contentDefaults = {
     heroEyebrow: "今日の小さなごほうび",
     heroTitle: "把喜欢的零食",
@@ -186,6 +192,7 @@
         showDescription: true,
         ...(data?.content?.siteAppearance || {}),
       };
+    if (!isCurrentAppearanceForm(form)) return;
     const pick = (v) => {
       $("#cardStylePicker")
         ?.querySelectorAll("button")
@@ -239,10 +246,12 @@
         .from("shop_settings")
         .select("content")
         .eq("id", 1)
-        .maybeSingle(),
-      value = data?.content?.activityAnnouncementImage || "",
+        .maybeSingle();
+    if (!isCurrentAppearanceForm(form)) return;
+    const value = data?.content?.activityAnnouncementImage || "",
       upload = $("#activityAnnouncementImageUpload"),
       preview = $("#activityAnnouncementImagePreview");
+    if (!upload || !preview) return;
     form.dataset.activityAnnouncementImage = value;
     preview.innerHTML = value
       ? `<img src="${value}" alt="活动公告栏背景">`
@@ -289,8 +298,9 @@
         .from("shop_settings")
         .select("content")
         .eq("id", 1)
-        .maybeSingle(),
-      saved = data?.content?.footerAppearance || {},
+        .maybeSingle();
+    if (!isCurrentAppearanceForm(form)) return;
+    const saved = data?.content?.footerAppearance || {},
       config = {
         ...footerDefaults,
         ...saved,
@@ -304,8 +314,10 @@
           ...(config.socials[id] || {}),
         },
         upload = $(`#footerQr_${id}`),
-        preview = $(`#footerQrPreview_${id}`);
-      $(`#footerSocial_${id}`).checked = !!social.show;
+        preview = $(`#footerQrPreview_${id}`),
+        toggle = $(`#footerSocial_${id}`);
+      if (!upload || !preview || !toggle) return;
+      toggle.checked = !!social.show;
       form.dataset[`footerQr_${id}`] = social.qr || "";
       preview.innerHTML = social.qr
         ? `<img src="${social.qr}" alt="${label} 二维码">`
@@ -395,8 +407,15 @@
 
   async function saveAppearance(event) {
     event.preventDefault();
-    const source = $("#settingsForm");
-    if (!source || !window.supabase || !window.TINGS_SUPABASE) return;
+    const form = $("#appearanceForm"),
+      source = $("#settingsForm");
+    if (
+      !isCurrentAppearanceForm(form) ||
+      !source ||
+      !window.supabase ||
+      !window.TINGS_SUPABASE
+    )
+      return;
     const content = {};
     Object.entries(contentDefaults).forEach(([key, fallback]) => {
       content[key] = inputValue("#" + key + "Input", fallback);
@@ -417,19 +436,26 @@
       window.TINGS_SUPABASE.url,
       window.TINGS_SUPABASE.anonKey,
     );
-    const { data: current } = await db
+    const { data: current, error: readError } = await db
       .from("shop_settings")
       .select("content")
       .eq("id", 1)
       .maybeSingle();
+    if (
+      !isCurrentAppearanceForm(form) ||
+      !source.isConnected ||
+      $("#settingsForm") !== source
+    )
+      return;
+    if (readError) return toast(readError.message);
     content.deliveryBackgroundColor =
       current?.content?.deliveryBackgroundColor ||
       deliveryDefaults.deliveryBackgroundColor;
     content.footerAppearance = footerConfigFromForm(
-      $("#appearanceForm") || source,
+      form || source,
     );
     content.activityAnnouncementImage =
-      $("#appearanceForm")?.dataset.activityAnnouncementImage || "";
+      form.dataset.activityAnnouncementImage || "";
     content.siteAppearance = {
       cardStyle: $("#cardStylePicker .active")?.dataset.cardStyle || "japanese",
       imageFit: $("#appearanceImageFit")?.value || "contain",
@@ -456,6 +482,7 @@
   }
 
   function setup() {
+    if (isAuthView()) return;
     if (!ensureShell()) return setTimeout(setup, 150);
     if (!moveAppearanceFields()) return setTimeout(setup, 180);
     splitImageControls();

@@ -116,6 +116,12 @@ const startAdmin = () => {
     updateAlertButton();
     boot = async function () {
       await settings();
+      if (
+        $("#loginForm, #newPasswordForm") ||
+        !$("#settingsForm") ||
+        !$("#ordersList")
+      )
+        return;
       db.channel("order-alert-v2")
         .on(
           "postgres_changes",
@@ -621,11 +627,20 @@ const startAdmin = () => {
     else paused.removeAttribute("title");
   }
   async function settings() {
+    const settingsForm = $("#settingsForm");
+    if (!settingsForm) return;
     const { data: s } = await db
       .from("shop_settings")
       .select("*")
       .eq("id", 1)
       .single();
+    if (
+      !s ||
+      !settingsForm.isConnected ||
+      $("#settingsForm") !== settingsForm ||
+      $("#loginForm, #newPasswordForm")
+    )
+      return;
     if (s) {
       isAcceptingOrders = s.is_accepting_orders !== false;
       orderPausedUntil = s.order_paused_until || null;
@@ -1158,22 +1173,21 @@ startAdmin();
     address: "天河城二楼，Archer Ave",
     note: "请到天河城二楼取货；每日 10:00–22:00",
   };
-  const setup = async () => {
-    if (
-      !window.supabase ||
-      !window.TINGS_SUPABASE ||
-      !document.querySelector("#settingsForm")
-    )
-      return setTimeout(setup, 120);
+  const setup = () => {
+    if (document.querySelector("#loginForm, #newPasswordForm")) return;
     const form = document.querySelector("#settingsForm");
+    if (!window.supabase || !window.TINGS_SUPABASE || !form)
+      return setTimeout(setup, 120);
     if (document.querySelector("#pickupSettings")) return;
     const basicEnd = form.querySelector("hr");
+    if (!form.isConnected || !basicEnd) return;
     basicEnd.insertAdjacentHTML(
       "beforebegin",
       `<section id="pickupSettings"><label>自取地址<input id="pickupAddressInput" required></label><label>自取说明／营业时间<textarea id="pickupNoteInput" rows="3" required></textarea></label></section>`,
     );
-    const addressInput = document.querySelector("#pickupAddressInput"),
-      noteInput = document.querySelector("#pickupNoteInput");
+    const addressInput = form.querySelector("#pickupAddressInput"),
+      noteInput = form.querySelector("#pickupNoteInput");
+    if (!form.isConnected || !addressInput || !noteInput) return;
     addressInput.value = defaults.address;
     noteInput.value = defaults.note;
   };
