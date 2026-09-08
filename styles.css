@@ -61,3 +61,4 @@
 @keyframes catalog-card-enter{from{opacity:0}to{opacity:1}}
 @media(max-width:780px){:root{--catalog-card-min-height:307px}}
 @media(prefers-reduced-motion:reduce){#productGrid>.product{animation:none}}
+.primary-button.submit:disabled{background:#bfc8bd;cursor:not-allowed}

@@ -1,0 +1,5 @@
+project_id = "ragqunnuxsfwhrfqpylg"
+
+[functions.submit-order]
+verify_jwt = true
+

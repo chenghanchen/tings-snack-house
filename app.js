@@ -526,6 +526,7 @@ $("#checkout").onclick = () => {
     !window.validateCartBeforeCheckout()
   )
     return;
+  checkoutIdempotencyKey = createCheckoutIdempotencyKey();
   syncFulfillment();
   toggleCart(false);
   $("#orderDialog").showModal();
@@ -533,6 +534,8 @@ $("#checkout").onclick = () => {
   renderCart();
 };
 function resetOrderDialog() {
+  setOrderSubmissionPending(false);
+  checkoutIdempotencyKey = null;
   $("#orderForm").reset();
   $("#orderFormWrap").hidden = false;
   $("#successMessage").hidden = true;
@@ -543,6 +546,36 @@ function resetOrderDialog() {
 }
 let preserveOrderSuccessOnClose = false;
 let orderLookupReturnToSuccess = false;
+let orderSubmissionPending = false;
+let checkoutIdempotencyKey = null;
+function createCheckoutIdempotencyKey() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
+  return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
+}
+function setOrderSubmissionPending(pending) {
+  orderSubmissionPending = pending;
+  const button = $("#submitOrder");
+  if (!button) return;
+  button.disabled = pending;
+  button.setAttribute("aria-busy", String(pending));
+  button.innerHTML = pending
+    ? "正在提交订单…"
+    : '确认提交订单 <span>→</span>';
+}
+async function orderSubmissionErrorMessage(error) {
+  const response = error?.context;
+  if (response?.clone) {
+    try {
+      const payload = await response.clone().json();
+      if (payload?.error) return payload.error;
+    } catch {}
+  }
+  return error?.message || "订单暂时无法提交";
+}
 function referralValidityText(validDays) {
   const days = Number(validDays || 0);
   return days > 0 ? `有效期 ${days} 天` : "长期有效";
@@ -617,6 +650,7 @@ function showOrderSuccess(order, form) {
   $("#successMessage").hidden = false;
 }
 function closeOrderDialog() {
+  if (orderSubmissionPending) return;
   $("#orderDialog").close();
   resetOrderDialog();
 }
@@ -631,10 +665,16 @@ $("#orderDialog").addEventListener("close", () => {
   }
   resetOrderDialog();
 });
+$("#orderDialog").addEventListener("cancel", (event) => {
+  if (orderSubmissionPending) event.preventDefault();
+});
 $("#fulfillment").onchange = syncFulfillment;
 syncFulfillment();
 $("#orderForm").onsubmit = async (e) => {
   e.preventDefault();
+  if (orderSubmissionPending) return;
+  checkoutIdempotencyKey ??= createCheckoutIdempotencyKey();
+  setOrderSubmissionPending(true);
   const f = new FormData(e.target);
   const payload = cart.map((x) => ({
     product_id: x.product.id,
@@ -653,19 +693,32 @@ $("#orderForm").onsubmit = async (e) => {
     p_coupon_code: f.get("coupon_code") || null,
     p_referral_value: null,
     p_excluded_campaign_ids: Array.from(excludedCampaignIds),
+    p_idempotency_key: checkoutIdempotencyKey,
   };
-  let { data, error } = await db.rpc(
-    "submit_shop_order_with_referral_rewards",
-    submitArgs,
-  );
-  if (error?.code === "PGRST202") {
-    ({ data, error } = await db.rpc("submit_shop_order", submitArgs));
+  let submitted = false;
+  try {
+    const { data, error } = await db.functions.invoke("submit-order", {
+      body: submitArgs,
+    });
+    if (error) {
+      alert(await orderSubmissionErrorMessage(error));
+      return;
+    }
+    if (!data || typeof data !== "object") {
+      alert("订单暂时无法提交，请稍后重试");
+      return;
+    }
+    submitted = true;
+    setOrderSubmissionPending(false);
+    showOrderSuccess(data, f);
+    cart = [];
+    renderCart();
+    loadShop();
+  } catch (error) {
+    alert(error?.message || "网络异常，请稍后重试");
+  } finally {
+    if (!submitted) setOrderSubmissionPending(false);
   }
-  if (error) return alert(error.message || "订单暂时无法提交");
-  showOrderSuccess(data, f);
-  cart = [];
-  renderCart();
-  loadShop();
 };
 $("#done").onclick = () => {
   closeOrderDialog();
