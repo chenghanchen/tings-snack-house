@@ -3,6 +3,53 @@
    fields retain only their public CDN URLs. */
 (() => {
   const STORAGE_BUCKET = "storefront-images";
+  const UPLOAD_PROFILES = Object.freeze({
+    product: Object.freeze({
+      folder: "products",
+      maxDimension: 1200,
+      quality: 0.82,
+      forceWebp: true,
+      maxBytes: 240 * 1024,
+    }),
+    variant: Object.freeze({
+      folder: "variants",
+      maxDimension: 1200,
+      quality: 0.82,
+      forceWebp: true,
+      maxBytes: 240 * 1024,
+    }),
+    hero: Object.freeze({
+      folder: "hero",
+      maxDimension: 1920,
+      quality: 0.84,
+      forceWebp: true,
+      maxBytes: 256 * 1024,
+    }),
+    announcement: Object.freeze({
+      folder: "appearance/announcement",
+      maxDimension: 1920,
+      quality: 0.84,
+      forceWebp: true,
+      maxBytes: 180 * 1024,
+    }),
+    delivery: Object.freeze({
+      folder: "appearance/delivery",
+      maxDimension: 1920,
+      quality: 0.84,
+      forceWebp: true,
+      maxBytes: 220 * 1024,
+    }),
+    footer: Object.freeze({
+      folder: "footer",
+      maxDimension: 2048,
+      quality: 0.84,
+      forceWebp: true,
+      maxBytes: 180 * 1024,
+    }),
+  });
+  const uploadCounts = new WeakMap(),
+    uploadLockedControls = new WeakMap(),
+    uploadCancelHandlers = new WeakMap();
   const dataUrlBytes = (value) => {
     const encoded = String(value || "").split(",")[1] || "";
     return Math.floor((encoded.length * 3) / 4);
@@ -33,6 +80,65 @@
 
   const canvasToBlob = (canvas, quality) =>
     new Promise((resolve) => canvas.toBlob(resolve, "image/webp", quality));
+
+  function profileOptions(name, overrides = {}) {
+    const profile = UPLOAD_PROFILES[name];
+    if (!profile) throw new Error(`未知的图片上传类型：${name}`);
+    return { ...profile, ...overrides, forceWebp: true };
+  }
+
+  function setUploadBusy(form, busy) {
+    if (!form) return;
+    const current = uploadCounts.get(form) || 0,
+      next = Math.max(0, current + (busy ? 1 : -1));
+    uploadCounts.set(form, next);
+    if (busy && current === 0) {
+      const dialog = form.closest?.("dialog"),
+        scope = dialog || form;
+      const controls = [
+        ...scope.querySelectorAll("button, input, select, textarea"),
+      ].filter((control) => !control.disabled);
+      controls.forEach((control) => {
+        control.disabled = true;
+        control.dataset.imageUploadLock = "true";
+      });
+      uploadLockedControls.set(form, controls);
+      form.setAttribute("aria-busy", "true");
+      if (dialog) {
+        const preventCancel = (event) => event.preventDefault();
+        dialog.addEventListener("cancel", preventCancel);
+        uploadCancelHandlers.set(form, { dialog, preventCancel });
+      }
+    }
+    if (!busy && next === 0) {
+      (uploadLockedControls.get(form) || []).forEach((control) => {
+        if (control.dataset.imageUploadLock === "true") {
+          control.disabled = false;
+          delete control.dataset.imageUploadLock;
+        }
+      });
+      uploadLockedControls.delete(form);
+      const cancelHandler = uploadCancelHandlers.get(form);
+      if (cancelHandler) {
+        cancelHandler.dialog.removeEventListener(
+          "cancel",
+          cancelHandler.preventCancel,
+        );
+        uploadCancelHandlers.delete(form);
+      }
+      form.removeAttribute("aria-busy");
+    }
+  }
+
+  async function withUploadLock(input, task) {
+    const form = input?.closest?.("form");
+    setUploadBusy(form, true);
+    try {
+      return await task();
+    } finally {
+      setUploadBusy(form, false);
+    }
+  }
 
   async function optimizeBlob(
     blob,
@@ -82,7 +188,13 @@
         height = Math.max(1, Math.round(height * dimensionScale));
       }
     }
-    if (!webp) return { blob, changed: false, skipped: true };
+    if (!webp || webp.type !== "image/webp") {
+      if (forceWebp)
+        throw new Error(
+          "当前浏览器无法将图片转换为 WebP，请更新浏览器后重试",
+        );
+      return { blob, changed: false, skipped: true };
+    }
     if (maxBytes && webp.size > maxBytes)
       throw new Error(
         `图片优化后仍超过 ${Math.ceil(maxBytes / 1024)} KB，请选择构图更简单或尺寸更小的图片`,
@@ -157,6 +269,17 @@
       }),
       uploaded = await uploadBlob(db, result.blob, options);
     return { ...result, ...uploaded };
+  }
+
+  async function uploadPreset(db, file, profile, overrides = {}) {
+    const result = await uploadOptimizedFile(
+      db,
+      file,
+      profileOptions(profile, overrides),
+    );
+    if (result.blob?.type !== "image/webp" || !/\.webp$/i.test(result.path || ""))
+      throw new Error("图片未能以 WebP 格式上传，请重新选择图片");
+    return result;
   }
 
   async function optimizeDataUrl(value, options) {
@@ -241,10 +364,13 @@
   }
 
   window.TingsImage = {
+    UPLOAD_PROFILES,
     optimizeFile,
     optimizeDataUrl,
     uploadBlob,
     uploadOptimizedFile,
+    uploadPreset,
+    withUploadLock,
     migrateCatalogImages,
   };
 })();

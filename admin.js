@@ -13,24 +13,22 @@ const startAdmin = () => {
     $("#toast").classList.add("show");
     setTimeout(() => $("#toast").classList.remove("show"), 2800);
   }
-  async function readOptimizedImage(file, options = {}) {
+  async function readOptimizedImage(file, profile, input) {
     if (!file) return "";
-    if (!window.TingsImage?.uploadOptimizedFile)
+    if (!window.TingsImage?.uploadPreset)
       throw new Error("图片云存储工具尚未加载");
-    const result = await window.TingsImage.uploadOptimizedFile(
-      db,
-      file,
-      options,
+    toast("正在压缩为 WebP 并上传云存储…");
+    const upload = () => window.TingsImage.uploadPreset(db, file, profile),
+      result = window.TingsImage.withUploadLock
+        ? await window.TingsImage.withUploadLock(input, upload)
+        : await upload(),
+      size = result.optimizedBytes
+        ? `，${Math.ceil(result.optimizedBytes / 1024)} KB`
+        : "";
+    if (!result.publicUrl) throw new Error("无法生成图片公开地址");
+    toast(
+      `图片已压缩为 WebP 并上传云存储${result.width ? `（${result.width} × ${result.height}${size}）` : size}`,
     );
-    if (result.changed) {
-      const format = result.blob?.type === "image/webp" ? "WebP" : "网页图片",
-        size = result.optimizedBytes
-          ? `，${Math.ceil(result.optimizedBytes / 1024)} KB`
-          : "";
-      toast(
-        `图片已优化为 ${format}${result.width ? `（${result.width} × ${result.height}${size}）` : size}`,
-      );
-    }
     return result.publicUrl;
   }
   async function data(table) {
@@ -441,26 +439,14 @@ const startAdmin = () => {
       "heroBackgroundImage",
       "首页背景图片",
       "hero-snack-illustration-v1.webp",
-      {
-        folder: "hero",
-        maxDimension: 1920,
-        quality: 0.84,
-        forceWebp: true,
-        maxBytes: 256 * 1024,
-      },
+      "hero",
       "建议比例 16:9；系统会自动压缩、转为 WebP 并上传云存储。",
     ],
     [
       "storyBackgroundImage",
       "页尾背景图片",
       "footer-composite-v1.webp",
-      {
-        folder: "footer",
-        maxDimension: 2048,
-        quality: 0.84,
-        forceWebp: true,
-        maxBytes: 180 * 1024,
-      },
+      "footer",
       "建议比例 8:3；系统会自动压缩、转为 WebP，并控制在 180 KB 内后上传云存储。",
     ],
   ];
@@ -498,20 +484,22 @@ const startAdmin = () => {
       const footer = $("#footerContentSettings");
       footer.insertAdjacentHTML(
         "beforebegin",
-        `<section id="deliveryContentSettings"><h3>配送区域文案</h3><div id="deliveryTextSlot"></div><label>顶部小字<input id="deliveryEyebrowInput"></label><label>标题<input id="deliveryTitleInput"></label><label>配送区域插画<input id="deliveryBackgroundImageUpload" type="file" accept="image/*"></label><div class="image-preview" id="deliveryBackgroundImagePreview">默认浅米色背景</div><button class="text-btn" type="button" data-remove-delivery-image="deliveryBackgroundImage">恢复默认背景</button></section><hr>`,
+        `<section id="deliveryContentSettings"><h3>配送区域文案</h3><div id="deliveryTextSlot"></div><label>顶部小字<input id="deliveryEyebrowInput"></label><label>标题<input id="deliveryTitleInput"></label><label>配送区域背景插画<input id="deliveryBackgroundImageUpload" type="file" accept="image/png,image/jpeg,image/webp"><small>系统会自动压缩、转为 WebP 并上传云存储。</small></label><div class="image-preview" id="deliveryBackgroundImagePreview">默认浅米色背景</div><button class="text-btn" type="button" data-remove-delivery-image="deliveryBackgroundImage">恢复默认背景</button></section><hr>`,
       );
       const deliveryLabel = $("#deliveryText")?.closest("label");
       if (deliveryLabel) $("#deliveryTextSlot").append(deliveryLabel);
       deliveryImageKeys.forEach((key) => {
         $(`#${key}Upload`).onchange = async (e) => {
-          const file = e.target.files[0];
+          const input = e.currentTarget,
+            file = input.files[0];
           if (!file) return;
           try {
-            const image = await readOptimizedImage(file, {
-              maxDimension: 1920,
-              quality: 0.84,
-              folder: "appearance/delivery",
-            });
+            const image = await readOptimizedImage(
+              file,
+              "delivery",
+              input,
+            );
+            if (!form.isConnected || !input.isConnected) return;
             form.dataset[key] = image;
             $(`#${key}Preview`).innerHTML = `<img src="${image}" alt="">`;
           } catch (error) {
@@ -569,12 +557,18 @@ const startAdmin = () => {
         "beforebegin",
         `<section id="imageSettings"><hr><h3>网站插画与背景图片</h3><p class="muted">下方显示的是顾客网站当前使用的图片。上传后只保存云存储 URL，不会把图片内容写入店铺设置；保存后无需重新部署网站。</p>${imageSettings.map(([key, label, , , hint]) => `<label>${label}<input id="${key}Upload" type="file" accept="image/png,image/jpeg,image/webp"><small>${hint}</small></label><div id="${key}Preview" class="image-preview"></div><button class="text-btn" type="button" data-remove-image="${key}">恢复默认图片</button>`).join("")}<button class="text-btn" type="button" id="restoreWebsiteDefaults">恢复默认内容与图片</button></section>`,
       );
-      imageSettings.forEach(([key, , , uploadOptions]) => {
+      imageSettings.forEach(([key, , , uploadProfile]) => {
         $(`#${key}Upload`).onchange = async (e) => {
-          const file = e.target.files[0];
+          const input = e.currentTarget,
+            file = input.files[0];
           if (!file) return;
           try {
-            const image = await readOptimizedImage(file, uploadOptions);
+            const image = await readOptimizedImage(
+              file,
+              uploadProfile,
+              input,
+            );
+            if (!form.isConnected || !input.isConnected) return;
             form.dataset[key] = image;
             $(`#${key}Preview`).innerHTML = `<img src="${image}" alt="">`;
           } catch (error) {
@@ -670,8 +664,34 @@ const startAdmin = () => {
       renderReceivingToggle();
     }
   }
-  async function openProduct(p) {
+  const newProductEditSession = () =>
+    globalThis.crypto?.randomUUID?.() ||
+    `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  function beginProductEdit() {
+    const dialog = $("#productDialog"),
+      editSession = newProductEditSession();
+    dialog.dataset.editSession = editSession;
+    return editSession;
+  }
+  function isCurrentProductEdit(dialog, editSession, requireOpen = false) {
+    return (
+      !!dialog &&
+      dialog.dataset.editSession === editSession &&
+      (!requireOpen || dialog.open) &&
+      !!$("#settingsForm")?.isConnected &&
+      !$("#loginForm, #newPasswordForm")
+    );
+  }
+  function invalidateProductEditor() {
+    const dialog = $("#productDialog");
+    if (!dialog) return;
+    dialog.dataset.editSession = newProductEditSession();
+    if (dialog.open) dialog.close();
+  }
+  async function openProduct(p, editSession = beginProductEdit()) {
+    const dialog = $("#productDialog");
     const c = await categories();
+    if (!isCurrentProductEdit(dialog, editSession)) return;
     $("#productDialogTitle").textContent = p ? "编辑商品" : "添加商品";
     $("#productId").value = p?.id || "";
     $("#productName").value = p?.name || "";
@@ -691,11 +711,16 @@ const startAdmin = () => {
       ? `<img src="${p.image}">`
       : p?.icon || "🍪";
     $("#productImage").value = "";
-    $("#productDialog").dataset.image = p?.image || "";
-    await loadSpecs(p?.id);
-    $("#productDialog").showModal();
+    dialog.dataset.image = p?.image || "";
+    const specs = await loadSpecs(p?.id);
+    if (!isCurrentProductEdit(dialog, editSession)) return;
+    editGroups = specs.groups;
+    editVariants = specs.variants;
+    renderSpecs();
+    dialog.showModal();
   }
   function login() {
+    invalidateProductEditor();
     document.querySelector("aside").style.display = "none";
     $("main").innerHTML =
       `<header><div><p class="eyebrow">OWNER ACCESS</p><h1>店主登录</h1></div></header><section class="panel narrow"><p class="muted">仅店主账号可查看订单和管理网站。</p><form id="loginForm"><label>店主邮箱<input id="loginEmail" type="email" value="${OWNER_EMAIL}" required autocomplete="email"></label><label>密码<input id="loginPassword" type="password" required autocomplete="current-password"></label><button class="primary">登录后台</button><button class="text-btn" type="button" id="resetPassword">设置／忘记密码</button></form></section>`;
@@ -724,6 +749,7 @@ const startAdmin = () => {
     };
   }
   function resetPassword() {
+    invalidateProductEditor();
     document.querySelector("aside").style.display = "none";
     $("main").innerHTML =
       `<header><div><p class="eyebrow">OWNER ACCESS</p><h1>设置新密码</h1></div></header><section class="panel narrow"><form id="newPasswordForm"><label>新密码<input id="newPassword" type="password" minlength="8" required autocomplete="new-password"></label><label>再次输入新密码<input id="confirmPassword" type="password" minlength="8" required autocomplete="new-password"></label><button class="primary">保存新密码</button></form></section>`;
@@ -768,27 +794,34 @@ const startAdmin = () => {
       }),
   );
   $("#newProduct").onclick = () => openProduct();
-  $("#closeProduct").onclick = () => $("#productDialog").close();
+  $("#closeProduct").onclick = invalidateProductEditor;
+  $("#productDialog").addEventListener("close", () => {
+    $("#productDialog").dataset.editSession = newProductEditSession();
+  });
   $("#productsList").onclick = async (e) => {
     if (e.target.dataset.edit) {
+      const editSession = beginProductEdit(),
+        dialog = $("#productDialog");
       const { data: p } = await db
         .from("products")
         .select("*")
         .eq("id", e.target.dataset.edit)
         .single();
-      openProduct(p);
+      if (!isCurrentProductEdit(dialog, editSession)) return;
+      openProduct(p, editSession);
     }
   };
   $("#productImage").onchange = async (e) => {
-    const file = e.target.files[0];
+    const input = e.currentTarget,
+      file = input.files[0],
+      dialog = $("#productDialog"),
+      editSession = dialog.dataset.editSession;
     if (!file) return;
     try {
-      const image = await readOptimizedImage(file, {
-        maxDimension: 1200,
-        quality: 0.82,
-        folder: "products",
-      });
-      $("#productDialog").dataset.image = image;
+      const image = await readOptimizedImage(file, "product", input);
+      if (!input.isConnected || !isCurrentProductEdit(dialog, editSession, true))
+        return;
+      dialog.dataset.image = image;
       $("#imagePreview").innerHTML = `<img src="${image}">`;
     } catch (error) {
       toast(error.message || "商品图片读取失败，请重新选择");
@@ -798,8 +831,8 @@ const startAdmin = () => {
     editVariants = {};
   const temp = () => `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   async function loadSpecs(productId) {
-    editGroups = [];
-    editVariants = {};
+    let groups = [],
+      variants = {};
     if (productId) {
       const [g, v, vs] = await Promise.all([
         db
@@ -810,16 +843,16 @@ const startAdmin = () => {
         db.from("product_option_values").select("*").order("position"),
         db.from("product_variants").select("*").eq("product_id", productId),
       ]);
-      editGroups = (g.data || []).map((x) => ({
+      groups = (g.data || []).map((x) => ({
         ...x,
         client: String(x.id),
         values: (v.data || [])
           .filter((a) => a.group_id === x.id)
           .map((a) => ({ ...a, client: String(a.id) })),
       }));
-      (vs.data || []).forEach((x) => (editVariants[x.option_key] = x));
+      (vs.data || []).forEach((x) => (variants[x.option_key] = x));
     }
-    renderSpecs();
+    return { groups, variants };
   }
   function combos() {
     return editGroups
@@ -853,7 +886,7 @@ const startAdmin = () => {
       old = variantFor(c, key),
       defaultPrice = +$("#productPrice").value || 0,
       defaultStock = +$("#productStock").value || 100;
-    return `<div class="variant-controls ${className}"><label>价格<input data-vprice="${key}" type="number" min="0" step="0.01" value="${old.price ?? defaultPrice}" placeholder="价格"></label><label>库存<input data-vstock="${key}" type="number" min="0" value="${old.stock ?? defaultStock}" placeholder="库存"></label><label>状态<select data-vout="${key}"><option value="false" ${old.is_out_of_stock ? "" : "selected"}>可售</option><option value="true" ${old.is_out_of_stock ? "selected" : ""}>缺货</option></select></label><label class="variant-image">图片<input data-vimage="${key}" type="file" accept="image/*"><small>${old.image ? "已上传规格图片" : "使用商品主图片"}</small></label>${old.image ? `<button type="button" class="text-btn" data-remove-vimage="${key}">删除图片</button>` : ""}</div>`;
+    return `<div class="variant-controls ${className}"><label>价格<input data-vprice="${key}" type="number" min="0" step="0.01" value="${old.price ?? defaultPrice}" placeholder="价格"></label><label>库存<input data-vstock="${key}" type="number" min="0" value="${old.stock ?? defaultStock}" placeholder="库存"></label><label>状态<select data-vout="${key}"><option value="false" ${old.is_out_of_stock ? "" : "selected"}>可售</option><option value="true" ${old.is_out_of_stock ? "selected" : ""}>缺货</option></select></label><label class="variant-image">图片<input data-vimage="${key}" type="file" accept="image/png,image/jpeg,image/webp"><small>${old.image ? "已上传规格图片" : "自动转为 WebP；未上传时使用商品主图片"}</small></label>${old.image ? `<button type="button" class="text-btn" data-remove-vimage="${key}">删除图片</button>` : ""}</div>`;
   }
   function renderSpecs() {
     const root = $("#specGroups"),
@@ -977,14 +1010,19 @@ const startAdmin = () => {
   };
   async function changeVariantImage(e) {
     const key = e.target.dataset.vimage,
-      file = e.target.files?.[0];
+      input = e.target,
+      file = input.files?.[0],
+      dialog = $("#productDialog"),
+      editSession = dialog.dataset.editSession;
     if (!key || !file) return;
     try {
-      const image = await readOptimizedImage(file, {
-        maxDimension: 1200,
-        quality: 0.82,
-        folder: "variants",
-      });
+      const image = await readOptimizedImage(
+        file,
+        "variant",
+        input,
+      );
+      if (!input.isConnected || !isCurrentProductEdit(dialog, editSession, true))
+        return;
       editVariants[key] = {
         ...(editVariants[key] || {}),
         image,
@@ -1108,6 +1146,8 @@ const startAdmin = () => {
   }
   $("#productForm").onsubmit = async (e) => {
     e.preventDefault();
+    if (e.currentTarget.getAttribute("aria-busy") === "true")
+      return toast("图片仍在上传，请稍候再保存商品");
     const id = $("#productId").value || Date.now(),
       row = {
         id: +id,

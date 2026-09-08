@@ -27,6 +27,10 @@
     "storyBackgroundImage",
     "deliveryBackgroundImage",
   ];
+  const imageDefaults = {
+    heroBackgroundImage: "hero-snack-illustration-v1.webp",
+    storyBackgroundImage: "footer-composite-v1.webp",
+  };
   const footerSocials = [
     ["wechat", "微信"],
     ["xiaohongshu", "小红书"],
@@ -236,7 +240,7 @@
       .querySelector("p.muted")
       ?.insertAdjacentHTML(
         "afterend",
-        '<label>活动公告插画<input id="activityAnnouncementImageUpload" type="file" accept="image/*"></label><div class="image-preview" id="activityAnnouncementImagePreview">默认浅米色背景</div><button class="text-btn" type="button" id="removeActivityAnnouncementImage">恢复默认背景</button>',
+        '<label>活动公告栏背景插画<input id="activityAnnouncementImageUpload" type="file" accept="image/png,image/jpeg,image/webp"><small>系统会自动压缩、转为 WebP 并上传云存储。</small></label><div class="image-preview" id="activityAnnouncementImagePreview">默认浅米色背景</div><button class="text-btn" type="button" id="removeActivityAnnouncementImage">恢复默认背景</button>',
       );
     const db = window.supabase.createClient(
         window.TINGS_SUPABASE.url,
@@ -260,20 +264,27 @@
       upload.value = "";
     };
     upload.onchange = async (e) => {
-      const file = e.target.files?.[0];
+      const input = e.currentTarget,
+        file = input.files?.[0];
       if (!file) return;
       if (!file.type.startsWith("image/")) return toast("请选择图片格式的插图");
       try {
-        const result = await window.TingsImage?.uploadOptimizedFile(db, file, {
-          maxDimension: 1920,
-          quality: 0.84,
-          folder: "appearance/announcement",
-        });
+        if (!window.TingsImage?.uploadPreset)
+          throw new Error("图片云存储工具尚未加载");
+        toast("正在压缩为 WebP 并上传云存储…");
+        const task = () =>
+            window.TingsImage.uploadPreset(db, file, "announcement"),
+          result = window.TingsImage.withUploadLock
+            ? await window.TingsImage.withUploadLock(input, task)
+            : await task();
+        if (!isCurrentAppearanceForm(form) || !input.isConnected) return;
         const image = result?.publicUrl;
         if (!image) throw new Error("插图读取失败，请重新选择图片");
         form.dataset.activityAnnouncementImage = image;
         preview.innerHTML = `<img src="${image}" alt="活动公告栏背景">`;
-        toast("公告栏插图已添加，请点击“保存店铺外观”");
+        toast(
+          `公告栏插图已压缩为 WebP 并上传${result.optimizedBytes ? `（${Math.ceil(result.optimizedBytes / 1024)} KB）` : ""}，请点击“保存店铺外观”`,
+        );
       } catch (error) {
         toast(error.message || "插图读取失败，请重新选择图片");
       }
@@ -409,6 +420,8 @@
     event.preventDefault();
     const form = $("#appearanceForm"),
       source = $("#settingsForm");
+    if (form?.getAttribute("aria-busy") === "true")
+      return toast("图片仍在上传，请稍候再保存店铺外观");
     if (
       !isCurrentAppearanceForm(form) ||
       !source ||
@@ -479,6 +492,19 @@
     if (!form || form.dataset.bound) return;
     form.dataset.bound = "true";
     form.addEventListener("submit", saveAppearance);
+    form.addEventListener("click", (event) => {
+      const button = event.target.closest?.("[data-remove-image]"),
+        key = button?.dataset.removeImage,
+        source = $("#settingsForm");
+      if (!key || !imageDefaults[key] || !source) return;
+      source.dataset[key] = "";
+      const upload = $(`#${key}Upload`),
+        preview = $(`#${key}Preview`);
+      if (upload) upload.value = "";
+      if (preview)
+        preview.innerHTML = `<img src="${imageDefaults[key]}" alt="默认图片">`;
+      toast("已恢复默认图片，请点击“保存店铺外观”");
+    });
   }
 
   function setup() {
