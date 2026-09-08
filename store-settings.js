@@ -43,15 +43,22 @@
     },
     notifications: { sound: true },
   };
-  const deepMerge = (base, extra) =>
-    Object.fromEntries(
-      Object.entries(base).map(([key, value]) => [
-        key,
-        value && typeof value === "object" && !Array.isArray(value)
-          ? deepMerge(value, extra?.[key] || {})
-          : (extra?.[key] ?? value),
-      ]),
-    );
+  const isPlainObject = (value) =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  const deepMerge = (base, extra) => {
+    const result = isPlainObject(base) ? { ...base } : {};
+    if (!isPlainObject(extra)) return result;
+    Object.entries(extra).forEach(([key, value]) => {
+      if (value === undefined) return;
+      result[key] =
+        isPlainObject(value) && isPlainObject(result[key])
+          ? deepMerge(result[key], value)
+          : isPlainObject(value)
+            ? deepMerge({}, value)
+            : value;
+    });
+    return result;
+  };
   let config = deepMerge(defaultConfig, {}),
     db;
   const toast = (message) => {
@@ -302,6 +309,41 @@
     return true;
   }
 
+  function populateOperational(settings) {
+    const setValue = (selector, value, fallback = "") => {
+      const input = $(selector);
+      if (input) input.value = value ?? fallback;
+    };
+    setValue("#shopName", settings.name);
+    setValue("#shopEnglish", settings.english);
+    setValue("#deliveryText", settings.delivery);
+    setValue("#deliveryFeeInput", settings.delivery_fee, 5);
+    setValue("#freeDeliveryInput", settings.free_delivery_threshold, 50);
+    setValue("#taxRateInput", settings.tax_rate, 10.5);
+    setValue("#lowStockInput", settings.low_stock_threshold, 5);
+    setValue(
+      "#pickupAddressInput",
+      settings.pickup_address,
+      "天河城二楼，Archer Ave",
+    );
+    setValue(
+      "#pickupNoteInput",
+      settings.pickup_note,
+      "请到天河城二楼取货；每日 10:00–22:00",
+    );
+    setValue(
+      "#newOrderEmailInput",
+      settings.new_order_email,
+      "chenghanchen1@gmail.com",
+    );
+    ["#pickupAddressInput", "#pickupNoteInput", "#newOrderEmailInput"].forEach(
+      (selector) => {
+        const input = $(selector);
+        if (input) input.dataset.loaded = "true";
+      },
+    );
+    window.lowStock = Number(settings.low_stock_threshold ?? 5);
+  }
   function populate() {
     $("#storePhoneInput").value = config.profile.phone || "";
     $("#storeEmailInput").value = config.profile.email || "";
@@ -394,36 +436,106 @@
         ? `营业时间：每日 ${days[0].start}–${days[0].end}`
         : "营业时间：请查看店铺营业时间";
   }
-  async function saveExtra() {
-    const next = readConfig();
-    config = next;
-    window.storeNotificationSoundEnabled = next.notifications.sound !== false;
-    syncLegacy(next);
-    const { data: current } = await db
-      .from("shop_settings")
-      .select("content")
-      .eq("id", 1)
-      .maybeSingle();
-    const { error } = await db
-      .from("shop_settings")
-      .update({
-        content: { ...(current?.content || {}), storeSettings: next },
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", 1);
-    if (error) toast(error.message);
-    else toast("店铺设置已保存");
+  let settingsSavePending = false;
+  async function saveSettings(event) {
+    event.preventDefault();
+    if (settingsSavePending) return;
+    const form = $("#settingsForm");
+    if (!form || !db) return;
+    if ($("#storeSettingsLayout")?.dataset.loaded !== "true") {
+      toast("店铺设置仍在加载，请稍后重试");
+      return;
+    }
+    settingsSavePending = true;
+    const submitButtons = Array.from(
+        form.querySelectorAll('button[type="submit"]'),
+      ),
+      previousButtonStates = submitButtons.map((button) => button.disabled);
+    submitButtons.forEach((button) => (button.disabled = true));
+    try {
+      const next = readConfig();
+      config = next;
+      window.storeNotificationSoundEnabled =
+        next.notifications.sound !== false;
+      syncLegacy(next);
+      const { data: current, error: readError } = await db
+        .from("shop_settings")
+        .select("content,pickup_address,pickup_note,new_order_email")
+        .eq("id", 1)
+        .maybeSingle();
+      if (readError) throw readError;
+      if (!current) throw new Error("未找到店铺设置，请刷新后重试");
+
+      const fee = Number($("#deliveryFeeInput")?.value || 0),
+        free = Number($("#freeDeliveryInput")?.value || 0),
+        pickupAddress = $("#pickupAddressInput"),
+        pickupNote = $("#pickupNoteInput"),
+        orderEmail = $("#newOrderEmailInput"),
+        currentContent = isPlainObject(current.content)
+          ? current.content
+          : {},
+        footerHours =
+          $("#footerHoursInput")?.value.trim() ||
+          currentContent.footerHours ||
+          "营业时间：请查看店铺营业时间",
+        content = deepMerge(currentContent, {
+          storeSettings: next,
+          footerHours,
+        }),
+        delivery =
+          $("#deliveryText")?.value.trim() ||
+          `配送费 $${fee.toFixed(2)}；商品小计满 $${free.toFixed(2)} 免费配送。`,
+        pickupAddressValue =
+          pickupAddress?.dataset.loaded === "true" ||
+          pickupAddress?.value.trim()
+            ? pickupAddress.value.trim() || "天河城二楼，Archer Ave"
+            : current.pickup_address || "天河城二楼，Archer Ave",
+        pickupNoteValue =
+          pickupNote?.dataset.loaded === "true" || pickupNote?.value.trim()
+            ? pickupNote.value.trim() ||
+              "请到天河城二楼取货；每日 10:00–22:00"
+            : current.pickup_note ||
+              "请到天河城二楼取货；每日 10:00–22:00",
+        orderEmailValue =
+          orderEmail?.dataset.loaded === "true" || orderEmail?.value.trim()
+            ? orderEmail.value.trim() || null
+            : current.new_order_email ?? null;
+
+      const { error } = await db
+        .from("shop_settings")
+        .update({
+          name: $("#shopName").value.trim(),
+          english: $("#shopEnglish").value.trim(),
+          delivery,
+          delivery_fee: fee,
+          free_delivery_threshold: free,
+          tax_rate: Number($("#taxRateInput")?.value || 0),
+          low_stock_threshold: Number($("#lowStockInput")?.value || 0),
+          pickup_address: pickupAddressValue,
+          pickup_note: pickupNoteValue,
+          new_order_email: orderEmailValue,
+          content,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", 1);
+      if (error) throw error;
+      window.lowStock = Number($("#lowStockInput")?.value || 0);
+      toast("店铺设置已保存");
+    } catch (error) {
+      console.error("Store settings could not be saved", error);
+      toast(error?.message || "店铺设置保存失败，请稍后重试");
+    } finally {
+      settingsSavePending = false;
+      submitButtons.forEach(
+        (button, index) => (button.disabled = previousButtonStates[index]),
+      );
+    }
   }
-  function wrapSubmit() {
+  function bindSave() {
     const form = $("#settingsForm");
     if (!form || form.dataset.storeSettingsBound) return;
     form.dataset.storeSettingsBound = "true";
-    const base = form.onsubmit;
-    form.onsubmit = async (event) => {
-      syncLegacy(readConfig());
-      await base.call(form, event);
-      await saveExtra();
-    };
+    form.onsubmit = saveSettings;
   }
   async function testNotification() {
     try {
@@ -459,16 +571,33 @@
       window.TINGS_SUPABASE.url,
       window.TINGS_SUPABASE.anonKey,
     );
-    if (!$("#storeSettingsLayout").dataset.loaded) {
-      const { data } = await db
+    bindSave();
+    const layout = $("#storeSettingsLayout");
+    if (!layout.dataset.loaded) {
+      const { data, error } = await db
         .from("shop_settings")
-        .select("content")
+        .select(
+          "content,name,english,delivery,delivery_fee,free_delivery_threshold,tax_rate,low_stock_threshold,pickup_address,pickup_note,new_order_email",
+        )
         .eq("id", 1)
         .maybeSingle();
+      if (error || !data) {
+        console.error(
+          "Store settings could not be loaded",
+          error || "Missing shop_settings row",
+        );
+        if (!layout.dataset.loadErrorShown) {
+          layout.dataset.loadErrorShown = "true";
+          toast("店铺设置加载失败，正在重试");
+        }
+        setTimeout(setup, 1500);
+        return;
+      }
       config = deepMerge(defaultConfig, data?.content?.storeSettings || {});
+      populateOperational(data);
       populate();
-      $("#storeSettingsLayout").dataset.loaded = "true";
-      wrapSubmit();
+      layout.dataset.loaded = "true";
+      delete layout.dataset.loadErrorShown;
       screen("profile");
     }
   }

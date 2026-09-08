@@ -241,37 +241,6 @@
     if (alertControl && alertControl.parentElement !== $("#newOrderAlertSlot"))
       $("#newOrderAlertSlot").append(alertControl);
     syncAlertButton(button);
-    const form = $("#settingsForm"),
-      email = $("#newOrderEmailInput");
-    filterDb ??= window.supabase?.createClient(
-      window.TINGS_SUPABASE?.url,
-      window.TINGS_SUPABASE?.anonKey,
-    );
-    if (filterDb && email && !email.dataset.loaded) {
-      const { data } = await filterDb
-        .from("shop_settings")
-        .select("new_order_email")
-        .eq("id", 1)
-        .maybeSingle();
-      email.value = data?.new_order_email || "chenghanchen1@gmail.com";
-      email.dataset.loaded = "true";
-    }
-    if (form && !form.dataset.orderEmailBound) {
-      form.dataset.orderEmailBound = "true";
-      form.addEventListener("submit", () =>
-        setTimeout(async () => {
-          const value = email?.value.trim() || null;
-          const { error } = await filterDb
-            .from("shop_settings")
-            .update({
-              new_order_email: value,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", 1);
-          if (error) toast(error.message);
-        }, 0),
-      );
-    }
     if (alertEnabled) subscribeAlerts();
     return true;
   }

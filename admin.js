@@ -1142,42 +1142,6 @@ const startAdmin = () => {
       categories();
     }
   };
-  $("#settingsForm").onsubmit = async (e) => {
-    e.preventDefault();
-    const form = $("#settingsForm"),
-      content = {};
-    Object.keys(contentDefaults).forEach((key) => {
-      const input = $(`#${key}Input`);
-      content[key] = input?.value.trim() || contentDefaults[key];
-    });
-    Object.keys(deliveryContentDefaults).forEach((key) => {
-      const input = $(`#${key}Input`);
-      content[key] = input?.value.trim() || deliveryContentDefaults[key];
-    });
-    imageSettings.forEach(([key]) => (content[key] = form.dataset[key] || ""));
-    deliveryImageKeys.forEach(
-      (key) => (content[key] = form.dataset[key] || ""),
-    );
-    const fee = +$("#deliveryFeeInput").value,
-      free = +$("#freeDeliveryInput").value,
-      delivery =
-        $("#deliveryText").value.trim() || deliveryCopyDefault(fee, free);
-    const { error } = await db
-      .from("shop_settings")
-      .update({
-        name: $("#shopName").value,
-        english: $("#shopEnglish").value,
-        delivery,
-        delivery_fee: fee,
-        free_delivery_threshold: free,
-        tax_rate: +$("#taxRateInput").value,
-        low_stock_threshold: +$("#lowStockInput").value,
-        content,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", 1);
-    toast(error ? error.message : "店铺设置已保存");
-  };
   (async () => {
     if (location.hash.includes("type=recovery")) return resetPassword();
     const {
@@ -1208,34 +1172,10 @@ startAdmin();
       "beforebegin",
       `<section id="pickupSettings"><label>自取地址<input id="pickupAddressInput" required></label><label>自取说明／营业时间<textarea id="pickupNoteInput" rows="3" required></textarea></label></section>`,
     );
-    const db = window.supabase.createClient(
-      TINGS_SUPABASE.url,
-      TINGS_SUPABASE.anonKey,
-    );
-    const { data } = await db
-      .from("shop_settings")
-      .select("pickup_address,pickup_note")
-      .eq("id", 1)
-      .maybeSingle();
-    document.querySelector("#pickupAddressInput").value =
-      data?.pickup_address || defaults.address;
-    document.querySelector("#pickupNoteInput").value =
-      data?.pickup_note || defaults.note;
-    form.addEventListener("submit", async () => {
-      const { error } = await db
-        .from("shop_settings")
-        .update({
-          pickup_address:
-            document.querySelector("#pickupAddressInput").value.trim() ||
-            defaults.address,
-          pickup_note:
-            document.querySelector("#pickupNoteInput").value.trim() ||
-            defaults.note,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", 1);
-      if (error) console.error(error);
-    });
+    const addressInput = document.querySelector("#pickupAddressInput"),
+      noteInput = document.querySelector("#pickupNoteInput");
+    addressInput.value = defaults.address;
+    noteInput.value = defaults.note;
   };
   setup();
 })();
