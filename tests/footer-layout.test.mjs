@@ -4,6 +4,22 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 const read = name => readFile(new URL(`../${name}`, import.meta.url), "utf8");
 
+test("页尾：指定社交图标、推荐奖励文案和动态营业时间", async () => {
+  const html = await read("index.html"), css = await read("footer-layout.css"), app = await read("app.js");
+  assert.match(html, /<h2>推荐奖励<\/h2><p>分享好物，领取优惠<\/p>/);
+  for (const platform of ["wechat", "xiaohongshu", "douyin"]) {
+    const asset = `footer-${platform}-v1.webp`;
+    assert.ok(css.includes(`background-image:url("${asset}")`));
+    const bytes = await readFile(new URL(`../${asset}`, import.meta.url));
+    assert.equal(bytes.toString("ascii", 8, 12), "WEBP");
+    assert.ok(bytes.length < 10000);
+  }
+  const expression = app.match(/\? (String\(c\[key\]\)\.replace\([^\n]+\))/)?.[1];
+  assert.ok(expression, "Hours should strip only the label, not replace the saved schedule");
+  for (const [saved, expected] of [["营业时间：每日 10:00–22:00", "每日 10:00–22:00"], ["营业时间: 周二 12:00–18:00", "周二 12:00–18:00"], ["每日 09:00–17:00", "每日 09:00–17:00"]])
+    assert.equal(vm.runInNewContext(expression, {c:{footerHours:saved},key:"footerHours"}), expected);
+});
+
 test("页尾：真实 HTML 导航、手机重排以及单一页尾入口", async () => {
   const html = await read("index.html"), css = await read("footer-layout.css");
   assert.equal((html.match(/id="story"/g) || []).length, 1);

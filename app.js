@@ -516,7 +516,9 @@ function applySettings(s) {
     footerHours: "footerHours",
     footerYear: "footerYear",
   }))
-    if (c[key]) $("#" + id).textContent = c[key];
+    if (c[key]) $("#" + id).textContent = id === "footerHours"
+      ? String(c[key]).replace(/^\s*营业时间\s*[：:]\s*/, "")
+      : c[key];
   const deliveryInfo = $("#deliveryInfo");
   deliveryInfo.style.backgroundColor = c.deliveryBackgroundColor || "#f4e9d2";
   if (c.deliveryBackgroundImage)

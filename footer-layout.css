@@ -16,10 +16,11 @@
 #story .ft-social-list{display:flex;flex-wrap:wrap;gap:.95cqw}
 #story .ft-social-toggle{width:2.7cqw;height:2.7cqw;min-width:32px;min-height:32px;padding:0;border:0;border-radius:50%;background-color:transparent;cursor:pointer;transition:transform .15s}
 #story .ft-social-toggle:hover{transform:translateY(-3px)}
-#story .ft-social-icon{display:block;width:100%;height:100%;border-radius:50%;background-image:url("footer-design-v2.webp");background-size:3815.56% 2035.56%;background-repeat:no-repeat}
-#story [data-footer-social=wechat] .ft-social-icon{background-position:41.27% 53.16%}
-#story [data-footer-social=xiaohongshu] .ft-social-icon{background-position:45.39% 53.16%}
-#story [data-footer-social=douyin] .ft-social-icon{background-position:49.58% 53.16%}
+#story .ft-social-icon{display:block;width:100%;height:100%;border-radius:22%;background-size:contain;background-position:center;background-repeat:no-repeat}
+#story .ft-social-toggle:has(.ft-social-icon){border-radius:22%}
+#story [data-footer-social=wechat] .ft-social-icon{background-image:url("footer-wechat-v1.webp")}
+#story [data-footer-social=xiaohongshu] .ft-social-icon{background-image:url("footer-xiaohongshu-v1.webp")}
+#story [data-footer-social=douyin] .ft-social-icon{background-image:url("footer-douyin-v1.webp")}
 #story .ft-social-letter{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;background:#543820;color:#fff;font-size:18px;font-weight:700}
 #story .ft-scan{display:flex;align-items:center;gap:.7cqw;margin-top:1.3cqw;border:0;padding:0;background:transparent;color:inherit;text-align:left;font-size:.95cqw;line-height:1.6}
 #story .ft-scan>span{white-space:nowrap}
@@ -37,6 +38,7 @@
 #story .ft-copyright button{border:0;padding:0;background:none;color:inherit;font:inherit;cursor:pointer}
 #story .ft-illustration,#story .ft-brand,#story .ft-payments{display:none}
 @media(min-width:1101px){
+  #story .ft-copyright{margin-left:-70px}
   /* Keep the annotated 8px reduction relative to the fluid desktop width.
      Keep the size fluid; allow extra enabled icons to increase the height. */
   #story .ft-social{width:calc(12.795% - 8px);min-height:12.718cqw}

@@ -62,3 +62,11 @@
 @media(max-width:780px){:root{--catalog-card-min-height:307px}}
 @media(prefers-reduced-motion:reduce){#productGrid>.product{animation:none}}
 .primary-button.submit:disabled{background:#bfc8bd;cursor:not-allowed}
+
+/* Desktop annotation offsets; keep the existing <=780px mobile spacing. */
+@media(min-width:781px){
+  #snacks>.section-heading{margin-top:-75px}
+  #productSearch{margin-top:-30px}
+  #deliveryInfo{margin-top:-50px;margin-bottom:0}
+  .product-price-wrap .sale-price{font-size:20px}
+}
