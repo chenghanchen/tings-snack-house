@@ -5,7 +5,7 @@ import {
   collectStorageReferences,
   deleteOrphanFilesSafely,
   normalizeStoragePath,
-} from "../_shared/media-cleanup-core.mjs";
+} from "./media-cleanup-core.mjs";
 
 const productionOrigin = "https://tings-snack-house.pages.dev";
 const ownerEmail = (

@@ -7,7 +7,7 @@ import {
   isDefaultProtectedPath,
   normalizeStoragePath,
   storagePathFromUrl,
-} from "../supabase/functions/_shared/media-cleanup-core.mjs";
+} from "../supabase/functions/admin-media-cleanup/media-cleanup-core.mjs";
 
 const publicBase =
   "https://ragqunnuxsfwhrfqpylg.supabase.co/storage/v1/object/public/storefront-images/";

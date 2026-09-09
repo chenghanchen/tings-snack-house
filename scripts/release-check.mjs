@@ -39,11 +39,8 @@ const syntaxFiles = [
     .map((name) => path.join(root, name)),
   ...walk(path.join(root, "scripts")).filter((name) => name.endsWith(".mjs")),
   ...walk(path.join(root, "tests")).filter((name) => name.endsWith(".mjs")),
-  ...walk(path.join(root, "supabase", "functions", "_shared")).filter(
-    (name) => name.endsWith(".mjs"),
-  ),
   ...walk(path.join(root, "supabase", "functions")).filter(
-    (name) => name.endsWith(".ts"),
+    (name) => name.endsWith(".ts") || name.endsWith(".mjs"),
   ),
 ];
 for (const file of syntaxFiles) {
