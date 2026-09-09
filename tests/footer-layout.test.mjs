@@ -38,7 +38,11 @@ test("页尾：真实 HTML 导航、手机重排以及单一页尾入口", async
   assert.match(mobile, /\.ft-illustration\{display:none\}/);
   assert.match(mobile, /grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
   assert.doesNotMatch(mobile, /\.ft-links>section:last-child/);
-  assert.match(mobile, /\.ft-payments\{clip-path:polygon/);
+  assert.match(mobile, /footer-mobile-background-v1\.webp/);
+  assert.match(mobile, /aspect-ratio:1164\/1351/);
+  const background = await readFile(new URL("../footer-mobile-background-v1.webp", import.meta.url));
+  assert.equal(background.toString("ascii", 8, 12), "WEBP");
+  assert.ok(background.length < 200000);
 });
 
 test("页尾：二维码只允许当前项目、当前平台与 UUID PNG", async () => {

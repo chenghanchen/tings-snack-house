@@ -89,18 +89,17 @@
   #story .ft-scan{display:none}
   #story .ft-scan-symbol{width:144px;height:144px;font-size:15px}
   #story .ft-illustration{display:none}
-  #story .ft-bottom{margin:0 -24px;background:#382412;padding:32px 24px 22px;color:#eee0c9}
-  #story .ft-brand{display:block;width:min(370px,100%);aspect-ratio:380/120;background:url("footer-design-v2.webp") 4.86% 85.55%/451.84% 763.33% no-repeat;margin-bottom:28px}
-  #story .ft-contact{position:static;width:100%;font-size:15px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+  /* The supplied mobile artwork already includes the brand and payment marks.
+     Keep live contact/copyright text in its blank areas, at the original ratio. */
+  #story .ft-bottom{position:relative;margin:0 -24px;background:#382412 url("footer-mobile-background-v1.webp") center/100% 100% no-repeat;aspect-ratio:1164/1351;padding:0;color:#eee0c9}
+  #story .ft-brand{display:block;position:absolute;left:4.7%;top:6%;width:90.6%;height:23%;background:none;margin:0}
+  #story .ft-contact{position:absolute;left:4.7%;top:32%;width:90.6%;font-size:15px;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:16px}
   #story .ft-contact>section{min-width:0}
   #story .ft-contact h2{font-size:16px;margin-bottom:8px}
   #story #footerHours{font-size:14px;margin-top:7px}
   #story .ft-contact-mark{font-size:18px;margin-right:7px}
-  #story .ft-payments{display:block;width:min(440px,100%);aspect-ratio:460/125;background:url("footer-design-v2.webp") 91.09% 89%/373.26% 732.8% no-repeat;margin-top:26px}
-  /* Exclude the neighbouring decoration captured by the sprite's lower-right
-     corner; preserve all four payment marks and the two security labels. */
-  #story .ft-payments{clip-path:polygon(0 0,100% 0,100% 70%,80% 70%,80% 100%,0 100%)}
-  #story .ft-copyright{position:static;font-size:12px;line-height:1.8;gap:8px;flex-wrap:nowrap;justify-content:flex-end;border-top:1px solid #ffffff26;padding-top:18px;margin-top:20px;align-items:center;white-space:nowrap}
+  #story .ft-payments{display:block;position:absolute;left:4.7%;top:58%;width:90.6%;height:20%;background:none;margin:0}
+  #story .ft-copyright{position:absolute;left:4.7%;right:4.7%;top:87%;font-size:12px;line-height:1.8;gap:8px;flex-wrap:nowrap;justify-content:flex-end;border:0;padding:0;margin:0;align-items:center;white-space:nowrap}
   #story .ft-copyright>button:first-of-type{margin-left:auto}
   #story .ft-copyright>button{flex:none}
   #story .ft-copyright button{min-height:44px}
@@ -113,7 +112,7 @@
   #story .ft-links{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:24px 0}
   #story .ft-links h2{font-size:16px;margin-bottom:8px;white-space:nowrap}
   #story .ft-links button,#story .ft-links a{font-size:13px}
-  #story .ft-bottom{margin-inline:-20px;padding-inline:20px}
+  #story .ft-bottom{margin-inline:-20px}
   #story .ft-contact{font-size:13px;gap:12px}
   #story .ft-contact h2{font-size:15px}
   #story .ft-copyright{font-size:12px;gap:4px}
