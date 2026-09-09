@@ -38,6 +38,7 @@
 #story .ft-copyright button{border:0;padding:0;background:none;color:inherit;font:inherit;cursor:pointer}
 #story .ft-illustration,#story .ft-brand,#story .ft-payments{display:none}
 @media(min-width:1101px){
+  #story .ft-links nav{width:100px;max-width:100%}
   #story .ft-copyright{margin-left:-70px}
   /* Keep the annotated 8px reduction relative to the fluid desktop width.
      Keep the size fluid; allow extra enabled icons to increase the height. */
@@ -60,6 +61,12 @@
 .footer-info-dialog h2{font:700 22px/1.4 "Microsoft YaHei",sans-serif;margin:0 32px 18px 0}
 .footer-info-dialog p{font-size:15px;line-height:1.8;white-space:pre-line;overflow-wrap:anywhere;margin:12px 0 0}
 .footer-info-dialog [hidden]{display:none!important}
+.footer-info-dialog #footerDialogQr{text-align:center}
+.footer-info-dialog #footerDialogQrImage:empty{display:none}
+.footer-info-dialog .footer-qr-image{display:block;width:min(300px,100%);aspect-ratio:1;height:auto;object-fit:contain;background:#fff;padding:10px;margin:0 auto}
+.footer-info-dialog #footerDialogQrStatus{font-size:13px;color:#66513f}
+#story button.ft-scan-symbol{padding:0;color:inherit;font-family:inherit;cursor:zoom-in}
+#story button.ft-scan-symbol:disabled{cursor:default;opacity:1}
 .footer-info-dialog .dialog-close{width:44px;height:44px;right:6px;top:6px;color:#422511}
 @media(max-width:1100px){
   #story.snack-footer{aspect-ratio:auto;background:#fff5e2;padding:36px 24px 0;display:flex;flex-direction:column;container-type:normal}
@@ -79,17 +86,20 @@
   #story .ft-social>p{font-size:14px;margin:0 0 14px}
   #story .ft-social-list{gap:18px}
   #story .ft-social-toggle{width:46px;height:46px}
-  #story .ft-scan{font-size:14px;gap:14px;margin-top:18px;min-height:44px}
+  #story .ft-scan{display:none}
   #story .ft-scan-symbol{width:144px;height:144px;font-size:15px}
   #story .ft-illustration{display:block;align-self:center;width:min(650px,100%);aspect-ratio:800/610;background-image:var(--story-background-image,url("footer-design-v2.webp"));background-size:214.625% 150.164%;background-position:100% 13.1%;background-repeat:no-repeat}
   #story .ft-bottom{margin:0 -24px;background:#382412;padding:32px 24px 22px;color:#eee0c9}
   #story .ft-brand{display:block;width:min(370px,100%);aspect-ratio:380/120;background:url("footer-design-v2.webp") 4.86% 85.55%/451.84% 763.33% no-repeat;margin-bottom:28px}
-  #story .ft-contact{position:static;width:100%;font-size:15px;grid-template-columns:1fr 1fr;gap:22px}
+  #story .ft-contact{position:static;width:100%;font-size:15px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+  #story .ft-contact>section{min-width:0}
   #story .ft-contact h2{font-size:16px;margin-bottom:8px}
   #story #footerHours{font-size:14px;margin-top:7px}
   #story .ft-contact-mark{font-size:18px;margin-right:7px}
   #story .ft-payments{display:block;width:min(440px,100%);aspect-ratio:460/125;background:url("footer-design-v2.webp") 91.09% 89%/373.26% 732.8% no-repeat;margin-top:26px}
-  #story .ft-copyright{position:static;font-size:12px;line-height:1.8;gap:8px 16px;justify-content:flex-start;border-top:1px solid #ffffff26;padding-top:18px;margin-top:20px}
+  #story .ft-copyright{position:static;font-size:12px;line-height:1.8;gap:8px;flex-wrap:nowrap;justify-content:flex-end;border-top:1px solid #ffffff26;padding-top:18px;margin-top:20px;align-items:center;white-space:nowrap}
+  #story .ft-copyright>button:first-of-type{margin-left:auto}
+  #story .ft-copyright>button{flex:none}
   #story .ft-copyright button{min-height:44px}
 }
 @media(max-width:600px){
@@ -101,6 +111,8 @@
   #story .ft-links>section:last-child{grid-column:1/-1}
   #story .ft-links>section:last-child nav{display:grid;grid-template-columns:1fr 1fr;column-gap:18px}
   #story .ft-bottom{margin-inline:-20px;padding-inline:20px}
-  #story .ft-contact{grid-template-columns:1fr;gap:22px}
+  #story .ft-contact{font-size:13px;gap:12px}
+  #story .ft-contact h2{font-size:15px}
+  #story .ft-copyright{font-size:12px;gap:4px}
 }
 @media(prefers-reduced-motion:reduce){#story .ft-social-toggle{transition:none}}

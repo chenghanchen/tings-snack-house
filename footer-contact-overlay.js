@@ -19,6 +19,11 @@
     } catch { return ""; }
   }
   let settings = {}, config = {}, profile = {}, trigger = null, imageRequest = 0;
+  let loadedQr = null, selectedLabel = "", qrDialogOpen = false;
+  const mobileLayout = window.matchMedia("(max-width:1100px)");
+  const qrPanel = dialog.querySelector("#footerDialogQr");
+  const qrPreview = dialog.querySelector("#footerDialogQrImage");
+  const qrMessage = dialog.querySelector("#footerDialogQrStatus");
   const qrSlot = root.querySelector("#footerInlineQr");
   const qrStatus = root.querySelector(".ft-qr-status");
   const title = dialog.querySelector("#footerDialogTitle");
@@ -45,6 +50,9 @@
     root.querySelector(".ft-social-empty").hidden = visible > 0;
     root.querySelector(".ft-scan").hidden = visible === 0;
     imageRequest++;
+    loadedQr = null;
+    qrSlot.disabled = true;
+    if (qrDialogOpen) dialog.close();
     qrSlot.textContent = "二维码";
     qrSlot.setAttribute("aria-label", "点击社交图标显示二维码");
     qrStatus.textContent = "";
@@ -72,14 +80,40 @@
     return answers[label] || "如有商品、退换货、退款或其他售后问题，请准备订单号及相关说明并联系店铺，具体处理方式由店铺核实后告知。\n\n" + contact;
   }
   function open(label, message) {
+    qrDialogOpen = false;
+    qrPanel.hidden = true;
+    text.hidden = false;
     trigger = document.activeElement;
     title.textContent = label;
     text.textContent = message;
     if (!dialog.open) dialog.showModal();
   }
+  function openQr(button) {
+    trigger = button;
+    qrDialogOpen = true;
+    title.textContent = `${selectedLabel}二维码`;
+    text.hidden = true;
+    qrPanel.hidden = false;
+    qrPreview.replaceChildren(...(loadedQr ? [loadedQr.cloneNode(true)] : []));
+    qrMessage.textContent = qrStatus.textContent;
+    if (!dialog.open) dialog.showModal();
+  }
+  function updateSocialControls() {
+    root.querySelectorAll("[data-footer-social]").forEach(button => {
+      button.setAttribute("aria-controls", mobileLayout.matches ? "footerInfoDialog" : "footerInlineQr");
+      if (mobileLayout.matches) button.setAttribute("aria-haspopup", "dialog");
+      else button.removeAttribute("aria-haspopup");
+    });
+  }
+  mobileLayout.addEventListener("change", updateSocialControls);
+  updateSocialControls();
   root.addEventListener("click", event => {
     const button = event.target.closest("button");
     if (!button || !root.contains(button)) return;
+    if (button === qrSlot) {
+      if (loadedQr) openQr(button);
+      return;
+    }
     if (button.hasAttribute("data-footer-lookup")) {
       document.querySelector("#openOrderLookup")?.click();
       return;
@@ -89,11 +123,15 @@
       if (!config.socials?.[platform]?.show) return;
       const version = ++imageRequest;
       const label = socialNames[platform];
+      selectedLabel = label;
+      loadedQr = null;
+      qrSlot.disabled = true;
       const url = trustedQrUrl(config.socials?.[platform]?.qr, platform);
       root.querySelectorAll("[data-footer-social]").forEach(node => node.setAttribute("aria-pressed", String(node === button)));
       qrSlot.textContent = url ? "加载中…" : "暂未设置";
       qrSlot.setAttribute("aria-label", `${label}二维码${url ? "加载中" : "暂未设置"}`);
       qrStatus.textContent = url ? `正在加载${label}二维码` : `${label}暂未设置有效二维码，请选择其他联系方式。`;
+      if (mobileLayout.matches) openQr(button);
       if (url) {
         // Use a separate image for each selection so slow responses cannot
         // replace the most recently selected platform's QR code.
@@ -104,15 +142,22 @@
         qrImage.setAttribute("data-footer-qr-src", url);
         qrImage.onload = () => {
           if (version !== imageRequest) return;
+          loadedQr = qrImage;
+          qrSlot.disabled = false;
           qrSlot.replaceChildren(qrImage);
-          qrSlot.setAttribute("aria-label", `${label}二维码`);
+          qrSlot.setAttribute("aria-label", `放大${label}二维码`);
           qrStatus.textContent = `已显示${label}二维码，可使用${label}扫一扫。`;
+          if (qrDialogOpen) {
+            qrPreview.replaceChildren(qrImage.cloneNode(true));
+            qrMessage.textContent = qrStatus.textContent;
+          }
         };
         qrImage.onerror = () => {
           if (version !== imageRequest) return;
           qrSlot.textContent = "加载失败";
           qrSlot.setAttribute("aria-label", `${label}二维码加载失败，点击图标重试`);
           qrStatus.textContent = "二维码暂时加载失败，请再次点击图标重试。";
+          if (qrDialogOpen) qrMessage.textContent = qrStatus.textContent;
         };
         qrImage.src = url;
       }
@@ -127,6 +172,8 @@
     if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
   });
   dialog.addEventListener("close", () => {
+    qrDialogOpen = false;
+    qrPreview.replaceChildren();
     trigger?.focus();
   });
   async function start(attempt = 0) {
