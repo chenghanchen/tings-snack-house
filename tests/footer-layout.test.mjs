@@ -15,6 +15,9 @@ test("页尾：真实 HTML 导航、手机重排以及单一页尾入口", async
   assert.match(css, /@media\(max-width:600px\)/);
   assert.match(css, /min-height:44px/);
   assert.doesNotMatch(html, /400[–-]888[–-]9999|2024123456|service@tingtingslw\.com/);
+  assert.match(html, /id="footerEmail"><\/a><p>24小时内回复<\/p>/);
+  assert.doesNotMatch(html, /支付方式请以下单后店铺确认为准|ft-payment-note/);
+  assert.doesNotMatch(css, /ft-payment-note/);
 });
 
 test("页尾：二维码只允许当前项目、当前平台与 UUID PNG", async () => {

@@ -35,20 +35,24 @@
 #story .ft-contact-mark{margin-right:.4cqw;font-size:1.2cqw}
 #story .ft-copyright{position:absolute;top:93.5%;left:25%;right:12%;display:flex;justify-content:center;flex-wrap:wrap;gap:.7cqw;color:#deceb6;font-size:.97cqw;line-height:1.5}
 #story .ft-copyright button{border:0;padding:0;background:none;color:inherit;font:inherit;cursor:pointer}
-#story .ft-payment-note{position:absolute;left:66.7%;top:90%;margin:0;color:#deceb6;font-size:.72cqw;line-height:1.5}
 #story .ft-illustration,#story .ft-brand,#story .ft-payments{display:none}
 @media(min-width:1101px){
-  /* At the annotation's ~1691px footer width these yield ~216 × 215px.
+  /* Keep the annotated 8px reduction relative to the fluid desktop width.
      Keep the size fluid; allow extra enabled icons to increase the height. */
-  #story .ft-social{width:12.795%;min-height:12.718cqw}
+  #story .ft-social{width:calc(12.795% - 8px);min-height:12.718cqw}
   #story .ft-social h2{margin-top:-6px;margin-bottom:.3cqw}
   #story .ft-social>p{margin-bottom:.4cqw}
-  #story .ft-scan{margin-top:.8cqw}
+  #story .ft-social-list{margin-top:15px}
+  #story .ft-scan{margin-top:25px}
+  #story .ft-scan>span{margin-top:10px;margin-left:5px}
   #story .ft-scan-symbol{margin:-10px -5px 0 -10px}
   #story .ft-links button,#story .ft-links a{font-size:max(12px,1.05cqw)}
   #story .ft-social>p,#story .ft-scan,#story .ft-contact,#story #footerHours,#story .ft-copyright{font-size:max(12px,.97cqw)}
   #story .ft-contact h2{font-size:max(12px,.98cqw)}
-  #story .ft-payment-note{font-size:max(11px,.72cqw)}
+}
+/* Keep the larger annotated gaps clear of the dark footer on small desktops. */
+@media(min-width:1101px) and (max-width:1350px){
+  #story .ft-social{min-width:146px;top:38%}
 }
 .footer-info-dialog{width:min(450px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;border-radius:16px;padding:28px;background:#fffaf0;color:#422511}
 .footer-info-dialog h2{font:700 22px/1.4 "Microsoft YaHei",sans-serif;margin:0 32px 18px 0}
@@ -83,8 +87,7 @@
   #story #footerHours{font-size:14px;margin-top:7px}
   #story .ft-contact-mark{font-size:18px;margin-right:7px}
   #story .ft-payments{display:block;width:min(440px,100%);aspect-ratio:460/125;background:url("footer-design-v2.webp") 91.09% 89%/373.26% 732.8% no-repeat;margin-top:26px}
-  #story .ft-payment-note{position:static;font-size:12px;margin:8px 0 20px}
-  #story .ft-copyright{position:static;font-size:12px;line-height:1.8;gap:8px 16px;justify-content:flex-start;border-top:1px solid #ffffff26;padding-top:18px}
+  #story .ft-copyright{position:static;font-size:12px;line-height:1.8;gap:8px 16px;justify-content:flex-start;border-top:1px solid #ffffff26;padding-top:18px;margin-top:20px}
   #story .ft-copyright button{min-height:44px}
 }
 @media(max-width:600px){
