@@ -1,0 +1,98 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import vm from "node:vm";
+const read = name => readFile(new URL(`../${name}`, import.meta.url), "utf8");
+
+test("页尾：真实 HTML 导航、手机重排以及单一页尾入口", async () => {
+  const html = await read("index.html"), css = await read("footer-layout.css");
+  assert.equal((html.match(/id="story"/g) || []).length, 1);
+  assert.equal((html.match(/<footer\b/g) || []).length, 1);
+  assert.doesNotMatch(html, /role="img"\s+aria-label="婷婷的零食屋故事/);
+  for (const text of ["购物指南", "关于我们", "售后服务", "关注我们", "data-footer-lookup", "footerInfoDialog"])
+    assert.ok(html.includes(text));
+  assert.match(css, /@media\(max-width:1100px\)/);
+  assert.match(css, /@media\(max-width:600px\)/);
+  assert.match(css, /min-height:44px/);
+  assert.doesNotMatch(html, /400[–-]888[–-]9999|2024123456|service@tingtingslw\.com/);
+});
+
+test("页尾：二维码只允许当前项目、当前平台与 UUID PNG", async () => {
+  const source = await read("footer-contact-overlay.js");
+  const part = source.slice(source.indexOf("  const qrUuidPattern"), source.indexOf("  let settings"));
+  const context = { URL, window: { TINGS_SUPABASE: { url: "https://example.supabase.co" } } };
+  vm.createContext(context);
+  vm.runInContext(part + "\nglobalThis.check = trustedQrUrl;", context);
+  const good = "https://example.supabase.co/storage/v1/object/public/storefront-images/appearance/qr/wechat/aba868b8-d40e-4e90-b842-565da461edcc.png";
+  assert.equal(context.check(good, "wechat"), good);
+  for (const value of [good.replace("example", "attacker"), good.replace(".png", ".svg"), good.replace("https:", "http:"), "javascript:alert(1)", "data:image/png;base64,AA", good.replace("aba868b8-d40e-4e90-b842-565da461edcc", "other")])
+    assert.equal(context.check(value, "wechat"), "");
+  assert.equal(context.check(good, "douyin"), "");
+  assert.match(source, /qrImage\.onerror/);
+  assert.match(source, /trigger\?\.focus\(\)/);
+  assert.match(source, /settingsReady/);
+  assert.doesNotMatch(source, /\.from\("shop_settings"\)|fetch\(/);
+});
+
+test("页尾：抖音与现有社交平台共用 PNG 上传、后台保存和显示开关", async () => {
+  for (const file of ["footer-contact-overlay.js", "appearance-settings.js", "image-optimizer.js"])
+    assert.match(await read(file), /["']?douyin["']?/);
+  assert.match(await read("appearance-settings.js"), /current\?\.content\?\.footerAppearance/);
+  const source = await read("footer-contact-overlay.js");
+  assert.match(source, /button\.hidden = !show/);
+  assert.match(source, /config\.showPhone === false/);
+  assert.match(source, /config\.showEmail === false/);
+});
+
+test("页尾：社交点击原位切换二维码，忽略旧响应并支持失败重试", async () => {
+  class Element {
+    hidden = false; attrs = {}; children = []; events = {}; dataset = {};
+    set textContent(value) { this.text = value; this.children = []; }
+    get textContent() { return this.text || ""; }
+    setAttribute(key, value) { this.attrs[key] = value; }
+    replaceChildren(...children) { this.children = children; }
+    addEventListener(name, fn) { this.events[name] = fn; }
+    hasAttribute() { return false; }
+  }
+  const selectors = Object.fromEntries(["#footerInlineQr", ".ft-qr-status", "#footerPhone", "#footerEmail", "#footerEmailSection", ".ft-social-empty", ".ft-scan"].map(key => [key, new Element()]));
+  const dialogNodes = Object.fromEntries(["#footerDialogTitle", "#footerDialogText", ".dialog-close"].map(key => [key, new Element()]));
+  const platforms = ["wechat", "xiaohongshu", "douyin", "facebook", "instagram"];
+  const buttons = platforms.map(platform => Object.assign(new Element(), {dataset: {footerSocial: platform}}));
+  const root = Object.assign(new Element(), {
+    querySelector: key => selectors[key],
+    querySelectorAll: selector => selector === "[data-footer-social]" ? buttons : buttons.filter(button => selector.includes(`"${button.dataset.footerSocial}"`)),
+    contains: button => buttons.includes(button),
+  });
+  let dialogsOpened = 0;
+  const dialog = Object.assign(new Element(), {querySelector: key => dialogNodes[key], showModal() { dialogsOpened++; }});
+  const uuid = "aba868b8-d40e-4e90-b842-565da461edcc";
+  const socials = Object.fromEntries(platforms.map(platform => [platform, {show: true, qr: `https://example.supabase.co/storage/v1/object/public/storefront-images/appearance/qr/${platform}/${uuid}.png`}]));
+  const images = [];
+  class MockImage extends Element { constructor() { super(); images.push(this); } }
+  const settings = {content: {footerAppearance: {socials}}};
+  const document = {querySelector: key => key === "#story.snack-footer" ? root : dialog};
+  const context = {URL, Image: MockImage, document, setTimeout,
+    window: {TINGS_SUPABASE: {url: "https://example.supabase.co"}, TingsStorefront: {settings, settingsReady: Promise.resolve(settings)}}};
+  vm.runInNewContext(await read("footer-contact-overlay.js"), context);
+  const click = platform => root.events.click({target: {closest: () => buttons[platforms.indexOf(platform)]}});
+  assert.equal(images.length, 0, "初次渲染不下载二维码");
+  click("wechat"); click("douyin");
+  assert.equal(images.length, 2);
+  assert.equal(selectors["#footerInlineQr"].textContent, "加载中…");
+  images[1].onload(); images[0].onload();
+  assert.equal(selectors["#footerInlineQr"].children[0], images[1], "较晚选择优先");
+  assert.equal(buttons[2].attrs["aria-pressed"], "true");
+  assert.equal(buttons[0].attrs["aria-pressed"], "false");
+  click("xiaohongshu"); images[2].onerror();
+  assert.equal(selectors["#footerInlineQr"].textContent, "加载失败");
+  click("xiaohongshu"); images[3].onload();
+  assert.equal(selectors["#footerInlineQr"].children[0], images[3]);
+  socials.wechat.qr = "https://attacker.example/image.png";
+  click("wechat");
+  assert.equal(images.length, 4, "不下载未受信任图片");
+  assert.equal(selectors["#footerInlineQr"].textContent, "暂未设置");
+  assert.equal(dialogsOpened, 0, "社交点击不打开弹窗");
+  const html = await read("index.html");
+  assert.match(html, /扫码关注<br>领取专属优惠劵/);
+  assert.doesNotMatch(html, /class="ft-social-toggle"[^>]*aria-haspopup="dialog"/);
+});

@@ -450,9 +450,9 @@ const startAdmin = () => {
     [
       "storyBackgroundImage",
       "页尾背景图片",
-      "footer-composite-v1.webp",
+      "footer-design-v2.webp",
       "footer",
-      "建议比例 8:3；系统会自动压缩、转为 WebP，并控制在 180 KB 内后上传云存储。",
+      "建议比例 1717:916；沿用当前留白构图，文字与社交按钮由网页显示。手机端会裁取右侧插画。系统自动压缩为 WebP，控制在 180 KB 内后上传云存储。",
     ],
   ];
   const imageDirtyKey = (key) => `${key}Dirty`;
@@ -616,8 +616,9 @@ const startAdmin = () => {
       if (form.dataset[imageDirtyKey(key)] === "true") return;
       const value = content[key] || "";
       form.dataset[key] = value;
+      const previewValue = key === "storyBackgroundImage" && /^footer-(?:composite|snack-illustration)-v1\.(?:webp|png)$/.test(value) ? fallback : value || fallback;
       $(`#${key}Preview`).innerHTML =
-        `<img src="${value || fallback}" alt="${value ? "当前图片" : "默认图片"}">`;
+        `<img src="${previewValue}" alt="${value ? "当前图片" : "默认图片"}">`;
     });
   }
   function renderReceivingToggle() {

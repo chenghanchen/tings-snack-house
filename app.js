@@ -526,7 +526,8 @@ function applySettings(s) {
     heroImage = $("#heroIllustration"),
     story = $("#story");
   const heroBackgroundImage = optimizedBundledImage(c.heroBackgroundImage),
-    storyBackgroundImage = optimizedBundledImage(c.storyBackgroundImage);
+    storyBackgroundImage = optimizedBundledImage(c.storyBackgroundImage)
+      .replace(/^footer-(?:composite|snack-illustration)-v1\.webp$/, "footer-design-v2.webp");
   if (heroBackgroundImage) {
     const preload = new Image();
     preload.fetchPriority = "high";

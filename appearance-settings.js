@@ -35,11 +35,12 @@
   });
   const imageDefaults = {
     heroBackgroundImage: "hero-snack-illustration-v1.webp",
-    storyBackgroundImage: "footer-composite-v1.webp",
+    storyBackgroundImage: "footer-design-v2.webp",
   };
   const footerSocials = [
     ["wechat", "微信"],
     ["xiaohongshu", "小红书"],
+    ["douyin", "抖音"],
     ["facebook", "Facebook"],
     ["instagram", "Instagram"],
   ];
@@ -563,7 +564,12 @@
         content.deliveryBackgroundColor =
           current?.content?.deliveryBackgroundColor ||
           deliveryDefaults.deliveryBackgroundColor;
-        content.footerAppearance = footerConfigFromForm(form);
+        const footerForm = footerConfigFromForm(form);
+        content.footerAppearance = {
+          ...(current?.content?.footerAppearance || {}),
+          ...footerForm,
+          socials: { ...(current?.content?.footerAppearance?.socials || {}), ...footerForm.socials },
+        };
         try {
           validateFooterSocials(content.footerAppearance);
         } catch (error) {

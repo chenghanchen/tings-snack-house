@@ -487,6 +487,7 @@
     const allowedPlatforms = new Set([
       "wechat",
       "xiaohongshu",
+      "douyin",
       "facebook",
       "instagram",
     ]);

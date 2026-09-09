@@ -1,0 +1,101 @@
+/* Desktop follows the approved 1717 × 916 composition. At <= 1100px,
+   content reflows rather than shrinking text or image-map hit targets. */
+#story.snack-footer{position:relative;display:block;width:100%;margin:0;padding:0;border:0;aspect-ratio:1717/916;container-type:inline-size;background:#fff5e2 var(--story-background-image,url("footer-design-v2.webp")) center/100% 100% no-repeat;color:#422511;font-family:"Microsoft YaHei","PingFang SC",sans-serif;font-size:16px;isolation:isolate}
+#story.snack-footer [hidden]{display:none!important}
+#story .ft-benefits{position:absolute;left:2.7%;top:24.65%;width:50.65%;display:grid;grid-template-columns:repeat(4,1fr);text-align:center}
+#story .ft-benefits h2{margin:0;font:700 1.63cqw/1.4 "Microsoft YaHei",sans-serif;letter-spacing:0}
+#story .ft-benefits p{margin:.48cqw 0 0;font-size:1.11cqw;line-height:1.6;white-space:nowrap}
+#story .ft-service-icon{display:none}
+#story .ft-links{position:absolute;top:41.95%;left:4.66%;display:grid;grid-template-columns:11.95cqw 12.8cqw 12cqw;gap:0}
+#story .ft-links h2,#story .ft-social h2{margin:0 0 .73cqw;font:700 1.34cqw/1.5 "Microsoft YaHei",sans-serif;letter-spacing:0}
+#story .ft-links nav{display:flex;flex-direction:column;align-items:flex-start;gap:.73cqw;margin:0}
+#story .ft-links button,#story .ft-links a{border:0;background:none;padding:0;color:inherit;font:400 1.05cqw/1.35 "Microsoft YaHei",sans-serif;text-decoration:none;text-align:left;cursor:pointer}
+#story .ft-links button:hover,#story .ft-links a:hover{text-decoration:underline;text-underline-offset:4px}
+#story .ft-social{position:absolute;left:39.65%;top:41.7%;width:13.8%;min-height:25.5%;padding:.5cqw;background:#fff5e2}
+#story .ft-social>p{margin:0 0 .8cqw;font-size:.97cqw;line-height:1.6}
+#story .ft-social-list{display:flex;flex-wrap:wrap;gap:.95cqw}
+#story .ft-social-toggle{width:2.7cqw;height:2.7cqw;min-width:32px;min-height:32px;padding:0;border:0;border-radius:50%;background-color:transparent;cursor:pointer;transition:transform .15s}
+#story .ft-social-toggle:hover{transform:translateY(-3px)}
+#story .ft-social-icon{display:block;width:100%;height:100%;border-radius:50%;background-image:url("footer-design-v2.webp");background-size:3815.56% 2035.56%;background-repeat:no-repeat}
+#story [data-footer-social=wechat] .ft-social-icon{background-position:41.27% 53.16%}
+#story [data-footer-social=xiaohongshu] .ft-social-icon{background-position:45.39% 53.16%}
+#story [data-footer-social=douyin] .ft-social-icon{background-position:49.58% 53.16%}
+#story .ft-social-letter{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;background:#543820;color:#fff;font-size:18px;font-weight:700}
+#story .ft-scan{display:flex;align-items:center;gap:.7cqw;margin-top:1.3cqw;border:0;padding:0;background:transparent;color:inherit;text-align:left;font-size:.95cqw;line-height:1.6}
+#story .ft-scan>span{white-space:nowrap}
+#story .ft-scan-symbol{display:grid;place-items:center;flex:none;width:4.7cqw;height:4.7cqw;border:1px solid #d6bda1;border-radius:8px;background:#fff;font-size:1.1cqw;font-weight:700;overflow:hidden}
+#story .ft-scan-symbol .footer-qr-image{display:block;width:100%;height:100%;object-fit:contain;padding:3px;background:#fff}
+#story .ft-social-toggle[aria-pressed=true]{box-shadow:0 0 0 2px #fff5e2,0 0 0 4px #98683e}
+#story .ft-qr-status{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+#story .ft-contact{position:absolute;left:28.6%;top:78%;width:33.2%;display:grid;grid-template-columns:1fr 1.15fr;gap:1.8cqw;color:#e6dac8;font-size:.98cqw;line-height:1.55}
+#story .ft-contact h2{margin:0 0 .2cqw;color:#fff5e2;font:500 .98cqw/1.5 "Microsoft YaHei",sans-serif}
+#story .ft-contact a{color:inherit;text-decoration:none;overflow-wrap:anywhere}
+#story .ft-contact p{margin:0}
+#story #footerHours{font-size:.94cqw;color:inherit;font-weight:400}
+#story .ft-contact-mark{margin-right:.4cqw;font-size:1.2cqw}
+#story .ft-copyright{position:absolute;top:93.5%;left:25%;right:12%;display:flex;justify-content:center;flex-wrap:wrap;gap:.7cqw;color:#deceb6;font-size:.97cqw;line-height:1.5}
+#story .ft-copyright button{border:0;padding:0;background:none;color:inherit;font:inherit;cursor:pointer}
+#story .ft-payment-note{position:absolute;left:66.7%;top:90%;margin:0;color:#deceb6;font-size:.72cqw;line-height:1.5}
+#story .ft-illustration,#story .ft-brand,#story .ft-payments{display:none}
+@media(min-width:1101px){
+  /* At the annotation's ~1691px footer width these yield ~216 × 215px.
+     Keep the size fluid; allow extra enabled icons to increase the height. */
+  #story .ft-social{width:12.795%;min-height:12.718cqw}
+  #story .ft-social h2{margin-top:-6px;margin-bottom:.3cqw}
+  #story .ft-social>p{margin-bottom:.4cqw}
+  #story .ft-scan{margin-top:.8cqw}
+  #story .ft-scan-symbol{margin:-10px -5px 0 -10px}
+  #story .ft-links button,#story .ft-links a{font-size:max(12px,1.05cqw)}
+  #story .ft-social>p,#story .ft-scan,#story .ft-contact,#story #footerHours,#story .ft-copyright{font-size:max(12px,.97cqw)}
+  #story .ft-contact h2{font-size:max(12px,.98cqw)}
+  #story .ft-payment-note{font-size:max(11px,.72cqw)}
+}
+.footer-info-dialog{width:min(450px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;border-radius:16px;padding:28px;background:#fffaf0;color:#422511}
+.footer-info-dialog h2{font:700 22px/1.4 "Microsoft YaHei",sans-serif;margin:0 32px 18px 0}
+.footer-info-dialog p{font-size:15px;line-height:1.8;white-space:pre-line;overflow-wrap:anywhere;margin:12px 0 0}
+.footer-info-dialog [hidden]{display:none!important}
+.footer-info-dialog .dialog-close{width:44px;height:44px;right:6px;top:6px;color:#422511}
+@media(max-width:1100px){
+  #story.snack-footer{aspect-ratio:auto;background:#fff5e2;padding:36px 24px 0;display:flex;flex-direction:column;container-type:normal}
+  #story .ft-benefits{position:static;width:100%;grid-template-columns:repeat(4,1fr);gap:16px;padding:0 0 28px;border-bottom:1px solid #e8cfad}
+  #story .ft-service-icon{display:block;width:80px;height:80px;margin:0 auto 12px;background-image:url("footer-design-v2.webp");background-size:1560.91% 832.73%;background-repeat:no-repeat}
+  #story .ft-service-icon[data-icon=shield]{background-position:6.29% 13.03%}
+  #story .ft-service-icon[data-icon=truck]{background-position:19.91% 13.03%}
+  #story .ft-service-icon[data-icon=service]{background-position:33.54% 13.03%}
+  #story .ft-service-icon[data-icon=gift]{background-position:47% 13.03%}
+  #story .ft-benefits h2{font-size:21px}
+  #story .ft-benefits p{white-space:normal;font-size:14px;margin:7px 0 0}
+  #story .ft-links{position:static;width:100%;grid-template-columns:repeat(3,1fr);gap:20px;padding:28px 0}
+  #story .ft-links h2,#story .ft-social h2{font-size:19px;margin:0 0 12px}
+  #story .ft-links nav{gap:0}
+  #story .ft-links button,#story .ft-links a{display:flex;align-items:center;min-height:44px;font-size:15px;line-height:1.5}
+  #story .ft-social{position:static;width:100%;padding:24px 0;min-height:0;border-top:1px solid #e8cfad;background:transparent}
+  #story .ft-social>p{font-size:14px;margin:0 0 14px}
+  #story .ft-social-list{gap:18px}
+  #story .ft-social-toggle{width:46px;height:46px}
+  #story .ft-scan{font-size:14px;gap:14px;margin-top:18px;min-height:44px}
+  #story .ft-scan-symbol{width:144px;height:144px;font-size:15px}
+  #story .ft-illustration{display:block;align-self:center;width:min(650px,100%);aspect-ratio:800/610;background-image:var(--story-background-image,url("footer-design-v2.webp"));background-size:214.625% 150.164%;background-position:100% 13.1%;background-repeat:no-repeat}
+  #story .ft-bottom{margin:0 -24px;background:#382412;padding:32px 24px 22px;color:#eee0c9}
+  #story .ft-brand{display:block;width:min(370px,100%);aspect-ratio:380/120;background:url("footer-design-v2.webp") 4.86% 85.55%/451.84% 763.33% no-repeat;margin-bottom:28px}
+  #story .ft-contact{position:static;width:100%;font-size:15px;grid-template-columns:1fr 1fr;gap:22px}
+  #story .ft-contact h2{font-size:16px;margin-bottom:8px}
+  #story #footerHours{font-size:14px;margin-top:7px}
+  #story .ft-contact-mark{font-size:18px;margin-right:7px}
+  #story .ft-payments{display:block;width:min(440px,100%);aspect-ratio:460/125;background:url("footer-design-v2.webp") 91.09% 89%/373.26% 732.8% no-repeat;margin-top:26px}
+  #story .ft-payment-note{position:static;font-size:12px;margin:8px 0 20px}
+  #story .ft-copyright{position:static;font-size:12px;line-height:1.8;gap:8px 16px;justify-content:flex-start;border-top:1px solid #ffffff26;padding-top:18px}
+  #story .ft-copyright button{min-height:44px}
+}
+@media(max-width:600px){
+  #story.snack-footer{padding:28px 20px 0}
+  #story .ft-benefits{grid-template-columns:1fr 1fr;gap:26px 12px}
+  #story .ft-benefits h2{font-size:20px}
+  #story .ft-benefits p{font-size:13px}
+  #story .ft-links{grid-template-columns:1fr 1fr;gap:24px 18px}
+  #story .ft-links>section:last-child{grid-column:1/-1}
+  #story .ft-links>section:last-child nav{display:grid;grid-template-columns:1fr 1fr;column-gap:18px}
+  #story .ft-bottom{margin-inline:-20px;padding-inline:20px}
+  #story .ft-contact{grid-template-columns:1fr;gap:22px}
+}
+@media(prefers-reduced-motion:reduce){#story .ft-social-toggle{transition:none}}

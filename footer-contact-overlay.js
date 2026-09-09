@@ -1,123 +1,142 @@
+/* Footer presentation only: reuse the public snapshot; never request settings twice. */
 (() => {
-  const esc = (value) =>
-    String(value ?? "").replace(
-      /[&<>"']/g,
-      (char) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-        })[char],
-    );
+  const root = document.querySelector("#story.snack-footer");
+  const dialog = document.querySelector("#footerInfoDialog");
+  if (!root || !dialog) return;
   const socialNames = {
-    instagram: "Instagram",
-    facebook: "Facebook",
-    xiaohongshu: "Xiaohongshu",
-    wechat: "Wechat",
+    wechat: "微信", xiaohongshu: "小红书", douyin: "抖音",
+    facebook: "Facebook", instagram: "Instagram",
   };
-  const qrUuidPattern =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.png$/i;
+  const qrUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.png$/i;
   function trustedQrUrl(value, platform) {
     try {
-      const projectOrigin = new URL(window.TINGS_SUPABASE?.url || "").origin,
-        url = new URL(value),
-        prefix = `/storage/v1/object/public/storefront-images/appearance/qr/${platform}/`;
-      if (
-        url.protocol !== "https:" ||
-        url.origin !== projectOrigin ||
-        !url.pathname.startsWith(prefix) ||
-        !qrUuidPattern.test(url.pathname.slice(prefix.length))
-      )
-        return "";
-      return url.href;
-    } catch {
-      return "";
+      const projectOrigin = new URL(window.TINGS_SUPABASE?.url || "").origin;
+      const url = new URL(value);
+      const prefix = `/storage/v1/object/public/storefront-images/appearance/qr/${platform}/`;
+      return url.protocol === "https:" && url.origin === projectOrigin &&
+        url.pathname.startsWith(prefix) && qrUuidPattern.test(url.pathname.slice(prefix.length)) &&
+        !url.username && !url.password ? url.href : "";
+    } catch { return ""; }
+  }
+  let settings = {}, config = {}, profile = {}, trigger = null, imageRequest = 0;
+  const qrSlot = root.querySelector("#footerInlineQr");
+  const qrStatus = root.querySelector(".ft-qr-status");
+  const title = dialog.querySelector("#footerDialogTitle");
+  const text = dialog.querySelector("#footerDialogText");
+  function render(value) {
+    settings = value || {};
+    config = settings.content?.footerAppearance || {};
+    profile = settings.content?.storeSettings?.profile || {};
+    const phone = root.querySelector("#footerPhone");
+    const email = root.querySelector("#footerEmail");
+    phone.hidden = config.showPhone === false || !profile.phone;
+    phone.textContent = String(profile.phone || "");
+    phone.href = `tel:${String(profile.phone || "").replace(/[^+\d(). -]/g, "")}`;
+    root.querySelector("#footerEmailSection").hidden = config.showEmail === false || !profile.email;
+    email.textContent = String(profile.email || "");
+    email.href = `mailto:${encodeURIComponent(String(profile.email || ""))}`;
+    let visible = 0;
+    for (const [platform] of Object.entries(socialNames)) {
+      const social = config.socials?.[platform];
+      const show = !!social?.show;
+      root.querySelectorAll(`[data-footer-social="${platform}"]`).forEach(button => { button.hidden = !show; });
+      if (show) visible++;
     }
+    root.querySelector(".ft-social-empty").hidden = visible > 0;
+    root.querySelector(".ft-scan").hidden = visible === 0;
+    imageRequest++;
+    qrSlot.textContent = "二维码";
+    qrSlot.setAttribute("aria-label", "点击社交图标显示二维码");
+    qrStatus.textContent = "";
+    root.querySelectorAll("[data-footer-social]").forEach(button => button.setAttribute("aria-pressed", "false"));
   }
-  const defaults = {
-    showPhone: true,
-    showEmail: true,
-    socials: {
-      instagram: { show: false, qr: "" },
-      facebook: { show: false, qr: "" },
-      xiaohongshu: { show: false, qr: "" },
-      wechat: { show: false, qr: "" },
-    },
-  };
-  function css() {
-    if (document.querySelector("#footerContactOverlayStyles")) return;
-    document.head.insertAdjacentHTML(
-      "beforeend",
-      '<style id="footerContactOverlayStyles">.footer-contact-bar{position:relative;z-index:20;padding:14px max(5vw,28px);background:#fbf6eb;border-bottom:1px solid #ded5c5;color:#493c31;display:flex;align-items:center;gap:20px;flex-wrap:wrap}.footer-contact-bar .footer-contact-list,.footer-contact-bar .footer-social-list{display:flex;align-items:center;gap:20px;flex-wrap:wrap;font-size:14px}.footer-contact-bar .footer-contact-list a{color:inherit;text-decoration:none;white-space:nowrap}.footer-contact-bar .footer-social-list{gap:10px}.footer-social-item{position:relative}.footer-social-toggle{border:1px solid #aa9780;background:#fffdf8;color:#493c31;padding:6px 10px;cursor:pointer;font:14px inherit}.footer-social-toggle[aria-expanded=true]{background:#eee1ca}.footer-social-qr{position:absolute;z-index:25;left:0;bottom:calc(100% + 8px);width:126px;padding:7px;background:#fffdf8;border:1px solid #e4d8c6;box-shadow:0 8px 22px #0005}.footer-social-qr img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:contain}.footer-social-qr[hidden]{display:none}@media(min-width:781px){.footer-contact-bar .footer-contact-list a{color:#000;font-size:15px;font-weight:500}}@media(max-width:780px){.footer-contact-bar{padding:12px 7vw;gap:12px;flex-wrap:nowrap;overflow-x:auto}.footer-contact-bar .footer-contact-list,.footer-contact-bar .footer-social-list{gap:12px;flex-wrap:nowrap;white-space:nowrap;font-size:12px}.footer-social-toggle{padding:5px 8px;font-size:12px}.footer-social-qr{position:fixed;z-index:1000;left:50%;top:50%;bottom:auto;width:min(220px,72vw);padding:10px;transform:translate(-50%,-50%);box-shadow:0 16px 42px #0007}}</style>',
-    );
+  function contactText() {
+    return [config.showPhone !== false && profile.phone ? `电话：${profile.phone}` : "",
+      config.showEmail !== false && profile.email ? `邮箱：${profile.email}` : ""]
+      .filter(Boolean).join("\n") || "请通过已开放的社交二维码联系店铺。";
   }
-  function render(settings) {
-    const content = settings.content || {},
-      profile = content.storeSettings?.profile || {},
-      saved = content.footerAppearance || {},
-      config = {
-        ...defaults,
-        ...saved,
-        socials: { ...defaults.socials, ...(saved.socials || {}) },
-      };
-    const contacts = [];
-    if (config.showPhone !== false && profile.phone)
-      contacts.push(
-        `<a href="tel:${esc(profile.phone)}">电话：${esc(profile.phone)}</a>`,
-      );
-    if (config.showEmail !== false && profile.email)
-      contacts.push(
-        `<a href="mailto:${esc(profile.email)}">邮箱：${esc(profile.email)}</a>`,
-      );
-    const social = Object.entries(socialNames)
-      .filter(([id]) => config.socials[id]?.show)
-      .map(
-        ([id, label]) => {
-          const qr = trustedQrUrl(config.socials[id]?.qr, id);
-          return `<div class="footer-social-item"><button type="button" class="footer-social-toggle" data-footer-social="${id}" aria-expanded="false">${label}</button><div class="footer-social-qr" id="footerQr_${id}" hidden>${qr ? `<img data-footer-qr-src="${esc(qr)}" alt="${label} 二维码" width="112" height="112" loading="lazy" decoding="async">` : "<span>暂未设置二维码</span>"}</div></div>`;
-        },
-      )
-      .join("");
-    if (!contacts.length && !social) return;
-    const story = document.querySelector("#story");
-    if (!story || document.querySelector(".footer-contact-bar")) return;
-    css();
-    story.insertAdjacentHTML(
-      "afterend",
-      `<section class="footer-contact-bar" aria-label="联系方式"><div class="footer-contact-list">${contacts.join("")}</div>${social ? `<div class="footer-social-list">${social}</div>` : ""}</section>`,
-    );
-    const bar = document.querySelector(".footer-contact-bar");
-    bar.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-footer-social]");
-      if (!button) return;
-      const panel = bar.querySelector(
-          `#footerQr_${button.dataset.footerSocial}`,
-        ),
-        open = button.getAttribute("aria-expanded") === "true";
-      bar
-        .querySelectorAll(".footer-social-toggle")
-        .forEach((node) => node.setAttribute("aria-expanded", "false"));
-      bar
-        .querySelectorAll(".footer-social-qr")
-        .forEach((node) => (node.hidden = true));
-      button.setAttribute("aria-expanded", String(!open));
-      if (panel && !open) {
-        const image = panel.querySelector("img[data-footer-qr-src]");
-        if (image && !image.getAttribute("src"))
-          image.src = image.dataset.footerQrSrc;
+  function info(label) {
+    const contact = contactText();
+    const answers = {
+      "购物流程": "挑选商品与规格，加入购物篮，填写联系方式并选择配送或自取，核对金额后提交订单。请保存订单号，方便查询进度。",
+      "常见问题": "商品库存与可选规格以商品卡展示为准。配送说明见首页配送区域，提交后的进度可在「订单查询」查看。其他问题请联系店铺。\n\n" + contact,
+      "支付方式": "网站提交订单时无需在线付款。可用支付方式与付款安排，请在下单后向店铺确认。\n\n" + contact,
+      "关于婷婷的零食屋": `${settings.name || "婷婷的零食屋"}\n从童年味道到新鲜人气款，认真挑选每一份日常的小快乐。`,
+      "联系我们": contact,
+      "加入我们": "如有加入店铺的意向，请联系店铺了解当前安排。\n\n" + contact,
+      "合作洽谈": "商品、配送与其他合作事宜，请联系店铺。\n\n" + contact,
+      "网站地图": "逛零食：浏览与选择商品。\n配送区域：查看配送说明。\n查询订单：使用页面顶部「查询订单」入口。\n页尾：购物指南、售后服务及联系方式。",
+      "隐私政策": "下单需要填写姓名、联系方式及配送所需信息，用于处理和联系你的订单。有关个人信息的使用、保留或删除问题，请联系店铺确认。\n\n" + contact,
+      "服务协议": "请核对商品、规格、联系方式和配送方式后再提交订单。履约安排、支付方式及售后事宜请与店铺确认。\n\n" + contact,
+    };
+    return answers[label] || "如有商品、退换货、退款或其他售后问题，请准备订单号及相关说明并联系店铺，具体处理方式由店铺核实后告知。\n\n" + contact;
+  }
+  function open(label, message) {
+    trigger = document.activeElement;
+    title.textContent = label;
+    text.textContent = message;
+    if (!dialog.open) dialog.showModal();
+  }
+  root.addEventListener("click", event => {
+    const button = event.target.closest("button");
+    if (!button || !root.contains(button)) return;
+    if (button.hasAttribute("data-footer-lookup")) {
+      document.querySelector("#openOrderLookup")?.click();
+      return;
+    }
+    const platform = button.dataset.footerSocial;
+    if (platform && socialNames[platform]) {
+      if (!config.socials?.[platform]?.show) return;
+      const version = ++imageRequest;
+      const label = socialNames[platform];
+      const url = trustedQrUrl(config.socials?.[platform]?.qr, platform);
+      root.querySelectorAll("[data-footer-social]").forEach(node => node.setAttribute("aria-pressed", String(node === button)));
+      qrSlot.textContent = url ? "加载中…" : "暂未设置";
+      qrSlot.setAttribute("aria-label", `${label}二维码${url ? "加载中" : "暂未设置"}`);
+      qrStatus.textContent = url ? `正在加载${label}二维码` : `${label}暂未设置有效二维码，请选择其他联系方式。`;
+      if (url) {
+        // Use a separate image for each selection so slow responses cannot
+        // replace the most recently selected platform's QR code.
+        const qrImage = new Image();
+        qrImage.className = "footer-qr-image";
+        qrImage.alt = `${label}二维码`;
+        qrImage.decoding = "async";
+        qrImage.setAttribute("data-footer-qr-src", url);
+        qrImage.onload = () => {
+          if (version !== imageRequest) return;
+          qrSlot.replaceChildren(qrImage);
+          qrSlot.setAttribute("aria-label", `${label}二维码`);
+          qrStatus.textContent = `已显示${label}二维码，可使用${label}扫一扫。`;
+        };
+        qrImage.onerror = () => {
+          if (version !== imageRequest) return;
+          qrSlot.textContent = "加载失败";
+          qrSlot.setAttribute("aria-label", `${label}二维码加载失败，点击图标重试`);
+          qrStatus.textContent = "二维码暂时加载失败，请再次点击图标重试。";
+        };
+        qrImage.src = url;
       }
-      if (panel) panel.hidden = open;
-    });
+      return;
+    }
+    if (button.dataset.footerInfo) open(button.dataset.footerInfo, info(button.dataset.footerInfo));
+  });
+  dialog.querySelector(".dialog-close").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", event => {
+    if (event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+  });
+  dialog.addEventListener("close", () => {
+    trigger?.focus();
+  });
+  async function start(attempt = 0) {
+    if (!window.TingsStorefront?.settingsReady) {
+      if (attempt < 100) setTimeout(() => start(attempt + 1), 150);
+      return;
+    }
+    try { render(window.TingsStorefront.settings || await window.TingsStorefront.settingsReady); }
+    catch { render({}); }
   }
-  async function start() {
-    if (!window.TingsStorefront?.settingsReady)
-      return setTimeout(start, 150);
-    const settings =
-      window.TingsStorefront.settings ||
-      (await window.TingsStorefront.settingsReady);
-    if (settings) render(settings);
-  }
+  render({});
   start();
 })();

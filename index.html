@@ -21,15 +21,16 @@
       fetchpriority="high"
     />
     <link rel="stylesheet" href="styles.css?v=20260907a" />
+    <link rel="stylesheet" href="footer-layout.css?v=20260909d" />
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
     ></script>
     <script defer src="supabase-config.js?v=20260827c"></script>
-    <script defer src="app.js?v=20260908b"></script>
+    <script defer src="app.js?v=20260909c"></script>
     <script defer src="activity-announcement.js?v=20260908a"></script>
     <script defer src="site-appearance.js?v=20260906b"></script>
-    <script defer src="footer-contact-overlay.js?v=20260909a"></script>
+    <script defer src="footer-contact-overlay.js?v=20260909d"></script>
     <script defer src="store-order-rules.js?v=20260830b"></script>
     <style>
       .order-amounts .fee-value b {
@@ -148,43 +149,6 @@
       }
       #heroIllustration[hidden] {
         display: none;
-      }
-      #story {
-        min-height: 440px;
-        background-color: #f5e8cd;
-        background-image: url("footer-snack-illustration-v1.webp");
-        background-size: cover;
-        background-position: center;
-      }
-      #story.footer-composite {
-        min-height: 0;
-        width: 100%;
-        margin: 0;
-        aspect-ratio: 8/3;
-        padding: 0;
-        display: block;
-        background-image: var(
-          --story-background-image,
-          url("footer-composite-v1.webp")
-        ) !important;
-        background-size: 100% 100%;
-        background-position: center;
-      }
-      #story.footer-composite > * {
-        display: none;
-      }
-      .delivery-info:has(+ #story.footer-composite) {
-        margin-bottom: 0;
-      }
-      #story .story-mark {
-        color: #ae4c38;
-        border-color: #ae4c38aa;
-        background: #fffdf899;
-      }
-      #story > div:last-child {
-        max-width: 470px;
-        padding: 18px;
-        background: #fffdf874;
       }
       @media (max-width: 780px) {
         .hero {
@@ -320,35 +284,36 @@
         </div>
       </section>
 
-      <section
-        class="story footer-composite"
-        id="story"
-        role="img"
-        aria-label="婷婷的零食屋故事、服务与联系方式"
-      >
-        <div class="story-mark" id="storyMark">小<br />町</div>
-        <div>
-          <p class="eyebrow" id="storyEyebrow">About Komachi</p>
-          <h2>
-            <span id="storyTitle">一间认真挑选</span><br /><span
-              id="storySubtitle"
-              >小快乐的零食屋</span
-            >
-          </h2>
-          <p id="storyText">
-            我们相信，零食是平凡日子里的小仪式感。每一件上架的商品，都希望让你想起某个温暖的下午。
-          </p>
-          <p class="signature" id="storySignature">おいしい時間を、どうぞ。</p>
-        </div>
-      </section>
     </main>
 
-    <footer>
-      <span
-        ><span id="footerName">婷婷的零食屋</span> ©
-        <span id="footerYear">2026</span></span
-      ><span id="footerHours">营业时间：每日 10:00 – 21:00</span>
+    <footer id="story" class="snack-footer" aria-label="店铺服务与联系方式">
+      <div class="ft-benefits">
+        <section><i class="ft-service-icon" data-icon="shield" aria-hidden="true"></i><h2>正品保证</h2><p>精选好味，安心选购</p></section>
+        <section><i class="ft-service-icon" data-icon="truck" aria-hidden="true"></i><h2>快速配送</h2><p>本地配送，方便自取</p></section>
+        <section><i class="ft-service-icon" data-icon="service" aria-hidden="true"></i><h2>贴心服务</h2><p>购物疑问，随时联系</p></section>
+        <section><i class="ft-service-icon" data-icon="gift" aria-hidden="true"></i><h2>会员专享</h2><p>关注店铺，发现优惠</p></section>
+      </div>
+      <div class="ft-links">
+        <section><h2>购物指南</h2><nav aria-label="购物指南"><button type="button" data-footer-info="购物流程">购物流程</button><button type="button" data-footer-info="常见问题">常见问题</button><button type="button" data-footer-lookup>订单查询</button><button type="button" data-footer-info="支付方式">支付方式</button><a href="#deliveryInfo">配送方式</a></nav></section>
+        <section><h2>关于我们</h2><nav aria-label="关于我们"><button type="button" data-footer-info="关于婷婷的零食屋">关于婷婷的零食屋</button><button type="button" data-footer-info="联系我们">联系我们</button><button type="button" data-footer-info="加入我们">加入我们</button><button type="button" data-footer-info="合作洽谈">合作洽谈</button><button type="button" data-footer-info="网站地图">网站地图</button></nav></section>
+        <section><h2>售后服务</h2><nav aria-label="售后服务"><button type="button" data-footer-info="退换货政策">退换货政策</button><button type="button" data-footer-info="退款说明">退款说明</button><button type="button" data-footer-info="售后政策">售后政策</button><button type="button" data-footer-info="投诉与建议">投诉与建议</button><button type="button" data-footer-info="服务中心">服务中心</button></nav></section>
+      </div>
+      <section class="ft-social" aria-label="社交媒体"><h2>关注我们</h2><p>获取更多优惠资讯和活动</p><div class="ft-social-list">
+        <button type="button" class="ft-social-toggle" data-footer-social="wechat" aria-label="显示微信二维码" aria-controls="footerInlineQr" aria-pressed="false"><span class="ft-social-icon" aria-hidden="true"></span></button>
+        <button type="button" class="ft-social-toggle" data-footer-social="xiaohongshu" aria-label="显示小红书二维码" aria-controls="footerInlineQr" aria-pressed="false"><span class="ft-social-icon" aria-hidden="true"></span></button>
+        <button type="button" class="ft-social-toggle" data-footer-social="douyin" aria-label="显示抖音二维码" aria-controls="footerInlineQr" aria-pressed="false"><span class="ft-social-icon" aria-hidden="true"></span></button>
+        <button type="button" class="ft-social-toggle" data-footer-social="facebook" aria-label="显示 Facebook 二维码" aria-controls="footerInlineQr" aria-pressed="false" hidden><span class="ft-social-letter" aria-hidden="true">f</span></button>
+        <button type="button" class="ft-social-toggle" data-footer-social="instagram" aria-label="显示 Instagram 二维码" aria-controls="footerInlineQr" aria-pressed="false" hidden><span class="ft-social-letter" aria-hidden="true">◎</span></button>
+      </div><div class="ft-scan"><div class="ft-scan-symbol" id="footerInlineQr" role="img" aria-label="点击社交图标显示二维码">二维码</div><span>扫码关注<br>领取专属优惠劵</span></div><span class="ft-qr-status" role="status" aria-live="polite"></span><p class="ft-social-empty" hidden>社交账号暂未开放，请联系店铺。</p></section>
+      <div class="ft-illustration" role="img" aria-label="好吃不贵，快乐加倍，婷婷的零食屋零食插画"></div>
+      <div class="ft-bottom">
+        <div class="ft-brand" role="img" aria-label="婷婷的零食屋 · 好吃不贵，快乐加倍"></div>
+        <div class="ft-contact"><section><h2><span class="ft-contact-mark" aria-hidden="true">☏</span>联系店铺</h2><a id="footerPhone" hidden></a><p id="footerHours">营业时间以店铺公告为准</p></section><section id="footerEmailSection" hidden><h2><span class="ft-contact-mark" aria-hidden="true">✉</span>客服邮箱</h2><a id="footerEmail"></a></section></div>
+        <div class="ft-payments" role="img" aria-label="支付方式示意图"></div><p class="ft-payment-note">支付方式请以下单后店铺确认为准</p>
+        <div class="ft-copyright"><span>© <span id="footerYear">2026</span> <span id="footerName">婷婷的零食屋</span> 版权所有</span><button type="button" data-footer-info="隐私政策">隐私政策</button><button type="button" data-footer-info="服务协议">服务协议</button></div>
+      </div>
     </footer>
+    <dialog id="footerInfoDialog" class="footer-info-dialog" aria-labelledby="footerDialogTitle"><button type="button" class="dialog-close" aria-label="关闭页尾信息">×</button><h2 id="footerDialogTitle"></h2><p id="footerDialogText"></p></dialog>
 
     <aside class="cart" id="cart" aria-label="购物篮" aria-hidden="true">
       <div class="cart-header">
