@@ -34,6 +34,11 @@ test("页尾：真实 HTML 导航、手机重排以及单一页尾入口", async
   assert.match(html, /id="footerEmail"><\/a><p>24小时内回复<\/p>/);
   assert.doesNotMatch(html, /支付方式请以下单后店铺确认为准|ft-payment-note/);
   assert.doesNotMatch(css, /ft-payment-note/);
+  const mobile = css.slice(css.indexOf("@media(max-width:1100px)"));
+  assert.match(mobile, /\.ft-illustration\{display:none\}/);
+  assert.match(mobile, /grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.doesNotMatch(mobile, /\.ft-links>section:last-child/);
+  assert.match(mobile, /\.ft-payments\{clip-path:polygon/);
 });
 
 test("页尾：二维码只允许当前项目、当前平台与 UUID PNG", async () => {
