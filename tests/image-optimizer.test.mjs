@@ -12,7 +12,7 @@ const source = await readFile(path.join(root, "image-optimizer.js"), "utf8");
 
 function createRuntime(
   detectedCodes,
-  { nativeDetector = true, fallbackValue = "" } = {},
+  { nativeDetector = true, fallbackValue = "", zxingValue = "" } = {},
 ) {
   const uploads = [];
   const canvas = {
@@ -74,6 +74,19 @@ function createRuntime(
       Blob,
       BarcodeDetector: nativeDetector ? MockBarcodeDetector : undefined,
       jsQR: () => (fallbackValue ? { data: fallbackValue } : null),
+      ZXing: {
+        RGBLuminanceSource: class {},
+        HybridBinarizer: class {},
+        BinaryBitmap: class {},
+        QRCodeReader: class {
+          decode() {
+            if (zxingValue) return { getText: () => zxingValue };
+            const error = new Error("No QR found");
+            error.name = "NotFoundException";
+            throw error;
+          }
+        },
+      },
       createImageBitmap: async () => ({ close() {} }),
       crypto: {
         getRandomValues: webcrypto.getRandomValues.bind(webcrypto),
@@ -190,6 +203,19 @@ test("二维码上传：浏览器没有 BarcodeDetector 时使用兼容扫描器
   );
   assert.equal(result.qrValue, "wechat://verified");
   assert.equal(result.verified, true);
+  assert.equal(uploads.length, 1);
+});
+
+test("二维码上传：快速扫描失败后由备用算法验证成功才上传", async () => {
+  const { api, db, uploads } = createRuntime([], {
+    nativeDetector: false,
+    zxingValue: "https://u.wechat.com/test-verified",
+  });
+  const result = await api.uploadQrPng(
+    db, new Blob(["rounded-qr"], { type: "image/jpeg" }), "wechat",
+  );
+  assert.equal(result.qrValue, "https://u.wechat.com/test-verified");
+  assert.equal(result.blob.type, "image/png");
   assert.equal(uploads.length, 1);
 });
 

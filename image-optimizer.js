@@ -8,6 +8,11 @@
     QR_DECODER_INTEGRITY =
       "sha384-b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx";
   let qrDecoderPromise = null;
+  const ZXING_DECODER_URL =
+      "https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js",
+    ZXING_DECODER_INTEGRITY =
+      "sha384-BzBxP10ZE72aitqj5UMmUsbKFliP/DZqA8Wq+BNNhlIJDGoEd1tpkMYXOg9+n6sB";
+  let zxingDecoderPromise = null;
   const UPLOAD_PROFILES = Object.freeze({
     product: Object.freeze({
       folder: "products",
@@ -125,6 +130,34 @@
       document.head.append(script);
     });
     return qrDecoderPromise;
+  }
+
+  function loadZxingDecoder() {
+    if (globalThis.ZXing?.QRCodeReader)
+      return Promise.resolve(globalThis.ZXing);
+    if (zxingDecoderPromise) return zxingDecoderPromise;
+    zxingDecoderPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      const fail = () => {
+        clearTimeout(timeout);
+        script.remove();
+        zxingDecoderPromise = null;
+        reject(new Error("二维码兼容扫描工具加载失败，请检查网络后重试"));
+      };
+      const timeout = setTimeout(fail, 15000);
+      script.src = ZXING_DECODER_URL;
+      script.integrity = ZXING_DECODER_INTEGRITY;
+      script.crossOrigin = "anonymous";
+      script.referrerPolicy = "no-referrer";
+      script.onload = () => {
+        if (!globalThis.ZXing?.QRCodeReader) return fail();
+        clearTimeout(timeout);
+        resolve(globalThis.ZXing);
+      };
+      script.onerror = fail;
+      document.head.append(script);
+    });
+    return zxingDecoderPromise;
   }
 
   const canvasToBlob = (canvas, type, quality) =>
@@ -409,8 +442,7 @@
         source?.close?.();
       }
     }
-    const decoder = await loadQrDecoder(),
-      image = await loadImage(blob),
+    const image = await loadImage(blob),
       canvas = document.createElement("canvas"),
       width = image.naturalWidth || image.width,
       height = image.naturalHeight || image.height;
@@ -418,14 +450,37 @@
     canvas.height = height;
     const context = canvas.getContext("2d", { willReadFrequently: true });
     context.drawImage(image, 0, 0, width, height);
-    const pixels = context.getImageData(0, 0, width, height),
-      result = decoder(pixels.data, width, height, {
-        inversionAttempts: "attemptBoth",
-      }),
-      value = result?.data?.trim();
-    if (!value)
-      throw new Error("没有识别到有效二维码，请上传清晰、完整并留有白边的二维码");
-    return value;
+    const pixels = context.getImageData(0, 0, width, height);
+    try {
+      const decoder = await loadQrDecoder(),
+        result = decoder(pixels.data, width, height, {
+          inversionAttempts: "attemptBoth",
+        }),
+        value = result?.data?.trim();
+      if (value) return value;
+    } catch (error) {
+      console.warn("快速二维码扫描不可用，改用兼容扫描器", error);
+    }
+    // Rounded WeChat modules can defeat jsQR despite containing valid data.
+    // Decode the final PNG with a second algorithm before rejecting it.
+    const zxing = await loadZxingDecoder(),
+      luminance = new Uint8ClampedArray(width * height);
+    for (let i = 0; i < luminance.length; i += 1) {
+      const offset = i * 4;
+      luminance[i] = (pixels.data[offset] + 2 * pixels.data[offset + 1] +
+        pixels.data[offset + 2]) / 4;
+    }
+    try {
+      const bitmap = new zxing.BinaryBitmap(new zxing.HybridBinarizer(
+          new zxing.RGBLuminanceSource(luminance, width, height),
+        )),
+        value = new zxing.QRCodeReader().decode(bitmap)?.getText()?.trim();
+      if (value) return value;
+    } catch (error) {
+      if (!["NotFoundException", "ChecksumException", "FormatException"]
+        .includes(error?.getKind?.() || error?.name)) throw error;
+    }
+    throw new Error("没有识别到有效二维码，请上传清晰、完整并留有白边的二维码");
   }
 
   async function uploadQrPng(db, file, platform) {

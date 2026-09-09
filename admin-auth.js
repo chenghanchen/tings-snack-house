@@ -14,7 +14,7 @@
     "shop-status.css?v=20260901a",
   ];
   const adminScripts = [
-    "image-optimizer.js?v=20260909a",
+    "image-optimizer.js?v=20260909b",
     "admin.js?v=20260909a",
     "admin-mobile-nav.js?v=20260828a",
     "order-cards.js?v=20260908c",
