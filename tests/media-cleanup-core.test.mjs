@@ -27,6 +27,33 @@ test("媒体清理：从嵌套设置、商品与订单快照 URL 中收集 Stora
   ]);
 });
 
+test("媒体清理：社交平台二维码作为嵌套 footerAppearance 引用受到保护", () => {
+  const qrId = "550e8400-e29b-41d4-a716-446655440000";
+  const qrPath = `appearance/qr/wechat/${qrId}.png`;
+  const references = collectStorageReferences({
+    footerAppearance: {
+      socials: {
+        wechat: { show: true, qr: `${publicBase}${qrPath}` },
+        xiaohongshu: { show: false, qr: "" },
+        facebook: {
+          show: true,
+          qr: "https://example.com/not-our-qr.png",
+        },
+      },
+    },
+  });
+
+  assert.deepEqual([...references], [qrPath]);
+  assert.equal(
+    classifyStorageFile(
+      { path: qrPath, updatedAt: "2026-08-01T00:00:00Z" },
+      references,
+      { now: Date.parse("2026-09-09T00:00:00Z") },
+    ).protectedReason,
+    "database_reference",
+  );
+});
+
 test("媒体清理：支持 Supabase 图片转换 URL，拒绝其他桶与路径穿越", () => {
   assert.equal(
     storagePathFromUrl(

@@ -51,6 +51,7 @@ const startAdmin = () => {
     categoryRows = [],
     isAcceptingOrders = true,
     orderPausedUntil = null,
+    settingsRequestRevision = 0,
     boot = async () => {};
   // Order cards, filtering, notes, cancellation and status controls are owned
   // by order-cards.js. Keep this hook limited to alerts and shared admin data.
@@ -454,6 +455,7 @@ const startAdmin = () => {
       "建议比例 8:3；系统会自动压缩、转为 WebP，并控制在 180 KB 内后上传云存储。",
     ],
   ];
+  const imageDirtyKey = (key) => `${key}Dirty`;
   const deliveryContentDefaults = {
       deliveryEyebrow: "LOCAL DELIVERY",
       deliveryTitle: "把零食送到你身边",
@@ -476,6 +478,7 @@ const startAdmin = () => {
       );
     deliveryImageKeys.forEach((key) => {
       form.dataset[key] = "";
+      form.dataset[imageDirtyKey(key)] = "true";
       const input = $(`#${key}Upload`);
       if (input) input.value = "";
       const preview = $(`#${key}Preview`);
@@ -505,6 +508,7 @@ const startAdmin = () => {
             );
             if (!form.isConnected || !input.isConnected) return;
             form.dataset[key] = image;
+            form.dataset[imageDirtyKey(key)] = "true";
             $(`#${key}Preview`).innerHTML = `<img src="${image}" alt="">`;
           } catch (error) {
             toast(error.message || "图片读取失败，请重新选择");
@@ -515,6 +519,7 @@ const startAdmin = () => {
         const key = e.target.dataset.removeDeliveryImage;
         if (!key) return;
         form.dataset[key] = "";
+        form.dataset[imageDirtyKey(key)] = "true";
         $(`#${key}Upload`).value = "";
         $(`#${key}Preview`).textContent = "默认浅米色背景";
         toast("已恢复默认图片，请点击保存店铺设置");
@@ -530,6 +535,7 @@ const startAdmin = () => {
         s.delivery?.trim() ||
         deliveryCopyDefault(s.delivery_fee, s.free_delivery_threshold);
     deliveryImageKeys.forEach((key) => {
+      if (form.dataset[imageDirtyKey(key)] === "true") return;
       const value = content[key] || "";
       form.dataset[key] = value;
       $(`#${key}Preview`).innerHTML = value
@@ -545,6 +551,7 @@ const startAdmin = () => {
     });
     imageSettings.forEach(([key, , fallback]) => {
       form.dataset[key] = "";
+      form.dataset[imageDirtyKey(key)] = "true";
       const upload = $(`#${key}Upload`);
       if (upload) upload.value = "";
       const preview = $(`#${key}Preview`);
@@ -555,7 +562,7 @@ const startAdmin = () => {
   }
   function setupImageSettings(content) {
     const form = $("#settingsForm");
-    if (!$("#imageSettings")) {
+    if (!$("#imageSettings") && !$("#heroImageControl")) {
       const save = form.querySelector("button.primary");
       save.insertAdjacentHTML(
         "beforebegin",
@@ -574,6 +581,7 @@ const startAdmin = () => {
             );
             if (!form.isConnected || !input.isConnected) return;
             form.dataset[key] = image;
+            form.dataset[imageDirtyKey(key)] = "true";
             $(`#${key}Preview`).innerHTML = `<img src="${image}" alt="">`;
           } catch (error) {
             toast(error.message || "图片读取失败，请重新选择");
@@ -584,6 +592,7 @@ const startAdmin = () => {
         const key = e.target.dataset.removeImage;
         if (key) {
           form.dataset[key] = "";
+          form.dataset[imageDirtyKey(key)] = "true";
           $(`#${key}Upload`).value = "";
           const fallback = imageSettings.find((x) => x[0] === key)[2];
           $(`#${key}Preview`).innerHTML =
@@ -604,6 +613,7 @@ const startAdmin = () => {
       };
     }
     imageSettings.forEach(([key, , fallback]) => {
+      if (form.dataset[imageDirtyKey(key)] === "true") return;
       const value = content[key] || "";
       form.dataset[key] = value;
       $(`#${key}Preview`).innerHTML =
@@ -627,12 +637,14 @@ const startAdmin = () => {
   async function settings() {
     const settingsForm = $("#settingsForm");
     if (!settingsForm) return;
+    const requestRevision = ++settingsRequestRevision;
     const { data: s } = await db
       .from("shop_settings")
       .select("*")
       .eq("id", 1)
       .single();
     if (
+      requestRevision !== settingsRequestRevision ||
       !s ||
       !settingsForm.isConnected ||
       $("#settingsForm") !== settingsForm ||
@@ -640,6 +652,7 @@ const startAdmin = () => {
     )
       return;
     if (s) {
+      window.TingsAdminSettings = s;
       isAcceptingOrders = s.is_accepting_orders !== false;
       orderPausedUntil = s.order_paused_until || null;
       if (
@@ -659,6 +672,21 @@ const startAdmin = () => {
       $("#lowStockInput").value = s.low_stock_threshold ?? 5;
       window.lowStock = s.low_stock_threshold ?? 5;
       const content = { ...contentDefaults, ...(s.content || {}) };
+      if (
+        settingsForm.dataset[imageDirtyKey("activityAnnouncementImage")] !==
+        "true"
+      ) {
+        const value = content.activityAnnouncementImage || "",
+          appearanceForm = $("#appearanceForm"),
+          preview = $("#activityAnnouncementImagePreview");
+        settingsForm.dataset.activityAnnouncementImage = value;
+        if (appearanceForm)
+          appearanceForm.dataset.activityAnnouncementImage = value;
+        if (preview)
+          preview.innerHTML = value
+            ? `<img src="${value}" alt="活动公告栏背景">`
+            : "默认浅米色背景";
+      }
       Object.entries(contentDefaults).forEach(([key, fallback]) => {
         const input = $(`#${key}Input`);
         if (input) input.value = content[key] || fallback;

@@ -14,15 +14,15 @@
     "shop-status.css?v=20260901a",
   ];
   const adminScripts = [
-    "image-optimizer.js?v=20260908c",
-    "admin.js?v=20260908d",
+    "image-optimizer.js?v=20260909a",
+    "admin.js?v=20260909a",
     "admin-mobile-nav.js?v=20260828a",
     "order-cards.js?v=20260908c",
     "marketing.js?v=20260904d",
     "legacy-product-editor-bridge.js?v=20260828a",
     "category-product-manager.js?v=20260908a",
-    "appearance-settings.js?v=20260908d",
-    "store-settings.js?v=20260908c",
+    "appearance-settings.js?v=20260909a",
+    "store-settings.js?v=20260909a",
     "admin-order-controls.js?v=20260908c",
     "media-cleanup.js?v=20260908a",
   ];

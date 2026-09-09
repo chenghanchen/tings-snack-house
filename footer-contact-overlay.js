@@ -17,6 +17,25 @@
     xiaohongshu: "Xiaohongshu",
     wechat: "Wechat",
   };
+  const qrUuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.png$/i;
+  function trustedQrUrl(value, platform) {
+    try {
+      const projectOrigin = new URL(window.TINGS_SUPABASE?.url || "").origin,
+        url = new URL(value),
+        prefix = `/storage/v1/object/public/storefront-images/appearance/qr/${platform}/`;
+      if (
+        url.protocol !== "https:" ||
+        url.origin !== projectOrigin ||
+        !url.pathname.startsWith(prefix) ||
+        !qrUuidPattern.test(url.pathname.slice(prefix.length))
+      )
+        return "";
+      return url.href;
+    } catch {
+      return "";
+    }
+  }
   const defaults = {
     showPhone: true,
     showEmail: true,
@@ -52,11 +71,13 @@
       contacts.push(
         `<a href="mailto:${esc(profile.email)}">邮箱：${esc(profile.email)}</a>`,
       );
-    const social = Object.entries(config.socials)
-      .filter(([, value]) => value?.show)
+    const social = Object.entries(socialNames)
+      .filter(([id]) => config.socials[id]?.show)
       .map(
-        ([id, value]) =>
-          `<div class="footer-social-item"><button type="button" class="footer-social-toggle" data-footer-social="${id}" aria-expanded="false">${socialNames[id]}</button><div class="footer-social-qr" id="footerQr_${id}" hidden>${value.qr ? `<img src="${value.qr}" alt="${socialNames[id]} 二维码">` : "<span>暂未设置二维码</span>"}</div></div>`,
+        ([id, label]) => {
+          const qr = trustedQrUrl(config.socials[id]?.qr, id);
+          return `<div class="footer-social-item"><button type="button" class="footer-social-toggle" data-footer-social="${id}" aria-expanded="false">${label}</button><div class="footer-social-qr" id="footerQr_${id}" hidden>${qr ? `<img data-footer-qr-src="${esc(qr)}" alt="${label} 二维码" width="112" height="112" loading="lazy" decoding="async">` : "<span>暂未设置二维码</span>"}</div></div>`;
+        },
       )
       .join("");
     if (!contacts.length && !social) return;
@@ -82,6 +103,11 @@
         .querySelectorAll(".footer-social-qr")
         .forEach((node) => (node.hidden = true));
       button.setAttribute("aria-expanded", String(!open));
+      if (panel && !open) {
+        const image = panel.querySelector("img[data-footer-qr-src]");
+        if (image && !image.getAttribute("src"))
+          image.src = image.dataset.footerQrSrc;
+      }
       if (panel) panel.hidden = open;
     });
   }

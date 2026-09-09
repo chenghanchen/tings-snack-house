@@ -445,9 +445,19 @@
   let settingsSavePending = false;
   async function saveSettings(event) {
     event.preventDefault();
-    if (settingsSavePending) return;
+    if (
+      settingsSavePending ||
+      window.TingsImage?.isSettingsSavePending?.()
+    ) {
+      toast("另一项店铺设置正在保存，请稍候");
+      return;
+    }
     const form = $("#settingsForm");
     if (!form || !db) return;
+    if (!window.TingsImage?.withSettingsSaveLock) {
+      toast("店铺设置保存工具尚未加载，请刷新后台后重试");
+      return;
+    }
     if ($("#storeSettingsLayout")?.dataset.loaded !== "true") {
       toast("店铺设置仍在加载，请稍后重试");
       return;
@@ -459,75 +469,77 @@
       previousButtonStates = submitButtons.map((button) => button.disabled);
     submitButtons.forEach((button) => (button.disabled = true));
     try {
-      const next = readConfig();
-      config = next;
-      window.storeNotificationSoundEnabled =
-        next.notifications.sound !== false;
-      syncLegacy(next);
-      const { data: current, error: readError } = await db
-        .from("shop_settings")
-        .select("content,pickup_address,pickup_note,new_order_email")
-        .eq("id", 1)
-        .maybeSingle();
-      if (!isCurrentSettingsForm(form)) return;
-      if (readError) throw readError;
-      if (!current) throw new Error("未找到店铺设置，请刷新后重试");
+      await window.TingsImage.withSettingsSaveLock(async () => {
+        const next = readConfig();
+        config = next;
+        window.storeNotificationSoundEnabled =
+          next.notifications.sound !== false;
+        syncLegacy(next);
+        const { data: current, error: readError } = await db
+          .from("shop_settings")
+          .select("content,pickup_address,pickup_note,new_order_email")
+          .eq("id", 1)
+          .maybeSingle();
+        if (!isCurrentSettingsForm(form)) return;
+        if (readError) throw readError;
+        if (!current) throw new Error("未找到店铺设置，请刷新后重试");
 
-      const fee = Number($("#deliveryFeeInput")?.value || 0),
-        free = Number($("#freeDeliveryInput")?.value || 0),
-        pickupAddress = $("#pickupAddressInput"),
-        pickupNote = $("#pickupNoteInput"),
-        orderEmail = $("#newOrderEmailInput"),
-        currentContent = isPlainObject(current.content)
-          ? current.content
-          : {},
-        footerHours =
-          $("#footerHoursInput")?.value.trim() ||
-          currentContent.footerHours ||
-          "营业时间：请查看店铺营业时间",
-        content = deepMerge(currentContent, {
-          storeSettings: next,
-          footerHours,
-        }),
-        delivery =
-          $("#deliveryText")?.value.trim() ||
-          `配送费 $${fee.toFixed(2)}；商品小计满 $${free.toFixed(2)} 免费配送。`,
-        pickupAddressValue =
-          pickupAddress?.dataset.loaded === "true" ||
-          pickupAddress?.value.trim()
-            ? pickupAddress.value.trim() || "天河城二楼，Archer Ave"
-            : current.pickup_address || "天河城二楼，Archer Ave",
-        pickupNoteValue =
-          pickupNote?.dataset.loaded === "true" || pickupNote?.value.trim()
-            ? pickupNote.value.trim() ||
-              "请到天河城二楼取货；每日 10:00–22:00"
-            : current.pickup_note ||
-              "请到天河城二楼取货；每日 10:00–22:00",
-        orderEmailValue =
-          orderEmail?.dataset.loaded === "true" || orderEmail?.value.trim()
-            ? orderEmail.value.trim() || null
-            : current.new_order_email ?? null;
+        const fee = Number($("#deliveryFeeInput")?.value || 0),
+          free = Number($("#freeDeliveryInput")?.value || 0),
+          pickupAddress = $("#pickupAddressInput"),
+          pickupNote = $("#pickupNoteInput"),
+          orderEmail = $("#newOrderEmailInput"),
+          currentContent = isPlainObject(current.content)
+            ? current.content
+            : {},
+          footerHours =
+            $("#footerHoursInput")?.value.trim() ||
+            currentContent.footerHours ||
+            "营业时间：请查看店铺营业时间",
+          content = deepMerge(currentContent, {
+            storeSettings: next,
+            footerHours,
+          }),
+          delivery =
+            $("#deliveryText")?.value.trim() ||
+            `配送费 $${fee.toFixed(2)}；商品小计满 $${free.toFixed(2)} 免费配送。`,
+          pickupAddressValue =
+            pickupAddress?.dataset.loaded === "true" ||
+            pickupAddress?.value.trim()
+              ? pickupAddress.value.trim() || "天河城二楼，Archer Ave"
+              : current.pickup_address || "天河城二楼，Archer Ave",
+          pickupNoteValue =
+            pickupNote?.dataset.loaded === "true" || pickupNote?.value.trim()
+              ? pickupNote.value.trim() ||
+                "请到天河城二楼取货；每日 10:00–22:00"
+              : current.pickup_note ||
+                "请到天河城二楼取货；每日 10:00–22:00",
+          orderEmailValue =
+            orderEmail?.dataset.loaded === "true" || orderEmail?.value.trim()
+              ? orderEmail.value.trim() || null
+              : current.new_order_email ?? null;
 
-      const { error } = await db
-        .from("shop_settings")
-        .update({
-          name: $("#shopName").value.trim(),
-          english: $("#shopEnglish").value.trim(),
-          delivery,
-          delivery_fee: fee,
-          free_delivery_threshold: free,
-          tax_rate: Number($("#taxRateInput")?.value || 0),
-          low_stock_threshold: Number($("#lowStockInput")?.value || 0),
-          pickup_address: pickupAddressValue,
-          pickup_note: pickupNoteValue,
-          new_order_email: orderEmailValue,
-          content,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", 1);
-      if (error) throw error;
-      window.lowStock = Number($("#lowStockInput")?.value || 0);
-      toast("店铺设置已保存");
+        const { error } = await db
+          .from("shop_settings")
+          .update({
+            name: $("#shopName").value.trim(),
+            english: $("#shopEnglish").value.trim(),
+            delivery,
+            delivery_fee: fee,
+            free_delivery_threshold: free,
+            tax_rate: Number($("#taxRateInput")?.value || 0),
+            low_stock_threshold: Number($("#lowStockInput")?.value || 0),
+            pickup_address: pickupAddressValue,
+            pickup_note: pickupNoteValue,
+            new_order_email: orderEmailValue,
+            content,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", 1);
+        if (error) throw error;
+        window.lowStock = Number($("#lowStockInput")?.value || 0);
+        toast("店铺设置已保存");
+      });
     } catch (error) {
       console.error("Store settings could not be saved", error);
       toast(error?.message || "店铺设置保存失败，请稍后重试");

@@ -8,6 +8,14 @@ import vm from "node:vm";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (name) => readFile(path.join(root, name), "utf8");
 
+function uploadProfileBlock(source, profile) {
+  const match = source.match(
+    new RegExp(`${profile}:\\s*Object\\.freeze\\(\\{([\\s\\S]*?)\\n\\s*\\}\\),`),
+  );
+  assert.ok(match, `应定义 ${profile} 图片上传预设`);
+  return match[1];
+}
+
 test("下单：前端锁定提交按钮并通过受限 Edge Function 发送完整请求", async () => {
   const [app, edge] = await Promise.all([
     read("app.js"),
@@ -44,7 +52,11 @@ test("订单查询：顾客端只调用受控查询 RPC，匿名角色仅获函�
 
 test("设置保存：合并已有 JSON、限定唯一设置行，并在成功或失败后解除按钮锁定", async () => {
   const source = await read("store-settings.js");
-  assert.match(source, /if \(settingsSavePending\) return;/);
+  assert.match(
+    source,
+    /settingsSavePending\s*\|\|[\s\S]*?isSettingsSavePending/,
+  );
+  assert.match(source, /withSettingsSaveLock/);
   assert.match(source, /content = deepMerge\(currentContent,/);
   assert.match(source, /\.from\("shop_settings"\)\s*\.update\(\{/);
   assert.match(source, /\.eq\("id", 1\)/);
@@ -340,6 +352,117 @@ test("媒体删除：Edge Function 强制校验店主并在删除前重新扫描
   assert.match(edge, /deleteOrphanFilesSafely\(\{/);
   assert.match(edge, /readReferences: \(\) => collectDatabaseReferences\(admin\)/);
   assert.match(config, /\[functions\.admin-media-cleanup\]\s*verify_jwt = true/);
+});
+
+test("统一图片存储：四类背景图固定转为 WebP 并使用严格 UUID URL", async () => {
+  const optimizer = await read("image-optimizer.js");
+  for (const profile of ["hero", "announcement", "delivery", "footer"]) {
+    const block = uploadProfileBlock(optimizer, profile);
+    assert.match(block, /forceWebp:\s*true/);
+    assert.match(block, /outputType:\s*"image\/webp"/);
+    assert.match(block, /folder:\s*"(?:appearance\/)?[a-z-]+"/);
+  }
+
+  assert.match(optimizer, /function uuidV4\(\)/);
+  assert.match(optimizer, /randomUUID/);
+  assert.match(optimizer, /getRandomValues/);
+  assert.doesNotMatch(
+    optimizer,
+    /Date\.now\(\)[\s\S]{0,160}Math\.random\(\)/,
+    "Storage 文件名不得回退为时间戳随机串，必须始终生成 UUID",
+  );
+  assert.match(
+    optimizer,
+    /path\s*=\s*`\$\{safeFolder\}\/\$\{[^}]+\}\.\$\{extensionForType\(blob\.type\)\}`/,
+  );
+  assert.match(optimizer, /expectedType\s*=\s*options\.outputType/);
+  assert.match(optimizer, /result\.blob\?\.type\s*!==\s*expectedType/);
+});
+
+test("社交二维码：使用专用 PNG/UUID 上传管线并提供扫描验证入口", async () => {
+  const [optimizer, appearance] = await Promise.all([
+    read("image-optimizer.js"),
+    read("appearance-settings.js"),
+  ]);
+  const qrProfile = uploadProfileBlock(optimizer, "qr");
+
+  assert.match(qrProfile, /outputType:\s*"image\/png"/);
+  assert.match(optimizer, /canvasToBlob\(canvas, outputType,/);
+  assert.match(optimizer, /async function uploadQrPng/);
+  assert.match(optimizer, /async function validateQrCode/);
+  assert.match(
+    optimizer,
+    /folder:\s*`appearance\/qr\/\$\{platform\}`/,
+  );
+  assert.match(optimizer, /result\.blob\?\.type\s*!==\s*"image\/png"/);
+  assert.match(optimizer, /!\/\\\.png\$\/i\.test\(uploaded\.path/);
+  assert.match(
+    optimizer,
+    /async function uploadQrPng[\s\S]*?await validateQrCode\(/,
+  );
+  assert.match(appearance, /TingsImage(?:\?\.|\.)uploadQrPng\(/);
+  assert.match(appearance, /withUploadLock/);
+  assert.match(appearance, /扫码验证|扫描验证/);
+  assert.match(optimizer, /jsqr@1\.4\.0\/dist\/jsQR\.js/);
+  assert.match(optimizer, /QR_DECODER_INTEGRITY\s*=/);
+  assert.match(optimizer, /getImageData\(/);
+  assert.match(optimizer, /inversionAttempts:\s*"attemptBoth"/);
+});
+
+test("外观保存：复用初始设置、保护未保存背景并阻止重复提交", async () => {
+  const [admin, appearance] = await Promise.all([
+    read("admin.js"),
+    read("appearance-settings.js"),
+  ]);
+  assert.match(admin, /window\.TingsAdminSettings\s*=\s*s/);
+  assert.match(admin, /function settings\(\)[\s\S]*?imageDirtyKey/);
+  assert.match(appearance, /let appearanceSavePending\s*=\s*false/);
+  assert.match(
+    appearance,
+    /appearanceSavePending\s*\|\|[\s\S]*?isSettingsSavePending/,
+  );
+  assert.match(appearance, /withSettingsSaveLock/);
+  assert.match(appearance, /source\.dataset\.activityAnnouncementImage/);
+  assert.match(appearance, /migrateLegacyBackgrounds/);
+  assert.match(
+    appearance,
+    /content:\s*mergedContent/,
+    "保存时必须把当前 content 与新版外观字段合并后一次写入",
+  );
+  assert.equal(
+    (appearance.match(/\.from\("shop_settings"\)/g) || []).length,
+    2,
+    "外观模块只应在保存时各读取和更新一次，初始化复用 admin.js 已有结果",
+  );
+});
+
+test("前台二维码：仅在点击后加载受信任的 Storage PNG URL", async () => {
+  const source = await read("footer-contact-overlay.js");
+
+  assert.match(source, /new URL\(/);
+  assert.match(
+    source,
+    /storefront-images\/appearance\/qr\//,
+    "二维码必须限定在 storefront-images/appearance/qr 下",
+  );
+  for (const platform of ["wechat", "xiaohongshu", "facebook", "instagram"])
+    assert.match(source, new RegExp(`\\b${platform}\\b`));
+  assert.match(
+    source,
+    /\[0-9a-f\]\{8\}[\s\S]*\[0-9a-f\]\{4\}[\s\S]*\\?\.png/i,
+    "二维码 URL 应校验 UUID 文件名和 .png 扩展名",
+  );
+  assert.doesNotMatch(
+    source,
+    /value\.qr\s*\?\s*`<img\s+src=/,
+    "初始页尾 HTML 不应直接设置二维码 img.src",
+  );
+  assert.match(source, /data-(?:src|qr-src|footer-qr-src)/);
+  assert.match(
+    source,
+    /addEventListener\("click"[\s\S]*?\.src\s*=/,
+    "点击社交平台后才可赋值二维码 img.src",
+  );
 });
 
 test("首屏快照：优先一次只读 RPC，异常时保留旧请求回退", async () => {

@@ -3,11 +3,17 @@
    fields retain only their public CDN URLs. */
 (() => {
   const STORAGE_BUCKET = "storefront-images";
+  const QR_DECODER_URL =
+      "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js",
+    QR_DECODER_INTEGRITY =
+      "sha384-b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx";
+  let qrDecoderPromise = null;
   const UPLOAD_PROFILES = Object.freeze({
     product: Object.freeze({
       folder: "products",
       maxDimension: 1200,
       quality: 0.82,
+      outputType: "image/webp",
       forceWebp: true,
       maxBytes: 240 * 1024,
     }),
@@ -15,6 +21,7 @@
       folder: "variants",
       maxDimension: 1200,
       quality: 0.82,
+      outputType: "image/webp",
       forceWebp: true,
       maxBytes: 240 * 1024,
     }),
@@ -22,6 +29,7 @@
       folder: "hero",
       maxDimension: 1920,
       quality: 0.84,
+      outputType: "image/webp",
       forceWebp: true,
       maxBytes: 256 * 1024,
     }),
@@ -29,6 +37,7 @@
       folder: "appearance/announcement",
       maxDimension: 1920,
       quality: 0.84,
+      outputType: "image/webp",
       forceWebp: true,
       maxBytes: 180 * 1024,
     }),
@@ -36,6 +45,7 @@
       folder: "appearance/delivery",
       maxDimension: 1920,
       quality: 0.84,
+      outputType: "image/webp",
       forceWebp: true,
       maxBytes: 220 * 1024,
     }),
@@ -43,13 +53,24 @@
       folder: "footer",
       maxDimension: 2048,
       quality: 0.84,
+      outputType: "image/webp",
       forceWebp: true,
       maxBytes: 180 * 1024,
+    }),
+    qr: Object.freeze({
+      folder: "appearance/qr",
+      maxDimension: 1024,
+      minDimension: 320,
+      outputType: "image/png",
+      backgroundColor: "#ffffff",
+      imageSmoothing: false,
+      maxBytes: 512 * 1024,
     }),
   });
   const uploadCounts = new WeakMap(),
     uploadLockedControls = new WeakMap(),
     uploadCancelHandlers = new WeakMap();
+  let settingsSavePending = false;
   const dataUrlBytes = (value) => {
     const encoded = String(value || "").split(",")[1] || "";
     return Math.floor((encoded.length * 3) / 4);
@@ -78,13 +99,41 @@
       image.src = url;
     });
 
-  const canvasToBlob = (canvas, quality) =>
-    new Promise((resolve) => canvas.toBlob(resolve, "image/webp", quality));
+  function loadQrDecoder() {
+    if (globalThis.jsQR) return Promise.resolve(globalThis.jsQR);
+    if (qrDecoderPromise) return qrDecoderPromise;
+    qrDecoderPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = QR_DECODER_URL;
+      script.integrity = QR_DECODER_INTEGRITY;
+      script.crossOrigin = "anonymous";
+      script.referrerPolicy = "no-referrer";
+      script.dataset.tingsQrDecoder = "true";
+      script.onload = () => {
+        if (globalThis.jsQR) resolve(globalThis.jsQR);
+        else {
+          script.remove();
+          qrDecoderPromise = null;
+          reject(new Error("二维码扫描工具加载失败，请刷新后台后重试"));
+        }
+      };
+      script.onerror = () => {
+        script.remove();
+        qrDecoderPromise = null;
+        reject(new Error("二维码扫描工具加载失败，请检查网络后重试"));
+      };
+      document.head.append(script);
+    });
+    return qrDecoderPromise;
+  }
+
+  const canvasToBlob = (canvas, type, quality) =>
+    new Promise((resolve) => canvas.toBlob(resolve, type, quality));
 
   function profileOptions(name, overrides = {}) {
     const profile = UPLOAD_PROFILES[name];
     if (!profile) throw new Error(`未知的图片上传类型：${name}`);
-    return { ...profile, ...overrides, forceWebp: true };
+    return { ...profile, ...overrides };
   }
 
   function setUploadBusy(form, busy) {
@@ -140,14 +189,37 @@
     }
   }
 
+  async function withSettingsSaveLock(task) {
+    if (settingsSavePending)
+      throw new Error("另一项店铺设置正在保存，请稍候");
+    settingsSavePending = true;
+    const forms = [
+      document.querySelector("#settingsForm"),
+      document.querySelector("#appearanceForm"),
+    ].filter((form, index, values) => form && values.indexOf(form) === index);
+    forms.forEach((form) => setUploadBusy(form, true));
+    try {
+      return await task();
+    } finally {
+      forms.reverse().forEach((form) => setUploadBusy(form, false));
+      settingsSavePending = false;
+    }
+  }
+
+  const isSettingsSavePending = () => settingsSavePending;
+
   async function optimizeBlob(
     blob,
     {
       maxDimension = 1200,
       quality = 0.82,
       forceWebp = false,
+      outputType = "image/webp",
       maxBytes = 0,
       minQuality = 0.58,
+      minDimension = 1,
+      backgroundColor = "",
+      imageSmoothing = true,
     } = {},
   ) {
     if (!blob?.type?.startsWith("image/"))
@@ -155,7 +227,7 @@
     if (blob.type === "image/svg+xml")
       throw new Error("请先将 SVG 图片转换为 PNG、JPEG 或 WebP");
     // Do not silently flatten animations into a static storefront image.
-    if (blob.type === "image/gif" && forceWebp)
+    if (blob.type === "image/gif" && (forceWebp || outputType !== blob.type))
       throw new Error("此处不支持 GIF，请上传 PNG、JPEG 或 WebP 图片");
     if (blob.type === "image/gif")
       return { blob, changed: false, skipped: true };
@@ -169,42 +241,54 @@
     let width = Math.max(1, Math.round(naturalWidth * scale)),
       height = Math.max(1, Math.round(naturalHeight * scale)),
       currentQuality = quality,
-      webp = null;
+      optimized = null;
     const canvas = document.createElement("canvas");
     for (let attempt = 0; attempt < 12; attempt += 1) {
       canvas.width = width;
       canvas.height = height;
       const context = canvas.getContext("2d", { alpha: true });
-      context.clearRect(0, 0, width, height);
+      context.imageSmoothingEnabled = imageSmoothing;
+      context.imageSmoothingQuality = "high";
+      if (backgroundColor) {
+        context.fillStyle = backgroundColor;
+        context.fillRect(0, 0, width, height);
+      } else context.clearRect(0, 0, width, height);
       context.drawImage(image, 0, 0, width, height);
-      webp = await canvasToBlob(canvas, currentQuality);
-      if (!webp || !maxBytes || webp.size <= maxBytes) break;
-      if (currentQuality > minQuality) {
+      optimized = await canvasToBlob(canvas, outputType, currentQuality);
+      if (!optimized || !maxBytes || optimized.size <= maxBytes) break;
+      if (outputType === "image/webp" && currentQuality > minQuality) {
         currentQuality = Math.max(minQuality, currentQuality - 0.07);
       } else {
-        const sizeRatio = Math.sqrt(maxBytes / webp.size),
+        const sizeRatio = Math.sqrt(maxBytes / optimized.size),
           dimensionScale = Math.min(0.88, Math.max(0.65, sizeRatio * 0.94));
-        width = Math.max(1, Math.round(width * dimensionScale));
-        height = Math.max(1, Math.round(height * dimensionScale));
+        const nextWidth = Math.max(1, Math.round(width * dimensionScale)),
+          nextHeight = Math.max(1, Math.round(height * dimensionScale));
+        if (Math.max(nextWidth, nextHeight) < minDimension) break;
+        width = nextWidth;
+        height = nextHeight;
       }
     }
-    if (!webp || webp.type !== "image/webp") {
-      if (forceWebp)
+    if (!optimized || optimized.type !== outputType) {
+      if (forceWebp || outputType !== "image/webp")
         throw new Error(
-          "当前浏览器无法将图片转换为 WebP，请更新浏览器后重试",
+          `当前浏览器无法将图片转换为 ${outputType === "image/png" ? "PNG" : "WebP"}，请更新浏览器后重试`,
         );
       return { blob, changed: false, skipped: true };
     }
-    if (maxBytes && webp.size > maxBytes)
+    if (maxBytes && optimized.size > maxBytes)
       throw new Error(
         `图片优化后仍超过 ${Math.ceil(maxBytes / 1024)} KB，请选择构图更简单或尺寸更小的图片`,
       );
     // Keep a tiny original only when WebP would increase its payload notably.
-    if (!forceWebp && webp.size > blob.size * 1.02)
+    if (
+      !forceWebp &&
+      outputType === "image/webp" &&
+      optimized.size > blob.size * 1.02
+    )
       return { blob, changed: false, skipped: true };
     return {
-      blob: webp,
-      changed: blob.type !== "image/webp" || webp.size !== blob.size,
+      blob: optimized,
+      changed: blob.type !== outputType || optimized.size !== blob.size,
       skipped: false,
       width,
       height,
@@ -233,6 +317,18 @@
       "image/gif": "gif",
     })[type] || "bin";
 
+  function uuidV4() {
+    const cryptoApi = globalThis.crypto;
+    if (cryptoApi?.randomUUID) return cryptoApi.randomUUID();
+    if (!cryptoApi?.getRandomValues)
+      throw new Error("当前浏览器无法生成安全的图片文件名，请更新浏览器后重试");
+    const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = [...bytes].map((value) => value.toString(16).padStart(2, "0"));
+    return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
+  }
+
   async function uploadBlob(
     db,
     blob,
@@ -240,9 +336,8 @@
   ) {
     const safeFolder = String(folder || "uploads")
         .replace(/[^a-z0-9/_-]+/gi, "-")
-        .replace(/^\/+|\/+$/g, ""),
-      token = globalThis.crypto?.randomUUID?.() ||
-        `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        .replace(/^\/+|\/+$/g, "") || "uploads",
+      token = uuidV4(),
       path = `${safeFolder}/${token}.${extensionForType(blob.type)}`,
       { error } = await db.storage.from(STORAGE_BUCKET).upload(path, blob, {
         cacheControl,
@@ -272,14 +367,89 @@
   }
 
   async function uploadPreset(db, file, profile, overrides = {}) {
-    const result = await uploadOptimizedFile(
+    const options = profileOptions(profile, overrides),
+      result = await uploadOptimizedFile(
       db,
       file,
-      profileOptions(profile, overrides),
-    );
-    if (result.blob?.type !== "image/webp" || !/\.webp$/i.test(result.path || ""))
-      throw new Error("图片未能以 WebP 格式上传，请重新选择图片");
+      options,
+    ),
+      expectedType = options.outputType || "image/webp",
+      expectedExtension = extensionForType(expectedType);
+    if (
+      result.blob?.type !== expectedType ||
+      !new RegExp(`\\.${expectedExtension}$`, "i").test(result.path || "")
+    )
+      throw new Error(
+        `图片未能以 ${expectedType === "image/png" ? "PNG" : "WebP"} 格式上传，请重新选择图片`,
+      );
     return result;
+  }
+
+  async function validateQrCode(blob) {
+    const Detector = globalThis.BarcodeDetector;
+    let source;
+    if (Detector) {
+      try {
+        const formats = Detector.getSupportedFormats
+          ? await Detector.getSupportedFormats()
+          : ["qr_code"];
+        if (formats.includes("qr_code")) {
+          source = globalThis.createImageBitmap
+            ? await globalThis.createImageBitmap(blob)
+            : await loadImage(blob);
+          const codes = await new Detector({ formats: ["qr_code"] }).detect(
+              source,
+            ),
+            value = codes.find((code) => code?.rawValue)?.rawValue?.trim();
+          if (value) return value;
+        }
+      } catch (error) {
+        console.warn("原生二维码扫描不可用，改用兼容扫描器", error);
+      } finally {
+        source?.close?.();
+      }
+    }
+    const decoder = await loadQrDecoder(),
+      image = await loadImage(blob),
+      canvas = document.createElement("canvas"),
+      width = image.naturalWidth || image.width,
+      height = image.naturalHeight || image.height;
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.drawImage(image, 0, 0, width, height);
+    const pixels = context.getImageData(0, 0, width, height),
+      result = decoder(pixels.data, width, height, {
+        inversionAttempts: "attemptBoth",
+      }),
+      value = result?.data?.trim();
+    if (!value)
+      throw new Error("没有识别到有效二维码，请上传清晰、完整并留有白边的二维码");
+    return value;
+  }
+
+  async function uploadQrPng(db, file, platform) {
+    const allowedPlatforms = new Set([
+      "wechat",
+      "xiaohongshu",
+      "facebook",
+      "instagram",
+    ]);
+    if (!allowedPlatforms.has(platform)) throw new Error("未知的社交媒体类型");
+    const options = profileOptions("qr", {
+        folder: `appearance/qr/${platform}`,
+      }),
+      result = await optimizeFile(file, {
+        ...options,
+        includeDataUrl: false,
+      });
+    if (result.blob?.type !== "image/png")
+      throw new Error("二维码未能转换为 PNG，请重新选择图片");
+    const qrValue = await validateQrCode(result.blob),
+      uploaded = await uploadBlob(db, result.blob, options);
+    if (!/\.png$/i.test(uploaded.path || ""))
+      throw new Error("二维码未能以 PNG 格式上传，请重新选择图片");
+    return { ...result, ...uploaded, qrValue, verified: true };
   }
 
   async function optimizeDataUrl(value, options) {
@@ -370,7 +540,11 @@
     uploadBlob,
     uploadOptimizedFile,
     uploadPreset,
+    uploadQrPng,
+    validateQrCode,
     withUploadLock,
+    withSettingsSaveLock,
+    isSettingsSavePending,
     migrateCatalogImages,
   };
 })();
