@@ -979,7 +979,7 @@ db.channel("shop-live-v2")
 if (!$("#imagePreviewDialog"))
   document.body.insertAdjacentHTML(
     "beforeend",
-    '<dialog id="imagePreviewDialog" class="image-preview-dialog" aria-label="商品图片预览"><button class="dialog-close" id="closeImagePreview" aria-label="关闭图片预览">×</button><img id="imagePreviewLarge" alt="" hidden><span id="imagePreviewEmoji" class="image-preview-emoji" hidden></span><p id="imagePreviewName"></p></dialog>',
+    '<dialog id="imagePreviewDialog" class="image-preview-dialog" aria-label="商品图片预览"><button class="dialog-close" id="closeImagePreview" aria-label="关闭图片预览">×</button><img id="imagePreviewLarge" alt="" hidden><span id="imagePreviewEmoji" class="image-preview-emoji" hidden></span><p id="imagePreviewName"></p><p id="imagePreviewDescription" hidden></p></dialog>',
   );
 function openImagePreview(p) {
   const item = itemFor(p),
@@ -988,6 +988,9 @@ function openImagePreview(p) {
     large = $("#imagePreviewLarge");
   $("#imagePreviewName").textContent =
     `${p.name}${item?.label ? ` · ${item.label}` : ""}`;
+  const description = $("#imagePreviewDescription");
+  description.textContent = String(p.note || "");
+  description.hidden = !description.textContent.trim();
   if (image) {
     large.src = image;
     large.alt = p.name;
@@ -1081,7 +1084,7 @@ renderProducts = function (filter = "全部") {
               : item
                 ? qtyControl(p, item)
                 : '<button class="add" disabled>缺货</button>';
-        return `<article class="product"><div class="product-image" data-preview="${p.id}" role="button" tabindex="0" aria-label="查看 ${escapeHtml(p.name)} 大图" style="background:${p.color}">${img ? `<img src="${img}" alt="${escapeHtml(p.name)}" width="400" height="400" ${imageAttrs}>` : `<span class="product-icon">${escapeHtml(p.icon)}</span>`}<span class="product-tag">${escapeHtml(p.type)}</span><span class="image-zoom-hint" aria-hidden="true">⌕</span></div><h3>${escapeHtml(p.name)}</h3>${p.note ? `<p>${escapeHtml(p.note)}</p>` : ""}${opts}${item && item.out ? '<p class="stock-warning">该规格已缺货</p>' : ""}<div class="product-bottom"><b>${price}</b>${action}</div></article>`;
+        return `<article class="product"><div class="product-image" data-preview="${p.id}" role="button" tabindex="0" aria-label="查看 ${escapeHtml(p.name)} 大图" style="background:${p.color}">${img ? `<img src="${img}" alt="${escapeHtml(p.name)}" width="400" height="400" ${imageAttrs}>` : `<span class="product-icon">${escapeHtml(p.icon)}</span>`}<span class="product-tag">${escapeHtml(p.type)}</span><span class="image-zoom-hint" aria-hidden="true">⌕</span></div><h3>${escapeHtml(p.name)}</h3>${opts}${item && item.out ? '<p class="stock-warning">该规格已缺货</p>' : ""}<div class="product-bottom"><b>${price}</b>${action}</div></article>`;
       })
       .join("") || '<p class="no-products">没有匹配的商品。</p>';
 };
@@ -1490,9 +1493,11 @@ function updateProductCardOffer(card, product, item, action) {
       : item && remainingStock <= lowThreshold
         ? `⚠️ 仅剩 ${remainingStock} 件`
         : "";
+  card.querySelector(".promotion-badge")?.remove();
+  if (offer) card.querySelector("h3")?.insertAdjacentHTML("afterend", `<div class="promotion-badge">🔥限时优惠：${escapeHtml(offer)}</div>`);
   bottom.classList.toggle("has-promotion", !!offer);
   bottom.classList.toggle("has-stock-notice", !!stockNotice);
-  bottom.innerHTML = `<div class="product-price-wrap">${offer ? `<span class="promotion-badge">🔥限时优惠：${escapeHtml(offer)}</span>` : ""}<b>${price}</b></div><div class="product-action-wrap">${action}</div>${stockNotice ? `<p class="stock-warning">${stockNotice}</p>` : ""}`;
+  bottom.innerHTML = `<div class="product-price-wrap"><b>${price}</b></div><div class="product-action-wrap">${action}</div>${stockNotice ? `<p class="stock-warning">${stockNotice}</p>` : ""}`;
 }
 const baseProductRender = renderProducts;
 renderProducts = function (filter) {

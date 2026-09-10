@@ -72,6 +72,10 @@
 #productGrid>.product{min-height:0;align-self:start;padding-bottom:10px}
 #productGrid .product-bottom{gap:4px 8px;padding-bottom:0}
 #productGrid .product-bottom>.stock-warning{grid-column:1/-1;flex-basis:100%;margin:0;text-align:right;font-size:12px;line-height:14px}
+#productGrid .product>.promotion-badge{position:static;width:fit-content;margin:6px 0 0;font-size:12px;white-space:normal;overflow-wrap:anywhere}
+#productGrid .product-bottom.has-promotion{margin-top:14px}
+#imagePreviewDescription{margin:8px 0 4px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.6}
+#imagePreviewDescription[hidden]{display:none}
 #productSearch{margin-top:-30px}
 #deliveryInfo{margin-top:-50px;margin-bottom:0}
 /* 96px desktop padding minus 75px offset leaves 21px above the heading. */
@@ -83,8 +87,10 @@
   #productGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   #productGrid>.product{padding:10px}
   #productGrid .product-bottom{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:4px;align-items:end}
-  #productGrid .product-price-wrap b{display:flex;flex-direction:column;align-items:flex-start;gap:3px;line-height:28px}
-  #productGrid .product-price-wrap b s{line-height:14px}
+  #productGrid .product-price-wrap b{display:flex;flex-direction:row;align-items:center;gap:2px;line-height:28px}
+  #productGrid .product-price-wrap b s{font-size:10px;line-height:28px}
+  #productGrid .add{padding-left:4px;padding-right:4px;font-size:10px}
+  #productGrid .card-quantity button{width:22px}
 }
 
 /* Keep at least 170px per card so 20px prices and quantity controls fit together. */

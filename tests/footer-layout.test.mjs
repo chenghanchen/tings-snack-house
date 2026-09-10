@@ -45,6 +45,14 @@ test("页尾：真实 HTML 导航、手机重排以及单一页尾入口", async
   assert.ok(background.length < 200000);
 });
 
+test("页尾：电话邮箱逐行对齐，移动端图标在关注标题右侧", async () => {
+  const css = await read("footer-layout.css");
+  assert.match(css, /\.ft-contact>section\{display:grid;grid-template-rows:subgrid;grid-row:1\/span 3/);
+  assert.match(css, /\.ft-contact>#footerEmailSection\{grid-column:2\}/);
+  assert.match(css, /\.ft-social h2\{grid-column:1;grid-row:1;margin:0\}/);
+  assert.match(css, /\.ft-social-list\{grid-column:2;grid-row:1;justify-content:flex-end/);
+});
+
 test("页尾：二维码只允许当前项目、当前平台与 UUID PNG", async () => {
   const source = await read("footer-contact-overlay.js");
   const part = source.slice(source.indexOf("  const qrUuidPattern"), source.indexOf("  let settings"));
