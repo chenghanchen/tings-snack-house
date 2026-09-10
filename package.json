@@ -2,7 +2,7 @@
   "name": "tings-snack-house",
   "private": true,
   "scripts": {
-    "test": "node --test tests/media-cleanup-core.test.mjs tests/release-contracts.test.mjs tests/image-optimizer.test.mjs tests/footer-layout.test.mjs",
+    "test": "node --test tests/media-cleanup-core.test.mjs tests/release-contracts.test.mjs tests/image-optimizer.test.mjs tests/footer-layout.test.mjs tests/catalog-layout.test.mjs",
     "release:check": "node scripts/release-check.mjs"
   }
 }
