@@ -1492,7 +1492,7 @@ function updateProductCardOffer(card, product, item, action) {
         : "";
   bottom.classList.toggle("has-promotion", !!offer);
   bottom.classList.toggle("has-stock-notice", !!stockNotice);
-  bottom.innerHTML = `<div class="product-price-wrap">${offer ? `<span class="promotion-badge">🔥限时优惠：${escapeHtml(offer)}</span>` : ""}<b>${price}</b></div><div class="product-action-wrap">${action}${stockNotice ? `<p class="stock-warning">${stockNotice}</p>` : ""}</div>`;
+  bottom.innerHTML = `<div class="product-price-wrap">${offer ? `<span class="promotion-badge">🔥限时优惠：${escapeHtml(offer)}</span>` : ""}<b>${price}</b></div><div class="product-action-wrap">${action}</div>${stockNotice ? `<p class="stock-warning">${stockNotice}</p>` : ""}`;
 }
 const baseProductRender = renderProducts;
 renderProducts = function (filter) {
