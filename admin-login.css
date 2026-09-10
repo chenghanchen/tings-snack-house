@@ -10,6 +10,7 @@
 * {
   box-sizing: border-box;
 }
+*,::before,::after{font-family:Arial, sans-serif}
 
 html.admin-auth-screen body {
   display: block;
@@ -17,7 +18,7 @@ html.admin-auth-screen body {
   margin: 0;
   background: var(--cream);
   color: var(--ink);
-  font: 14px "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  font:14px Arial, sans-serif;
 }
 
 html.admin-auth-screen body > aside,
@@ -68,7 +69,7 @@ html.admin-auth-screen .eyebrow {
 
 html.admin-auth-screen h1 {
   margin: 0;
-  font-family: Georgia, "Songti SC", serif;
+  font-family:Arial, sans-serif;
   font-size: clamp(32px, 7vw, 42px);
   letter-spacing: 1px;
 }

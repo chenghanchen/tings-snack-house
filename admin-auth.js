@@ -7,11 +7,11 @@
   const loader = document.querySelector(".admin-boot-loader");
   const toastNode = document.querySelector("#toast");
   const localStyles = [
-    "admin.css?v=20260903g",
-    "order-cards.css?v=20260905b",
-    "order-tab.css?v=20260901a",
-    "marketing-wizard.css?v=20260904o",
-    "shop-status.css?v=20260901a",
+    "admin.css?v=20260909k",
+    "order-cards.css?v=20260909k",
+    "order-tab.css?v=20260909k",
+    "marketing-wizard.css?v=20260909k",
+    "shop-status.css?v=20260909k",
   ];
   const adminScripts = [
     "image-optimizer.js?v=20260909c",
@@ -20,10 +20,10 @@
     "order-cards.js?v=20260908c",
     "marketing.js?v=20260904d",
     "legacy-product-editor-bridge.js?v=20260828a",
-    "category-product-manager.js?v=20260908a",
-    "appearance-settings.js?v=20260909c",
-    "store-settings.js?v=20260909a",
-    "admin-order-controls.js?v=20260908c",
+    "category-product-manager.js?v=20260909k",
+    "appearance-settings.js?v=20260909k",
+    "store-settings.js?v=20260909k",
+    "admin-order-controls.js?v=20260909k",
     "media-cleanup.js?v=20260908a",
   ];
 
@@ -62,23 +62,6 @@
     });
   }
 
-  function loadFont() {
-    const google = document.createElement("link");
-    google.rel = "preconnect";
-    google.href = "https://fonts.googleapis.com";
-    document.head.append(google);
-    const staticHost = document.createElement("link");
-    staticHost.rel = "preconnect";
-    staticHost.href = "https://fonts.gstatic.com";
-    staticHost.crossOrigin = "anonymous";
-    document.head.append(staticHost);
-    const font = document.createElement("link");
-    font.rel = "stylesheet";
-    font.href =
-      "https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600&display=swap";
-    document.head.append(font);
-  }
-
   function loadAdminScripts() {
     return Promise.all(
       adminScripts.map(
@@ -100,7 +83,6 @@
     setState("loading-modules");
     if (loader) loader.textContent = "正在加载店主后台…";
     window.armAdminBootFallback?.();
-    loadFont();
     await Promise.all(localStyles.map(loadStyle));
     root.classList.remove("admin-auth-screen");
     await loadAdminScripts();

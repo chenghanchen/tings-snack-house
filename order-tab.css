@@ -2,7 +2,7 @@
 .order-tab-heading{display:flex;align-items:center;min-height:34px}
 .order-tab{border-radius:10px}
 .order-tabs{display:flex;align-items:center;gap:7px}
-.order-tab{position:relative;border:1px solid var(--line);background:#fffdf8;color:#6e7a72;padding:7px 11px;font:700 12px inherit;cursor:pointer}
+.order-tab{position:relative;border:1px solid var(--line);background:#fffdf8;color:#6e7a72;padding:7px 11px;font:700 12px Arial, sans-serif;cursor:pointer}
 .order-tab.active-order-tab{background:#6caa70;border-color:#6caa70;color:#fff}
 .order-tab.active-order-tab::before{content:"";display:inline-block;width:7px;height:7px;margin:0 6px 1px 0;border-radius:50%;background:var(--red);vertical-align:middle;box-shadow:0 0 0 2px #ffffff33}
 .order-tab:hover{border-color:#6caa70;color:#4f8054}

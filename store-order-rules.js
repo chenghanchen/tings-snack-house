@@ -28,7 +28,7 @@
   const form = $("#orderForm");
   document.head.insertAdjacentHTML(
     "beforeend",
-    '<style id="storeOrderRuleStyles">.schedule-hint{display:block;margin-top:6px;color:#758077;font-size:11px;font-weight:400}.order-note-field[hidden]{display:none!important}.order-rule-toast{position:fixed;z-index:40;left:50%;top:50%;width:min(330px,calc(100vw - 42px));transform:translate(-50%,-44%);padding:16px 20px;border:1px solid #d75b4b;background:#fffdf8;color:#293730;box-shadow:0 16px 40px #28362e38;text-align:center;font:700 14px "Zen Maru Gothic","Microsoft YaHei",sans-serif;line-height:1.7;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;cursor:pointer}.order-rule-toast.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}</style>',
+    '<style id="storeOrderRuleStyles">.schedule-hint{display:block;margin-top:6px;color:#758077;font-size:11px;font-weight:400}.order-note-field[hidden]{display:none!important}.order-rule-toast{position:fixed;z-index:40;left:50%;top:50%;width:min(330px,calc(100vw - 42px));transform:translate(-50%,-44%);padding:16px 20px;border:1px solid #d75b4b;background:#fffdf8;color:#293730;box-shadow:0 16px 40px #28362e38;text-align:center;font:700 14px Arial, sans-serif;line-height:1.7;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;cursor:pointer}.order-rule-toast.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}</style>',
   );
   function labelFor(name) {
     return form?.elements[name]?.closest("label");

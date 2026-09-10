@@ -643,9 +643,9 @@ test("活动公告：发布后可原位刷新、新增和移除，已滚过首�
   assert.equal(rootStyle.scrollBehavior, "smooth");
 });
 
-test("字体与仓库：顾客页只请求单字重字体，三张旧 PNG 已移除", async () => {
+test("字体与仓库：顾客页无需远程字体，三张旧 PNG 已移除", async () => {
   const [html, app] = await Promise.all([read("index.html"), read("app.js")]);
-  assert.match(html, /family=Noto\+Serif\+SC:wght@600(?:&amp;|&)display=swap/);
+  assert.doesNotMatch(html, /fonts\.(googleapis|gstatic)\.com/);
   assert.doesNotMatch(html, /Zen\+Maru\+Gothic/);
   for (const base of [
     "footer-composite-v1",
