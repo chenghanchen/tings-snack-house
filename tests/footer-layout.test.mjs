@@ -50,7 +50,16 @@ test("页尾：电话邮箱逐行对齐，移动端图标在关注标题右侧",
   assert.match(css, /\.ft-contact>section\{display:grid;grid-template-rows:subgrid;grid-row:1\/span 3/);
   assert.match(css, /\.ft-contact>#footerEmailSection\{grid-column:2\}/);
   assert.match(css, /\.ft-social h2\{grid-column:1;grid-row:1;margin:0\}/);
-  assert.match(css, /\.ft-social-list\{grid-column:2;grid-row:1;justify-content:flex-end/);
+  assert.match(css, /\.ft-social-list\{grid-column:2;grid-row:1;justify-content:flex-start/);
+});
+
+test("手机页尾：链接行高32px，联系方式与支付图按内容紧凑排列", async () => {
+  const css = await read("footer-layout.css");
+  const mobile = css.slice(css.indexOf("@media(max-width:600px)"));
+  assert.match(mobile, /\.ft-links a\{font-size:13px;min-height:32px\}/);
+  assert.match(mobile, /\.ft-contact\{position:static;width:90.6%;margin:8px auto 0\}/);
+  assert.match(mobile, /\.ft-payments\{position:static;[^}]*margin:12px 0 0;[^}]*footer-mobile-background-v1.webp/);
+  assert.match(mobile, /\.ft-brand\{position:static;[^}]*aspect-ratio:1164\/430/);
 });
 
 test("页尾：二维码只允许当前项目、当前平台与 UUID PNG", async () => {
