@@ -5,6 +5,8 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   const amount=c=>c.discount_kind==='percent' ? `${Number(c.amount)}% OFF` : `$${Number(c.amount).toFixed(2)} OFF`;
   const date=value=>value ? new Date(value).toLocaleDateString('en-US') : '无固定期限';
   const couponsPanel=dialog.querySelector('#customerCouponsPanel'),rewardsPanel=dialog.querySelector('#customerRewardsPanel');
+  const refreshCoupons=dialog.querySelector('#customerRefreshCoupons');
+  refreshCoupons.onclick=()=>load();
   let request=0, wallet=null, selectedCode='';
   const checkout=el('section',null,'customer-wallet-checkout'); checkout.id='customerWalletCheckout'; checkout.hidden=true;
   document.querySelector('#promotionChoice').before(checkout);
@@ -15,14 +17,17 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   });
   function reset(){
     request++;wallet=null;checkout.hidden=true;checkout.replaceChildren();
+    refreshCoupons.disabled=false;
     couponsPanel.replaceChildren();rewardsPanel.replaceChildren();
     if(selectedCode&&couponInput.value.trim().toUpperCase()===selectedCode){couponInput.value='';couponInput.dispatchEvent(new Event('input',{bubbles:true}));}
     selectedCode='';
   }
   function button(text,fn){const node=el('button',text);node.type='button';node.onclick=fn;return node;}
-  function card(c){
+  function card(c,showSource=false){
     const node=el('article',null,'customer-coupon-card');
-    node.append(el('strong',amount(c)),el('h4',c.name),el('p',`满 $${Number(c.min_spend).toFixed(2)} 可用`),
+    node.append(el('strong',amount(c)));
+    if(showSource)node.append(el('span',`【${({new:'新人券',regular:'店铺优惠券',referral:'推荐奖励'})[c.kind]||'店铺优惠券'}】`,'customer-coupon-source'));
+    node.append(el('h4',c.name),el('p',`满 $${Number(c.min_spend).toFixed(2)} 可用`),
       el('p',c.ends_at?`有效期至 ${date(c.ends_at)}`:'无固定到期日'),
       el('small',c.allow_campaign_stack===false?'不可与活动叠加':'活动叠加以结算核算为准'));
     if(c.starts_at&&new Date(c.starts_at)>new Date())node.append(el('p',`开始于 ${date(c.starts_at)}`));
@@ -33,7 +38,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   function groups(panel,rows){
     for(const [status,title] of [['available','可用优惠券'],['used','已使用'],['expired','已过期'],['unavailable','暂不可用']]){
       const matching=rows.filter(c=>c.status===status);if(!matching.length)continue;
-      panel.append(el('h3',title),...matching.map(card));
+      panel.append(el('h3',title),...matching.map(c=>card(c)));
     }
     if(!rows.length)panel.append(el('p','暂无优惠券。符合活动条件后，奖励会显示在这里。','customer-muted'));
   }
@@ -53,10 +58,9 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     checkout.append(fieldset,el('small','选择后核算门槛和活动冲突；也可在下方输入兑换码，两者不会叠加。'));
   }
   function render(){
-    couponsPanel.replaceChildren(button('刷新优惠券',()=>load()));
-    for(const [kind,title] of [['regular','普通优惠券'],['new','新人优惠券']]){
-      couponsPanel.append(el('h3',title));groups(couponsPanel,wallet.coupons.filter(c=>c.kind===kind));
-    }
+    const available=wallet.coupons.filter(c=>c.status==='available');
+    couponsPanel.replaceChildren(el('h3','可用优惠券'),...available.map(c=>card(c,true)));
+    if(!available.length)couponsPanel.append(el('p','暂无可用优惠券。','customer-muted'));
     rewardsPanel.replaceChildren(button('刷新推荐奖励',()=>load()));
     rewardsPanel.append(el('p','推荐码与奖励只属于当前邮箱账户，手机号仅用于收货联系。'));
     rewardsPanel.append(el('p','新客首个有效订单满 $30 减 $5。订单完成后，您获得一张满 $30 减 $5 的奖励券，有效期 90 天。每位新客仅一次，奖励不可转让。','customer-muted'));
@@ -75,6 +79,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   async function load(){
     if(!identity()){reset();return;}
     const stamp=identity(),ticket=++request;
+    refreshCoupons.disabled=true;
     for(const panel of [couponsPanel,rewardsPanel]){panel.replaceChildren(el('p','正在加载优惠券和奖励…'));panel.setAttribute('aria-busy','true');}
     checkout.hidden=true;
     try{
@@ -88,7 +93,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
       const message=error?.code==='PGRST202'?'优惠券服务尚未完成数据库升级，请联系店主。':onError(error,'优惠券暂时无法加载，请重试。');
       for(const panel of [couponsPanel,rewardsPanel])panel.replaceChildren(el('p',message),button('重试',()=>load()));
       if(document.querySelector('#orderDialog').open){checkout.hidden=false;checkout.replaceChildren(el('p',message),button('重新加载优惠券',()=>load()));}
-    }finally{if(stamp===identity()&&ticket===request)for(const panel of [couponsPanel,rewardsPanel])panel.setAttribute('aria-busy','false');}
+    }finally{if(stamp===identity()&&ticket===request){refreshCoupons.disabled=false;for(const panel of [couponsPanel,rewardsPanel])panel.setAttribute('aria-busy','false');}}
   }
   return {load,reset};
 };

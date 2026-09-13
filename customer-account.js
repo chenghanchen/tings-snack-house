@@ -28,7 +28,8 @@
   // This template contains only application-owned text, never remote data.
   dialog.innerHTML = `
     <div class="customer-account-heading"><div class="customer-account-title-row"><h2 id="customerAccountTitle" tabindex="-1">登录 / 注册</h2>
-      <div id="customerOrderRefresh" class="customer-order-refresh" hidden><button type="button" id="customerRefreshOrders">刷新订单</button><span id="customerOrderUpdated" class="customer-muted" aria-live="polite"></span></div></div>
+      <div id="customerOrderRefresh" class="customer-order-refresh" hidden><button type="button" id="customerRefreshOrders">刷新订单</button><span id="customerOrderUpdated" class="customer-muted" aria-live="polite"></span></div>
+      <button type="button" id="customerRefreshCoupons" hidden>刷新优惠券</button></div>
       <button type="button" id="customerAccountBack" aria-label="返回商店">返回</button></div>
     <p id="customerAccountMessage" role="status" aria-live="polite"></p>
     <button type="button" id="customerReauthenticate" hidden>重新登录</button>
@@ -228,6 +229,7 @@
     for (const panel of dialog.querySelectorAll('[data-account-panel]')) panel.hidden = panel.dataset.accountPanel !== view;
     $('#customerAccountBack').setAttribute('aria-label',session && view !== 'home' ? '返回我的账户' : '返回商店');
     $('#customerOrderRefresh').hidden = !session || view !== 'orders';
+    $('#customerRefreshCoupons').hidden = !session || view !== 'coupons';
     $('#customerAccountTitle').textContent = session ? accountTitles[view] : '登录 / 注册';
     dialog.scrollTop = 0;
   }

@@ -237,6 +237,7 @@ function mockSdk() {
     for (const [view,panel] of [['coupons','customerCouponsPanel'],['rewards','customerRewardsPanel']]) {
       await page.click(`[data-account-tab=${view}]`);
       assert.equal(await page.locator(`#${panel}`).isVisible(),true);
+      assert.equal(await page.locator('#customerRefreshCoupons').isVisible(),view==='coupons');
       await page.waitForFunction(id=>document.getElementById(id).getAttribute('aria-busy')==='false',panel);
       assert.doesNotMatch(await page.textContent(`#${panel}`),/尚未接入|绑定手机号/);
       assert.equal(await page.locator('#customerHomePanel').isVisible(),false);
@@ -247,9 +248,40 @@ function mockSdk() {
       coupons:[
         {id:'reward',code:'RWD-ALICE',name:'推荐奖励券',amount:5,min_spend:30,kind:'referral',status:'available',ends_at:'2099-12-31',uses:[]},
         {id:'normal',code:'TEN',name:'10% 优惠券',amount:10,discount_kind:'percent',min_spend:50,kind:'regular',status:'available',uses:[]},
+        {id:'new',code:'NEW',name:'首单专享',amount:5,min_spend:35,kind:'new',status:'available',uses:[]},
+        {id:'expired',code:'EXPIRED',name:'过期券',amount:5,min_spend:30,kind:'regular',status:'expired',uses:[]},
+        {id:'unavailable',code:'UNAVAILABLE',name:'不可用券',amount:5,min_spend:30,kind:'new',status:'unavailable',uses:[]},
         {id:'used',code:'RWD-USED',name:'<img src=x onerror=window.walletXss=1>',amount:5,min_spend:30,kind:'referral',status:'used',uses:[{order_number:'TSH-OWN',used_at:'2026-09-12'}]}
       ],referral_codes:[{code:'TSHREF-ACCOUNT-ALICE',amount:5,min_spend:30}],history:[{created_at:'2026-09-12',status:'等待订单完成',reward_amount:5}]
     }});
+    await page.click('[data-account-tab=coupons]');
+    await page.waitForSelector('#customerCouponsPanel .customer-coupon-card');
+    assert.deepEqual(await page.locator('#customerCouponsPanel h3').allTextContents(),['可用优惠券']);
+    assert.deepEqual(await page.locator('#customerCouponsPanel .customer-coupon-source').allTextContents(),['【推荐奖励】','【店铺优惠券】','【新人券】']);
+    assert.deepEqual(await page.locator('#customerCouponsPanel .customer-coupon-card code').allTextContents(),['RWD-ALICE','TEN','NEW']);
+    assert.match(await page.textContent('#customerCouponsPanel'),/满 \$35\.00 可用/);
+    assert.equal(await page.locator('#customerCouponsPanel>button').count(),0);
+    for(const width of [320,390,780,781,1710]){
+      await page.setViewportSize({width,height:1000});
+      const layout=await page.evaluate(()=>{
+        const root=document.querySelector('#customerAccountDialog'),title=document.querySelector('#customerAccountTitle'),refresh=document.querySelector('#customerRefreshCoupons'),back=document.querySelector('#customerAccountBack');
+        const t=title.getBoundingClientRect(),r=refresh.getBoundingClientRect(),b=back.getBoundingClientRect(),s=getComputedStyle(root);
+        return {padding:[s.paddingTop,s.paddingBottom],inHeading:!!refresh.closest('.customer-account-heading'),clear:r.right<=b.left-4 && (r.left>=t.right || r.top>=t.bottom),inline:innerWidth<=780 || Math.abs(r.top+r.height/2-t.top-t.height/2)<1,overflow:root.scrollWidth>root.clientWidth+1};
+      });
+      assert.deepEqual(layout,{padding:['20px','20px'],inHeading:true,clear:true,inline:true,overflow:false},`coupon heading at ${width}px`);
+    }
+    await page.setViewportSize({width:390,height:1000});
+    if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-coupons.png')});
+    await page.evaluate(()=>{__accountTest.walletError=true});await page.click('#customerRefreshCoupons');
+    await page.waitForFunction(()=>document.querySelector('#customerCouponsPanel').textContent.includes('暂时无法加载'));
+    assert.equal(await page.locator('#customerCouponsPanel .customer-coupon-card').count(),0);
+    assert.equal(await page.locator('#customerRefreshCoupons').isEnabled(),true);
+    await page.evaluate(()=>{__accountTest.walletError=false;__accountTest.savedCoupons=__accountTest.wallet.coupons;__accountTest.wallet.coupons=__accountTest.savedCoupons.filter(c=>c.status!=='available')});
+    await page.click('#customerRefreshCoupons');await page.waitForFunction(()=>document.querySelector('#customerCouponsPanel').textContent.includes('暂无可用优惠券'));
+    assert.equal(await page.locator('#customerCouponsPanel .customer-coupon-card').count(),0);
+    await page.evaluate(()=>{__accountTest.wallet.coupons=__accountTest.savedCoupons});
+    await page.click('#customerRefreshCoupons');await page.waitForSelector('#customerCouponsPanel .customer-coupon-card');
+    await page.click('#customerAccountBack');
     await page.click('[data-account-tab=rewards]');
     await page.waitForSelector('#customerRewardsPanel .customer-coupon-card');
     assert.match(await page.textContent('#customerRewardsPanel'),/90 天|90天/);
@@ -445,6 +477,12 @@ function mockSdk() {
           emailMargin:getComputedStyle(document.querySelector('#customerAccountEmail')).marginTop};
       });
       assert.deepEqual(heading,{label:'返回',afterTitle:true,atRight:true,sameRow:true,toolsInHeading:true,toolsClear:true,desktopInline:true,emailMargin:'0px'},`account heading at ${width}px`);
+      const refreshStyle=await page.locator('#customerRefreshOrders').evaluate(button=>{
+        const s=getComputedStyle(button),r=button.getBoundingClientRect();
+        return {color:s.color,background:s.backgroundColor,fontSize:s.fontSize,radius:s.borderRadius,border:s.borderTopColor,
+          padding:[s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft],width:Math.round(r.width),height:Math.round(r.height),overflow:button.scrollWidth>button.clientWidth+1};
+      });
+      assert.deepEqual(refreshStyle,{color:'rgb(255, 0, 0)',background:'rgb(255, 255, 255)',fontSize:'15px',radius:'10px',border:'rgb(0, 0, 0)',padding:['0px','5px','0px','5px'],width:80,height:35,overflow:false},`refresh button at ${width}px`);
       const compactOrders=await page.evaluate(()=>{
         const root=document.querySelector('#customerAccountDialog'),email=document.querySelector('#customerAccountEmail'),note=document.querySelector('#customerOrdersPanel>p.customer-muted');
         const rootStyle=getComputedStyle(root),noteStyle=getComputedStyle(note);

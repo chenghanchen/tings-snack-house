@@ -1,5 +1,6 @@
 .customer-coupon-card{border:1px solid #dfd9cd;border-radius:12px;padding:14px;margin:10px 0;background:#fffdf8;overflow-wrap:anywhere}
 .customer-coupon-card>strong{font-size:24px;color:#ad4134}
+.customer-coupon-source{display:block;width:fit-content;max-width:100%;margin:6px 0;color:#465d40;font-size:12px;font-weight:700}
 .customer-coupon-card h4,.customer-coupon-card p{margin:6px 0}
 .customer-coupon-card code,#customerRewardsPanel>code{display:block;margin:8px 0;overflow-wrap:anywhere}
 .customer-wallet-checkout{margin:12px 0 24px}

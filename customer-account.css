@@ -40,8 +40,9 @@
 #customerAccountDialog select:focus-visible,#customerAccountDialog summary:focus-visible{outline:3px solid var(--red);outline-offset:2px}
 /* Order-only tools follow the title; narrow headers wrap them beneath it, leaving Back at top right. */
 .customer-order-refresh{display:flex;align-items:center;gap:4px 6px;flex-wrap:wrap;max-width:100%}
-#customerAccountDialog #customerRefreshOrders{font-size:12px;padding:6px 8px;min-height:32px;white-space:nowrap}
+#customerAccountDialog #customerRefreshOrders{color:#ff0000;background-color:#ffffff;font-size:15px;border-radius:10px;border-color:#000000;padding:0 5px;width:80px;height:35px;min-height:35px;flex:none;white-space:nowrap}
 #customerOrderUpdated{font-size:10px;white-space:nowrap}
+#customerAccountDialog #customerRefreshCoupons{font-size:12px;padding:0 8px;min-height:35px;flex:none;white-space:nowrap}
 .customer-reorder-preview{padding:12px;background:var(--cream);border-radius:8px;margin:10px 0;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
 .customer-order-entry .lookup-order-card header{flex-wrap:wrap}
 .customer-order-entry .lookup-order-card header>div{flex:1 1 220px;min-width:0}
@@ -73,3 +74,5 @@
 #customerDetailsForm input{margin-top:0}
 #customerAccountDialog #customerDetailsForm textarea[name="address"]{height:44px;min-height:44px;resize:vertical}
 #customerDetailsStatus{margin-top:0;margin-bottom:0}
+/* Coupon view only: preserve horizontal padding and the other account views. */
+#customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerCouponsPanel:not([hidden])){padding-top:20px;padding-bottom:20px}
