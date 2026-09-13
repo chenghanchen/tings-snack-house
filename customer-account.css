@@ -3,14 +3,14 @@
 #customerAccountDialog{width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 32px);padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--paper);color:var(--ink);overflow-y:auto;font-family:Arial, sans-serif}
 #customerAccountDialog::backdrop{background:#29373080}
 #customerAccountDialog [hidden]{display:none!important}
-.customer-account-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.customer-account-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .customer-account-heading h2{margin:0;font-size:24px}
-.customer-account-title-row{display:flex;align-items:center;gap:10px;min-width:0}
+.customer-account-title-row{display:flex;align-items:center;flex-wrap:wrap;flex:1;gap:4px 8px;min-width:0}
+.customer-account-title-row h2{display:flex;align-items:center;min-height:44px;flex:none}
 #customerAccountDialog button:not(.lookup-order-card *){font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:44px;cursor:pointer}
 #customerAccountDialog button:disabled{opacity:.55;cursor:default}
 #customerAccountDialog button:focus-visible,#customerAccountDialog input:focus-visible,#customerAccountDialog textarea:focus-visible,.customer-account-button:focus-visible{outline:3px solid var(--red);outline-offset:2px}
 #customerAccountDialog .customer-primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
-#customerAccountClose{min-width:44px;font-size:24px!important}
 #customerAccountMessage{font-size:14px;line-height:1.6;overflow-wrap:anywhere}
 #customerAccountDialog form:not(.lookup-order-card *){display:grid;gap:12px;margin:16px 0}
 #customerAccountDialog label:not(.lookup-order-card *){display:grid;gap:6px;font-size:14px}
@@ -38,7 +38,10 @@
 .customer-order-toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,.45fr);gap:12px;margin:16px 0}
 #customerAccountDialog select{width:100%;min-width:0;min-height:44px;padding:10px;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:#fff;font:inherit;font-size:16px}
 #customerAccountDialog select:focus-visible,#customerAccountDialog summary:focus-visible{outline:3px solid var(--red);outline-offset:2px}
-.customer-order-refresh{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+/* Order-only tools follow the title; narrow headers wrap them beneath it, leaving Back at top right. */
+.customer-order-refresh{display:flex;align-items:center;gap:4px 6px;flex-wrap:wrap;max-width:100%}
+#customerAccountDialog #customerRefreshOrders{font-size:12px;padding:6px 8px;min-height:32px;white-space:nowrap}
+#customerOrderUpdated{font-size:10px;white-space:nowrap}
 .customer-reorder-preview{padding:12px;background:var(--cream);border-radius:8px;margin:10px 0;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
 .customer-order-entry .lookup-order-card header{flex-wrap:wrap}
 .customer-order-entry .lookup-order-card header>div{flex:1 1 220px;min-width:0}

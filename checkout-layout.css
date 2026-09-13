@@ -1,4 +1,4 @@
-/* Cart and checkout presentation. The success view and account forms retain their own styles. */
+/* Cart, checkout and the success address row. Other success and account styles stay unchanged. */
 #cartSubtotal{font-size:15px}
 #cartItems>.cart-item{padding-top:10px;padding-bottom:10px}
 #checkout,#continueShopping{font-size:15px;border-radius:10px}
@@ -15,3 +15,12 @@
 #orderForm:not(:has(#customerCheckoutHint)){margin-top:10px}
 #orderForm #orderSummary{border-radius:15px;padding-top:10px;padding-bottom:10px;margin-top:10px;margin-bottom:10px}
 #orderForm #submitOrder{font-size:15px;border-radius:8px;padding-top:10px;padding-bottom:10px;justify-content:center}
+
+/* Reallocate grid space instead of overlapping the address with a negative margin.
+   At the desktop dialog width this leaves about 300px for the address. */
+.success-order-summary>.success-address-row{grid-template-columns:110.53px minmax(0,1fr);column-gap:6px;height:auto}
+.success-address-row dt>.success-icon{flex-shrink:0}
+#submittedAddress{width:100%;max-width:300px;justify-self:end;margin-left:0;white-space:normal;overflow:visible;overflow-wrap:anywhere;text-overflow:clip}
+@media(max-width:780px){
+  .success-order-summary>.success-address-row{grid-template-columns:105px minmax(0,1fr);column-gap:8px}
+}

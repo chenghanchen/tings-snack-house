@@ -28,8 +28,8 @@
   // This template contains only application-owned text, never remote data.
   dialog.innerHTML = `
     <div class="customer-account-heading"><div class="customer-account-title-row"><h2 id="customerAccountTitle" tabindex="-1">登录 / 注册</h2>
-      <button type="button" id="customerAccountBack" aria-label="返回我的账户" hidden>‹ 返回</button></div>
-      <button type="button" id="customerAccountClose" aria-label="关闭账户窗口">×</button></div>
+      <div id="customerOrderRefresh" class="customer-order-refresh" hidden><button type="button" id="customerRefreshOrders">刷新订单</button><span id="customerOrderUpdated" class="customer-muted" aria-live="polite"></span></div></div>
+      <button type="button" id="customerAccountBack" aria-label="返回商店">返回</button></div>
     <p id="customerAccountMessage" role="status" aria-live="polite"></p>
     <button type="button" id="customerReauthenticate" hidden>重新登录</button>
     <section id="customerSignedOut">
@@ -60,7 +60,6 @@
           <label>搜索本页订单<input id="customerOrderSearch" type="search" placeholder="订单号、商品或规格" maxlength="100"></label>
           <label>本页状态<select id="customerOrderFilter"><option value="all">全部</option><option value="active">进行中</option><option value="cancelling">取消处理中</option><option value="completed">已完成</option><option value="cancelled">已取消</option></select></label>
         </div>
-        <div class="customer-order-refresh"><button type="button" id="customerRefreshOrders">刷新订单</button><span id="customerOrderUpdated" class="customer-muted"></span></div>
         <div id="customerOrders" aria-live="polite"></div>
         <div class="customer-pagination"><button type="button" id="customerOrdersPrev">上一页</button>
           <span id="customerOrdersPage"></span><button type="button" id="customerOrdersNext">下一页</button></div>
@@ -222,13 +221,13 @@
     if (session) { showAccountView('home'); $('#customerAccountTitle').focus(); }
     else emailForm.elements.email.focus();
   });
-  $('#customerAccountClose').onclick = () => { if (mayDiscard()) dialog.close(); };
   dialog.addEventListener('cancel', event => { if (!mayDiscard()) event.preventDefault(); });
   dialog.addEventListener('close', () => { codeForm.elements.code.value = ''; button.focus(); });
   function showAccountView(view) {
     accountView = view;
     for (const panel of dialog.querySelectorAll('[data-account-panel]')) panel.hidden = panel.dataset.accountPanel !== view;
-    $('#customerAccountBack').hidden = view === 'home';
+    $('#customerAccountBack').setAttribute('aria-label',session && view !== 'home' ? '返回我的账户' : '返回商店');
+    $('#customerOrderRefresh').hidden = !session || view !== 'orders';
     $('#customerAccountTitle').textContent = session ? accountTitles[view] : '登录 / 注册';
     dialog.scrollTop = 0;
   }
@@ -240,6 +239,7 @@
     if (accountView === 'coupons' || accountView === 'rewards') void wallet.load();
   };
   $('#customerAccountBack').onclick = () => {
+    if (!session || accountView === 'home') { if (mayDiscard()) dialog.close(); return; }
     const previous = accountView; showAccountView('home'); message('');
     dialog.querySelector(`[data-account-tab="${previous}"]`)?.focus();
   };

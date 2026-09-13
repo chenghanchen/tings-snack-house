@@ -82,6 +82,10 @@ function mockSdk() {
     const page=await browser.newPage({viewport:{width:390,height:844}});
     const errors=[];
     page.on('pageerror',e=>errors.push(e.message));
+    async function closeCustomerAccount(){
+      if(await page.locator('#customerSignedIn').isVisible() && !await page.locator('#customerHomePanel').isVisible())await page.click('#customerAccountBack');
+      await page.click('#customerAccountBack');
+    }
     async function checkCheckoutLayout(phase) {
       for (const width of [320,390,780,1100,1710]) {
         await page.setViewportSize({width,height:1180});
@@ -142,7 +146,7 @@ function mockSdk() {
       assert.ok(boxes.at(-1).right<=width,JSON.stringify({width,boxes}));
       await page.click('#openCustomerAccount');
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
-      await page.click('#customerAccountClose');
+      await closeCustomerAccount();
     }
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.evaluate(()=>__accountTest.clients.filter(c=>c.customer).length),1);
@@ -209,12 +213,15 @@ function mockSdk() {
     assert.equal(await page.locator('#customerOrdersPanel').isVisible(),false);
     assert.deepEqual(await page.locator('.customer-home-menu strong').allTextContents(),['我的订单','收货资料','我的优惠券','推荐奖励']);
     assert.equal(await page.textContent('#customerAccountEmail'),'你好，alice@example.test');
-    assert.equal(await page.locator('#customerAccountBack').isVisible(),false);
+    assert.equal(await page.locator('#customerAccountClose').count(),0);
+    assert.equal(await page.locator('#customerAccountBack').isVisible(),true);
+    assert.equal(await page.locator('#customerAccountBack').getAttribute('aria-label'),'返回商店');
+    assert.equal(await page.locator('#customerOrderRefresh').isVisible(),false);
     for (const width of [320,375,390,780,1100,1710]) {
       await page.setViewportSize({width,height:844});
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
       const homeStyle=await page.evaluate(()=>{
-        const root=document.querySelector('#customerAccountDialog'),heading=root.querySelector('.customer-account-heading'),close=root.querySelector('#customerAccountClose');
+        const root=document.querySelector('#customerAccountDialog'),heading=root.querySelector('.customer-account-heading'),close=root.querySelector('#customerAccountBack');
         const style=getComputedStyle(root.querySelector('#customerSignOut'));
         return {color:style.color,background:style.backgroundColor,radius:style.borderRadius,border:style.borderTopStyle,
           margin:getComputedStyle(heading).marginTop,closeInside:close.getBoundingClientRect().top>=root.getBoundingClientRect().top+6};
@@ -255,7 +262,7 @@ function mockSdk() {
     }
     await page.setViewportSize({width:390,height:844});
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-rewards.png')});
-    await page.click('#customerAccountClose');
+    await closeCustomerAccount();
     await page.click('#openCart');await page.click('#checkout');
     await page.waitForSelector('#customerWalletCheckout input[value="RWD-ALICE"]');
     await page.check('#customerWalletCheckout input[value="RWD-ALICE"]');
@@ -340,7 +347,7 @@ function mockSdk() {
     await page.setViewportSize({width:390,height:1000});
     await page.locator('#customerAccountDialog').evaluate(el=>{el.scrollTop=0});
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-address-v2.png')});
-    await page.click('#customerAccountClose');
+    await closeCustomerAccount();
     await page.click('#openCart');await page.click('#checkout');
     assert.equal(await page.inputValue('#orderForm [name=name]'),'Alice');
     assert.equal(await page.inputValue('#orderForm [name=address]'),'Saved address, Unit 2B, Chicago IL 60601-1234');
@@ -427,16 +434,21 @@ function mockSdk() {
       const heading=await page.evaluate(()=>{
         const title=document.querySelector('#customerAccountTitle').getBoundingClientRect();
         const back=document.querySelector('#customerAccountBack'),r=back.getBoundingClientRect();
-        const close=document.querySelector('#customerAccountClose').getBoundingClientRect();
-        return {label:back.textContent,afterTitle:r.left>=title.right,beforeClose:r.right<=close.left,
+        const heading=document.querySelector('.customer-account-heading').getBoundingClientRect();
+        const tools=document.querySelector('#customerOrderRefresh'),refresh=tools.getBoundingClientRect();
+        const time=document.querySelector('#customerOrderUpdated').getBoundingClientRect();
+        return {label:back.textContent,afterTitle:r.left>=title.right,atRight:Math.abs(r.right-heading.right)<1,
           sameRow:Math.abs(r.top+r.height/2-title.top-title.height/2)<1,
+          toolsInHeading:tools.closest('.customer-account-heading')!==null,
+          toolsClear:refresh.right<=r.left-4 && time.right<=refresh.right+1 && refresh.bottom<=heading.bottom+1,
+          desktopInline:innerWidth<=780 || Math.abs(refresh.top+refresh.height/2-title.top-title.height/2)<1,
           emailMargin:getComputedStyle(document.querySelector('#customerAccountEmail')).marginTop};
       });
-      assert.deepEqual(heading,{label:'‹ 返回',afterTitle:true,beforeClose:true,sameRow:true,emailMargin:'0px'},`account heading at ${width}px`);
+      assert.deepEqual(heading,{label:'返回',afterTitle:true,atRight:true,sameRow:true,toolsInHeading:true,toolsClear:true,desktopInline:true,emailMargin:'0px'},`account heading at ${width}px`);
       const compactOrders=await page.evaluate(()=>{
         const root=document.querySelector('#customerAccountDialog'),email=document.querySelector('#customerAccountEmail'),note=document.querySelector('#customerOrdersPanel>p.customer-muted');
         const rootStyle=getComputedStyle(root),noteStyle=getComputedStyle(note);
-        const close=root.querySelector('#customerAccountClose').getBoundingClientRect();
+        const close=root.querySelector('#customerAccountBack').getBoundingClientRect();
         return {padding:[rootStyle.paddingTop,rootStyle.paddingBottom],margin:[noteStyle.marginTop,noteStyle.marginBottom],color:getComputedStyle(email).color,
           noteBelowEmail:note.getBoundingClientRect().top>=email.getBoundingClientRect().bottom,
           closeInside:close.top>=root.getBoundingClientRect().top+6};
@@ -523,7 +535,7 @@ function mockSdk() {
     assert.equal(await page.inputValue('#customerDetailsForm [name=full_name]'),'正在编辑的姓名');
     await page.click('#customerAccountBack');await page.click('[data-account-tab=details]');
     assert.equal(await page.inputValue('#customerDetailsForm [name=full_name]'),'正在编辑的姓名');
-    page.once('dialog',dialog=>dialog.dismiss());await page.click('#customerAccountClose');
+    page.once('dialog',dialog=>dialog.dismiss());await page.keyboard.press('Escape');
     assert.equal(await page.locator('#customerAccountDialog').evaluate(el=>el.open),true);
     await page.click('#customerDiscardDetails');
     assert.equal(await page.inputValue('#customerDetailsForm [name=full_name]'),'');
