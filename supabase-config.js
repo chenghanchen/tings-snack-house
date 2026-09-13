@@ -10,6 +10,13 @@ window.TINGS_SUPABASE = {
 (() => {
   if (!window.supabase?.createClient) return;
   const createClient = window.supabase.createClient.bind(window.supabase);
+  // Customer auth deliberately has a different storage namespace from owner auth.
+  // Use the original factory: the legacy compatibility wrapper ignores options.
+  window.createTingsCustomerClient = () => (window.TingsCustomerDb ??= createClient(
+    window.TINGS_SUPABASE.url, window.TINGS_SUPABASE.anonKey,
+    { auth: { storageKey: "tings-customer-auth-v1", persistSession: true,
+      autoRefreshToken: true, detectSessionInUrl: false } },
+  ));
   window.TingsDb ??= createClient(
     window.TINGS_SUPABASE.url,
     window.TINGS_SUPABASE.anonKey,

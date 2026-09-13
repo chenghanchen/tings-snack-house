@@ -26,7 +26,9 @@ test("下单：前端锁定提交按钮并通过受限 Edge Function 发送完�
   assert.match(app, /p_idempotency_key:\s*checkoutIdempotencyKey/);
   assert.match(app, /functions\.invoke\("submit-order"/);
   assert.match(edge, /body\.p_idempotency_key/);
-  assert.match(edge, /admin\.rpc\(\s*"submit_shop_order_idempotent"/);
+  assert.match(edge, /admin\.rpc\(\s*"submit_shop_order_account"/);
+  assert.match(edge, /p_user_id: customerId/);
+  assert.match(app, /headers: await window\.TingsAccount\.checkoutHeaders\(\)/);
   assert.match(edge, /ORDER_RATE_IP_MAX/);
   assert.match(edge, /ORDER_RATE_PHONE_MAX/);
 });

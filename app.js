@@ -649,6 +649,7 @@ $("#checkout").onclick = () => {
   syncFulfillment();
   toggleCart(false);
   $("#orderDialog").showModal();
+  window.dispatchEvent(new Event("tings:checkout-open"));
   lockPageForOrderDialog();
   renderCart();
 };
@@ -708,23 +709,22 @@ function setSuccessReferralCode(id, code) {
   button.dataset.copyValue = code || "";
 }
 function showSuccessReferralReward(order) {
-  const reward = order.referral_reward || {},
-    section = $("#successReferralReward"),
-    code = reward.referral_code || "",
-    yourCoupon = reward.your_reward_coupon || {},
-    referrerCoupon = reward.referrer_reward_coupon || {},
-    usedReferral =
-      reward.used_referral === true && !!yourCoupon.code && !!referrerCoupon.code;
-  section.hidden = !code;
-  $("#successReferralEarned").hidden = !usedReferral;
-  $("#successYourRewardCoupon").hidden = !yourCoupon.code;
-  $("#successReferrerRewardCoupon").hidden = !referrerCoupon.code;
-  $("#successReferralInfoDialog").hidden = true;
-  setSuccessReferralCode("#submittedReferralCode", code);
-  setSuccessReferralCode("#submittedYourRewardCoupon", yourCoupon.code);
-  setSuccessReferralCode("#submittedReferrerRewardCoupon", referrerCoupon.code);
-  section.dataset.codeInfo = `他人使用您的推荐码下单会获得满 ${dollars(reward.referral_min_spend || 0)} 减 ${dollars(reward.referral_amount || 0)} 的优惠，下单成功后您也会获得一张满 ${dollars(yourCoupon.min_spend || reward.reward_min_spend || 0)} 减 ${dollars(yourCoupon.amount || reward.reward_amount || 0)} 的奖励券。奖励券与您下单的手机号码绑定。`;
-  section.dataset.couponInfo = usedReferral ? referralCouponDetails(yourCoupon) : "";
+  const reward=order.referral_reward||{},section=$("#successReferralReward");
+  const code=reward.account_only ? reward.referral_code||"" : "";
+  section.hidden=!code;
+  $("#successReferralEarned").hidden=true;
+  $("#successYourRewardCoupon").hidden=true;
+  $("#successReferrerRewardCoupon").hidden=true;
+  $("#successReferralInfoDialog").hidden=true;
+  setSuccessReferralCode("#submittedReferralCode",code);
+  setSuccessReferralCode("#submittedYourRewardCoupon","");
+  setSuccessReferralCode("#submittedReferrerRewardCoupon","");
+  section.dataset.codeInfo="朋友首个有效订单满 $30 减 $5。订单完成后，推荐人获得一张满 $30 减 $5 的账户奖励券，有效期 90 天。";
+  section.dataset.couponInfo="";
+  let pending=$("#successReferralPending");
+  if(!pending){pending=document.createElement("p");pending.id="successReferralPending";pending.className="dialog-note";section.before(pending);}
+  pending.hidden=!reward.pending;
+  pending.textContent="已享受推荐新客优惠。订单完成后将向推荐人的邮箱账户发放奖励；本次提交尚未发券。";
 }
 function showOrderSuccess(order, form) {
   const pickup = form.get("fulfillment") === "pickup",
@@ -818,6 +818,7 @@ $("#orderForm").onsubmit = async (e) => {
   try {
     const { data, error } = await db.functions.invoke("submit-order", {
       body: submitArgs,
+      headers: await window.TingsAccount.checkoutHeaders(),
     });
     if (error) {
       alert(await orderSubmissionErrorMessage(error));
@@ -830,6 +831,7 @@ $("#orderForm").onsubmit = async (e) => {
     submitted = true;
     setOrderSubmissionPending(false);
     showOrderSuccess(data, f);
+    window.dispatchEvent(new Event("tings:order-submitted"));
     cart = [];
     renderCart();
     loadShop();
@@ -1112,7 +1114,7 @@ let offerPreview = {
     message: "",
     valid: false,
   },
-  previewTimer;
+  previewTimer, previewRequest=0;
 function drawOfferPreview() {
   const t = totals(),
     pickup = $("#fulfillment")?.value === "pickup",
@@ -1197,10 +1199,12 @@ $("#keepCouponCode").onclick = () => {
 };
 $("#clearCouponCode").onclick = () => {
   $("#couponCodeInput").value = "";
+  $("#couponCodeInput").dispatchEvent(new Event("input",{bubbles:true}));
   closeCampaignStackChoice();
   previewOffer();
 };
 $("#couponCodeInput").addEventListener("input", () => {
+  $("#orderForm [name=email]").required=/^TSHREF-/i.test($("#couponCodeInput").value.trim());
   if (excludedCampaignIds.size) {
     excludedCampaignIds.clear();
     refreshCampaignPricing();
@@ -1222,7 +1226,10 @@ const revalidateOfferForPhone = () => {
 };
 $("[name='phone']").addEventListener("input", revalidateOfferForPhone);
 $("[name='phone']").addEventListener("change", revalidateOfferForPhone);
+$("#orderForm [name='email']").addEventListener("input",revalidateOfferForPhone);
 function previewOffer() {
+  $("#orderForm [name=email]").required=/^TSHREF-/i.test($("#couponCodeInput").value.trim());
+  const request=++previewRequest;
   if (previewTimer) clearTimeout(previewTimer);
   previewTimer = setTimeout(async () => {
     const code = $("#couponCodeInput")?.value.trim().toUpperCase() || "",
@@ -1255,11 +1262,9 @@ function previewOffer() {
     try {
       const [
         { data: campaigns },
-        { data: coupons },
         orderCheck,
       ] = await Promise.all([
         db.from("marketing_campaigns").select("*"),
-        db.from("marketing_coupons").select("*"),
         phone
           ? db
               .from("orders")
@@ -1331,44 +1336,16 @@ function previewOffer() {
         isReferralCode = false,
         message = campaignName ? `已自动享受${campaignName}。` : "";
       if (code) {
-        const { data: referralOffer, error: referralError } = await db.rpc(
-          "preview_referral_offer",
-          {
-            p_code: code,
-            p_phone: phone,
-            p_subtotal: t.subtotal,
-            p_campaign_discount: campaignDiscount,
-          },
-        );
-        if (referralError) throw referralError;
-        if (referralOffer?.is_referral) {
-          if (referralOffer.valid) {
-            codeDiscount = Math.min(
-              Number(referralOffer.discount || 0),
-              Math.max(0, t.subtotal - campaignDiscount),
-            );
-            codeName = "推荐码优惠";
-            isReferralCode = true;
-          }
-        } else {
-          const coupon = (coupons || []).find(
-            (x) =>
-              x.code === code &&
-              x.active &&
-              (!x.status || x.status === "published") &&
-              (!x.starts_at || new Date(x.starts_at) <= now) &&
-              (!x.ends_at || new Date(x.ends_at) >= now) &&
-              (!x.recipient_phone || x.recipient_phone === phone) &&
-              (!(x.customer_scope === "new") || isNew),
-          );
-          selectedCoupon = coupon || null;
-          if (coupon && t.subtotal >= Number(coupon.min_spend || 0)) {
-            codeDiscount = Math.min(
-              Number(coupon.amount || 0),
-              Math.max(0, t.subtotal - campaignDiscount),
-            );
-            codeName = coupon.name || "优惠券优惠";
-          }
+        const {data:offer,error:offerError}=await window.TingsAccount.previewAccountOffer({
+          p_code:code,p_email:document.querySelector('#orderForm [name=email]').value.trim(),
+          p_phone:null,p_subtotal:t.subtotal,p_campaign_discount:campaignDiscount,
+        });
+        if(request!==previewRequest)return;
+        if(offerError)throw offerError;
+        if(offer?.valid){
+          codeDiscount=Math.min(Number(offer.discount||0),Math.max(0,t.subtotal-campaignDiscount));
+          codeName=offer.name||'优惠券优惠';isReferralCode=offer.is_referral===true;
+          selectedCoupon=offer;
         }
         const conflicts = codeDiscount
           ? nonStackableCampaigns(campaigns, t, selectedCoupon, isNew, now)
@@ -1389,10 +1366,11 @@ function previewOffer() {
         }
         message = codeDiscount
           ? isReferralCode
-            ? "已使用推荐码，下单即可获得奖励券"
+            ? "已享受推荐优惠；订单完成后向推荐人发放奖励券"
             : `${message}${message ? " " : " "}已使用${codeName}，立减 ${dollars(codeDiscount)}。`
           : `${message}${message ? " " : " "}兑换码无效或暂不符合使用条件。`;
       }
+      if(request!==previewRequest)return;
       offerPreview = {
         campaignDiscount,
         campaignName,
@@ -1404,6 +1382,7 @@ function previewOffer() {
       };
       drawOfferPreview();
     } catch {
+      if(request!==previewRequest)return;
       offerPreview = {
         campaignDiscount: 0,
         campaignName: "",
@@ -1978,6 +1957,35 @@ loadShop = async function () {
 };
 loadShop();
 
+/* Account reorder is a local cart operation, never a replay of an old order. */
+window.TingsCart = {
+  async prepareReorder(items) {
+    const data = await loadStorefrontData();
+    if (data.p.error || data.g.error || data.vr.error || !catalogDetailsReady)
+      throw new Error('暂时无法核对商品与库存，请稍后重试。');
+    return window.TingsOrderTools.planReorder(items, {
+      products: data.p.data || [], groups: data.g.data || [], variants: data.vr.data || [],
+    }, cart);
+  },
+  async confirmReorder(items, preview, isCurrent) {
+    const fresh = await this.prepareReorder(items);
+    if (!isCurrent()) throw new Error('账户已改变，请重新打开订单。');
+    const signature = plan => JSON.stringify({
+      lines: plan.additions.map(x => [x.key, x.product.name, x.label, x.qty, x.price]), issues: plan.issues,
+    });
+    if (signature(fresh) !== signature(preview)) return {changed: true, plan: fresh};
+    for (const item of fresh.additions) {
+      const existing = cart.find(row => row.key === item.key);
+      if (existing) Object.assign(existing, item, {qty: existing.qty + item.qty});
+      else cart.push(item);
+    }
+    renderCart();
+    for (const item of fresh.additions) refreshProductCard(item.product.id);
+    return {changed: false, count: fresh.additions.reduce((sum, item) => sum + item.qty, 0)};
+  },
+  open() { toggleCart(true); },
+};
+
 /* On phones, the open cart owns the swipe gesture instead of the page behind it. */
 let cartPageScrollY = 0,
   cartTouchStartY = 0,
@@ -2317,8 +2325,8 @@ function lookupProgress(order) {
   const meta = lookupTimeline(order);
   return `<div class="lookup-progress lookup-progress-v2" style="--lookup-steps:${meta.steps.length}">${meta.steps.map((step) => `<div class="lookup-step ${step.state}"><span>${step.state === "done" ? "✓" : step.state === "cancelled" || step.state === "rejected" ? "×" : step.state === "current" ? "●" : "○"}</span><b>${step.label}</b></div>`).join("")}</div>`;
 }
-function lookupOrderCard(order) {
-  const items = Array.isArray(order.items) ? order.items : [],
+function lookupOrderCard(order, account = false) {
+  const items = Array.isArray(order.items) ? order.items.filter(item => item && typeof item === 'object') : [],
     meta = lookupTimeline(order),
     canCancel =
       ["待确认", "已确认"].includes(order.status) &&
@@ -2372,8 +2380,9 @@ function lookupOrderCard(order) {
   const cancellationReasonNote = order.cancellation_reason
     ? `<p class="lookup-note cancellation-reason"><b>取消原因</b>${escapeHtml(order.cancellation_reason)}</p>`
     : "";
+  const identityField = account ? '' : '<label>再次输入手机号码<input name="cancelPhone" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" required placeholder="请输入10位手机号码"></label>';
   const cancelForm = canCancel
-    ? `<form class="lookup-cancel-form" data-cancel-form hidden><label>再次输入手机号码<input name="cancelPhone" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" required placeholder="请输入10位手机号码"></label><label>取消原因<textarea name="cancelReason" required maxlength="100" placeholder="请说明取消原因（最多100字）"></textarea><small class="lookup-cancel-count">0 / 100</small></label><div class="lookup-cancel-form-actions"><button type="submit" class="lookup-cancel-submit">提交取消申请</button><button type="button" class="lookup-cancel-close" data-close-cancel>关闭</button></div></form>`
+    ? `<form class="lookup-cancel-form" data-cancel-form hidden>${identityField}<label>取消原因<textarea name="cancelReason" required maxlength="100" placeholder="请说明取消原因（最多100字）"></textarea><small class="lookup-cancel-count">0 / 100</small></label><div class="lookup-cancel-form-actions"><button type="submit" class="lookup-cancel-submit">提交取消申请</button><button type="button" class="lookup-cancel-close" data-close-cancel>关闭</button></div></form>`
     : "";
   const actions = canCancel
     ? '<div class="lookup-actions"><button type="button" class="lookup-cancel-button" data-show-cancel>申请取消订单</button></div>'
@@ -2381,6 +2390,83 @@ function lookupOrderCard(order) {
   const cancellationStatus = meta.requested || order.status === "已取消";
   return `<article class="lookup-order-card ${meta.pickup ? "is-pickup" : "is-delivery"}" data-lookup-order="${escapeHtml(order.order_number)}"><header><div><span class="lookup-order-label">订单号</span><b>${escapeHtml(order.order_number)}</b><small>下单时间：${formatChicagoTime(order.created_at)}</small></div><strong class="lookup-status ${cancellationStatus ? "cancelled" : ""}">${escapeHtml(meta.title)}</strong></header>${lookupProgress(order)}${rejectionNote}${cancellationReasonNote}<p class="lookup-address">${address}<i>›</i></p><section class="lookup-items-preview"><div class="lookup-thumbs">${thumbs || '<div class="lookup-item-thumb">🍬</div>'}</div><div><ul>${itemLines}</ul></div></section><div class="lookup-total"><small class="lookup-item-count">共 ${itemCount} 件商品</small><span>合计</span><b>${dollars(order.total_amount)}</b></div><section class="lookup-details" hidden><div class="lookup-detail-list">${detailRows}</div>${promo}<div class="lookup-amounts"><div><span>商品小计（共 ${itemCount} 件）</span><b>${dollars(order.subtotal)}</b></div>${discount ? `<div><span>已优惠</span><b>−${dollars(discount)}</b></div>` : ""}${feeRow}<div><span>税</span><b>${dollars(order.tax_amount)}</b></div><div class="lookup-final"><span>订单总额</span><b>${dollars(order.total_amount)}</b></div></div>${notes}</section>${cancelForm}${actions}</article>`;
 }
+/* Both surfaces share markup and expansion behavior; identity-specific submits stay separate. */
+const orderCardPresses = new WeakMap();
+let activeOrderCardPress = null;
+document.addEventListener('pointerdown', event => {
+  if (event.isPrimary === false) {
+    if (activeOrderCardPress) activeOrderCardPress.blocked = true;
+    return;
+  }
+  const card = event.target.closest?.('.lookup-order-card');
+  if (!card || event.button !== 0) return;
+  const press = {card, id:event.pointerId, x:event.clientX, y:event.clientY, started:performance.now(), blocked:false};
+  orderCardPresses.set(card, press); activeOrderCardPress = press;
+}, true);
+document.addEventListener('pointermove', event => {
+  const press = activeOrderCardPress;
+  if (press?.id === event.pointerId && Math.hypot(event.clientX-press.x,event.clientY-press.y) > 8) press.blocked = true;
+}, true);
+for (const type of ['pointerup','pointercancel']) document.addEventListener(type, event => {
+  const press = activeOrderCardPress;
+  if (press?.id !== event.pointerId) return;
+  // Do not prevent browser scrolling, text selection or the long-press menu.
+  press.blocked ||= type === 'pointercancel' || performance.now()-press.started >= 500;
+  activeOrderCardPress = null;
+}, true);
+document.addEventListener('contextmenu', event => {
+  const card = event.target.closest?.('.lookup-order-card');
+  if (card) orderCardPresses.set(card, {blocked:true});
+}, true);
+function handleOrderCardClick(event) {
+  const card = event.target.closest('.lookup-order-card');
+  if (!card) return;
+  const show = event.target.closest('[data-show-cancel]');
+  const form = card.querySelector('[data-cancel-form]');
+  if (show && form) {
+    form.hidden = false; show.hidden = true;
+    form.querySelector('input,textarea')?.focus();
+    return;
+  }
+  if (event.target.closest('[data-close-cancel]') && form) {
+    form.reset(); form.querySelector('.lookup-cancel-count').textContent = '0 / 100';
+    form.hidden = true; card.querySelector('[data-show-cancel]').hidden = false;
+    card.querySelector('[data-show-cancel]').focus();
+    return;
+  }
+  if (event.target.closest('button,input,textarea,select,a,form')) return;
+  // Keyboard/assistive clicks have detail 0; only suppress pointer gestures.
+  if (event.detail !== 0) {
+    const press = orderCardPresses.get(card), selection = window.getSelection();
+    if (press?.blocked || (press && press === activeOrderCardPress && performance.now()-press.started >= 500)) return;
+    if (selection && !selection.isCollapsed && (card.contains(selection.anchorNode) || card.contains(selection.focusNode))) return;
+  }
+  const details = card.querySelector('.lookup-details');
+  details.hidden = !details.hidden;
+  card.classList.toggle('is-expanded', !details.hidden);
+  card.setAttribute('aria-expanded', String(!details.hidden));
+}
+window.TingsOrderCards = {
+  create(order) {
+    const template = document.createElement('template');
+    // This shared renderer escapes remote strings. Never pass unescaped HTML here.
+    template.innerHTML = lookupOrderCard(order, true);
+    const card = template.content.firstElementChild;
+    card.tabIndex = 0; card.setAttribute('aria-expanded','false');
+    card.setAttribute('aria-label', `订单 ${order.order_number}，点击展开详情`);
+    card.onclick = handleOrderCardClick;
+    card.onkeydown = event => {
+      if (event.target === card && ['Enter',' '].includes(event.key)) { event.preventDefault(); card.click(); }
+    };
+    card.oninput = event => {
+      if (event.target.name === 'cancelReason') {
+        event.target.setCustomValidity('');
+        card.querySelector('.lookup-cancel-count').textContent = `${event.target.value.length} / 100`;
+      }
+    };
+    return card;
+  },
+};
 var lastLookupQuery = "",
   lastLookupOrders = [],
   activeLookupTab = "current";
@@ -2397,7 +2483,7 @@ function renderLookupOrders() {
     ),
     toolbar = $("#lookupResultToolbar");
   result.innerHTML =
-    orders.map(lookupOrderCard).join("") ||
+    orders.map(order => lookupOrderCard(order)).join("") ||
     `<p class="dialog-note lookup-empty">暂无${historical ? "历史" : "当前"}订单。</p>`;
   toolbar?.querySelectorAll("[data-lookup-tab]").forEach((button) => {
     const selected = button.dataset.lookupTab === activeLookupTab;
@@ -2440,33 +2526,7 @@ $("#lookupResult").onclick = async (clickEvent) => {
     $("#lookupQuery").focus();
     return;
   }
-  const showCancel = clickEvent.target.closest("[data-show-cancel]");
-  if (showCancel) {
-    const card = showCancel.closest(".lookup-order-card"),
-      form = card.querySelector("[data-cancel-form]");
-    form.hidden = false;
-    showCancel.hidden = true;
-    form.querySelector('[name="cancelPhone"]').focus();
-    return;
-  }
-  const closeCancel = clickEvent.target.closest("[data-close-cancel]");
-  if (closeCancel) {
-    const card = closeCancel.closest(".lookup-order-card"),
-      form = closeCancel.closest("[data-cancel-form]"),
-      showButton = card.querySelector("[data-show-cancel]");
-    form.reset();
-    form.querySelector(".lookup-cancel-count").textContent = "0 / 100";
-    form.hidden = true;
-    showButton.hidden = false;
-    return;
-  }
-  if (clickEvent.target.closest("button,input,textarea,select,a,form")) return;
-  const card = clickEvent.target.closest(".lookup-order-card");
-  if (!card) return;
-  const details = card.querySelector(".lookup-details"),
-    open = details.hidden;
-  details.hidden = !open;
-  card.classList.toggle("is-expanded", open);
+  handleOrderCardClick(clickEvent);
 };
 $("#lookupResult").oninput = (event) => {
   if (event.target.name !== "cancelReason") return;

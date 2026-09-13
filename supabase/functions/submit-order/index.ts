@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { resolveCustomerIdentity } from "./customer-identity.mjs";
 
 const encoder = new TextEncoder();
 const productionOrigin = "https://tings-snack-house.pages.dev";
@@ -72,6 +73,8 @@ Deno.serve(async (request) => {
     if (raw.length > 32_768)
       return json({ error: "订单内容过大" }, 413, origin);
     body = JSON.parse(raw);
+    if (!body || typeof body !== "object" || Array.isArray(body))
+      return json({ error: "订单格式无效" }, 400, origin);
   } catch {
     return json({ error: "订单格式无效" }, 400, origin);
   }
@@ -100,6 +103,18 @@ Deno.serve(async (request) => {
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  let customerId: string | null;
+  try {
+    customerId = await resolveCustomerIdentity(
+      request.headers.get("authorization"),
+      Deno.env.get("SUPABASE_ANON_KEY"),
+      (token: string) => admin.auth.getUser(token),
+    );
+  } catch (error) {
+    const notConfigured = error instanceof Error && error.message === "AUTH_NOT_CONFIGURED";
+    return json({ error: notConfigured ? "账户服务尚未完成配置" : "登录已失效，请重新登录后提交订单" },
+      notConfigured ? 503 : 401, origin);
+  }
 
   const windowSeconds = positiveInteger(
     Deno.env.get("ORDER_RATE_WINDOW_SECONDS"),
@@ -139,6 +154,7 @@ Deno.serve(async (request) => {
   }
 
   const rpcArgs = {
+    p_user_id: customerId,
     p_customer_name: body.p_customer_name,
     p_phone: phone,
     p_email: body.p_email ?? null,
@@ -153,7 +169,7 @@ Deno.serve(async (request) => {
     p_excluded_campaign_ids: body.p_excluded_campaign_ids ?? [],
   };
   const { data, error } = await admin.rpc(
-    "submit_shop_order_idempotent",
+    "submit_shop_order_account",
     rpcArgs,
   );
   if (error) {

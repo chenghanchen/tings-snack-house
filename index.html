@@ -15,13 +15,19 @@
       fetchpriority="high"
     />
     <link rel="stylesheet" href="styles.css?v=20260909n" />
+    <link rel="stylesheet" href="checkout-layout.css?v=20260912b" />
     <link rel="stylesheet" href="footer-layout.css?v=20260909o" />
+    <link rel="stylesheet" href="customer-account.css?v=20260912j" />
+    <link rel="stylesheet" href="customer-wallet.css?v=20260913a" />
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
     ></script>
-    <script defer src="supabase-config.js?v=20260827c"></script>
-    <script defer src="app.js?v=20260909m"></script>
+    <script defer src="supabase-config.js?v=20260913b"></script>
+    <script defer src="customer-order-tools.js?v=20260911a"></script>
+    <script defer src="customer-wallet.js?v=20260913a"></script>
+    <script defer src="customer-account.js?v=20260913b"></script>
+    <script defer src="app.js?v=20260913a"></script>
     <script defer src="activity-announcement.js?v=20260908a"></script>
     <script defer src="site-appearance.js?v=20260906b"></script>
     <script defer src="footer-contact-overlay.js?v=20260909g"></script>
@@ -419,7 +425,7 @@
             <span>🎁 您的推荐码：</span><button class="success-referral-code" id="submittedReferralCode" type="button" data-copy-referral aria-label="复制推荐码"></button><button class="success-referral-info" type="button" data-referral-info="code">推荐码说明</button>
           </div>
           <div class="success-referral-line success-referral-earned" id="successReferralEarned" hidden>
-            <span>您使用了推荐码，您及推荐人都获得了推荐奖励券。</span><button class="success-referral-info" type="button" data-referral-info="coupon">奖励券说明</button>
+            <span>订单完成后，仅向推荐人账户发放推荐奖励券。</span><button class="success-referral-info" type="button" data-referral-info="coupon">奖励券说明</button>
           </div>
           <div class="success-referral-line" id="successYourRewardCoupon" hidden>
             <span>你的奖励券：</span><button class="success-referral-code" id="submittedYourRewardCoupon" type="button" data-copy-referral aria-label="复制你的奖励券"></button>

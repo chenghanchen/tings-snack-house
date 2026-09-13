@@ -1,0 +1,9 @@
+.customer-coupon-card{border:1px solid #dfd9cd;border-radius:12px;padding:14px;margin:10px 0;background:#fffdf8;overflow-wrap:anywhere}
+.customer-coupon-card>strong{font-size:24px;color:#ad4134}
+.customer-coupon-card h4,.customer-coupon-card p{margin:6px 0}
+.customer-coupon-card code,#customerRewardsPanel>code{display:block;margin:8px 0;overflow-wrap:anywhere}
+.customer-wallet-checkout{margin:12px 0 24px}
+.customer-wallet-checkout fieldset{border:1px solid #dfd9cd;border-radius:8px;padding:10px;min-width:0}
+#orderForm .customer-wallet-checkout label{display:flex;gap:8px;align-items:flex-start;margin:10px 0;font-size:13px}
+#orderForm .customer-wallet-checkout input[type=radio]{width:16px;height:16px;flex:0 0 16px;margin:2px 0;padding:0}
+.customer-wallet-checkout small{display:block;font-size:11px;line-height:1.5;margin-top:8px}

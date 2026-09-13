@@ -18,7 +18,7 @@
     "admin.js?v=20260909c",
     "admin-mobile-nav.js?v=20260828a",
     "order-cards.js?v=20260908c",
-    "marketing.js?v=20260904d",
+    "marketing.js?v=20260913a",
     "legacy-product-editor-bridge.js?v=20260828a",
     "category-product-manager.js?v=20260909k",
     "appearance-settings.js?v=20260909k",

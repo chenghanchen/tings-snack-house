@@ -37,7 +37,7 @@ const syntaxFiles = [
   ...readdirSync(root)
     .filter((name) => name.endsWith(".js"))
     .map((name) => path.join(root, name)),
-  ...walk(path.join(root, "scripts")).filter((name) => name.endsWith(".mjs")),
+  ...walk(path.join(root, "scripts")).filter((name) => /\.[cm]js$/.test(name)),
   ...walk(path.join(root, "tests")).filter((name) => name.endsWith(".mjs")),
   ...walk(path.join(root, "supabase", "functions")).filter(
     (name) => name.endsWith(".ts") || name.endsWith(".mjs"),

@@ -1,5 +1,10 @@
 # Local previews, exports, and media-generation artifacts.
 .build/
+supabase/.temp/
+node_modules/
+.env
+.env.*
+!.env.example
 .video-deps/
 output/
 *.pptx

@@ -1,0 +1,17 @@
+/* Cart and checkout presentation. The success view and account forms retain their own styles. */
+#cartSubtotal{font-size:15px}
+#cartItems>.cart-item{padding-top:10px;padding-bottom:10px}
+#checkout,#continueShopping{font-size:15px;border-radius:10px}
+#checkout{justify-content:center}
+#orderDialog:has(#orderFormWrap:not([hidden])){padding-top:30px;padding-bottom:25px;border-radius:10px}
+#orderFormWrap>h2{margin-top:-10px;margin-bottom:10px}
+#orderFormWrap>p.dialog-note{margin-top:-5px;margin-bottom:-5px}
+#orderForm>label{margin-top:8px;margin-bottom:8px}
+#orderForm>label:has(input[name="name"]){margin-top:0;margin-bottom:0}
+#orderForm input,#orderForm select,#orderForm textarea{border-radius:8px;margin-top:5px}
+#orderForm #promotionChoice>label{margin-top:-20px;margin-bottom:-10px}
+#orderForm #promotionChoice{display:flow-root;padding-top:8px}
+#orderForm #couponCodeHint:not([hidden]){margin-top:16px}
+#orderForm:not(:has(#customerCheckoutHint)){margin-top:10px}
+#orderForm #orderSummary{border-radius:15px;padding-top:10px;padding-bottom:10px;margin-top:10px;margin-bottom:10px}
+#orderForm #submitOrder{font-size:15px;border-radius:8px;padding-top:10px;padding-bottom:10px;justify-content:center}

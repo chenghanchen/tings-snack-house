@@ -7,7 +7,11 @@
 - 本地预览：`node local-server.mjs` 或运行 `start-local-server.ps1`
 - 发布仓库：`https://github.com/chenghanchen/tings-snack-house.git`
 
+2026-09-13 内部测试版：账户、默认地址、订单、优惠券和邮箱账户推荐奖励入口统一开放。邮箱验证仍受 Resend 测试发件限制；游客可以不登录下单。内部测试标注不限制公开链接的访问，正式推广前需完成自有发信域名配置与多账户真实验收。
+
 ## Supabase 图片存储
+
+顾客登录、账户订单和常用地址的开发／上线步骤见 [顾客账户启用清单](CUSTOMER-ACCOUNTS-SETUP.md)。上线前必须完成数据库权限、订单后端及验证码邮件配置，不能只发布前端。
 
 首次启用图片 CDN 时，在 Supabase SQL Editor 执行
 `supabase-storage-migration.sql`，然后在后台「商品管理」点击
