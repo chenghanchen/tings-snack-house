@@ -53,8 +53,10 @@
 .customer-reorder-issue{color:#994321}
 .customer-address-region{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:12px}
 /* Compact only the annotated default-address rows, on desktop and mobile. */
-#customerDetailsForm>label:has(input[name="phone"]),#customerDetailsForm>label:has(input[name="unit"]){margin-top:-10px;margin-bottom:-10px}
-#customerDetailsForm>.customer-address-region{margin-top:-30px;margin-bottom:-20px}
+#customerDetailsForm>label:has(input[name="phone"]),#customerDetailsForm>label:has(input[name="unit"]){margin-top:-15px;margin-bottom:-15px}
+#customerDetailsForm>.customer-address-region{margin-top:-32px;margin-bottom:-20px;height:85px}
+#customerDetailsForm>.customer-address-region>label{margin-top:8px;margin-bottom:8px;min-height:0}
+#customerAccountDialog #customerSaveDetails:disabled{background:#e9e9e9;color:#777;border-color:#d5d5d5;opacity:1;cursor:not-allowed}
 #customerAccountDialog #customerIdentityEmail{background:var(--cream);color:#68776e}
 @media(max-width:388px){.customer-order-toolbar{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:780px){.customer-account-preview .site-header{gap:6px}.customer-account-button{margin:0;padding:8px 9px;min-height:40px}.customer-account-preview .site-header .order-lookup-button{margin-left:auto}.customer-account-preview .site-header .bag-button{white-space:nowrap}}
@@ -69,7 +71,7 @@
 #customerOrdersPanel>p.customer-muted:first-child{margin-top:-10px;margin-bottom:-10px}
 .customer-orders-no-match{width:fit-content;max-width:100%;margin:40px auto;text-align:center;overflow-wrap:anywhere}
 /* Address form density; keep the shared dialog's horizontal padding unchanged. */
-#customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerDetailsPanel:not([hidden])){padding-top:10px;padding-bottom:10px}
+#customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerDetailsPanel:not([hidden])){padding-top:20px;padding-bottom:20px}
 #customerAccountDialog #customerDetailsForm{margin-top:0;margin-bottom:0}
 #customerDetailsForm input{margin-top:0}
 #customerAccountDialog #customerDetailsForm textarea[name="address"]{height:44px;min-height:44px;resize:vertical}

@@ -75,11 +75,8 @@
           <label>City（城市）<input name="city" autocomplete="address-level2" maxlength="80"></label>
           <div class="customer-address-region"><label>State（州）<input name="state" autocomplete="address-level1" maxlength="2" pattern="[A-Za-z]{2}" placeholder="例如 IL" title="请输入两位英文字母州缩写"></label>
           <label>ZIP（邮编）<input name="zip" autocomplete="postal-code" maxlength="10" pattern="[0-9]{5}(-[0-9]{4})?" placeholder="60601 或 60601-1234"></label></div>
-          <label>登录邮箱（只读）<input id="customerIdentityEmail" type="email" autocomplete="email" readonly aria-readonly="true"></label>
-          <small class="customer-muted">邮箱用于登录身份，不随收货资料保存。旧完整地址不会自动拆分，可按需整理到各字段。</small>
-          <button type="submit" class="customer-primary">保存资料</button>
-          <button type="button" id="customerDiscardDetails" disabled>放弃修改</button>
-          <button type="button" id="customerReloadDetails">重新加载</button></form>
+          <label>登录邮箱（不可更改）<input id="customerIdentityEmail" type="email" autocomplete="email" readonly aria-readonly="true"></label>
+          <button type="submit" id="customerSaveDetails" class="customer-primary" disabled>保存资料</button></form>
       </section>
       <section id="customerCouponsPanel" data-account-panel="coupons" class="customer-feature-note" hidden>
         <p>打开后加载我的优惠券。</p>
@@ -97,6 +94,7 @@
   let details = null, pendingEmail = '', cooldownUntil = 0, sending = false;
   let offset = 0, orderRequest = 0, detailRequest = 0, orderRows = [];
   let detailsBusy = false, detailEdits = 0, reorderBusy = false;
+  let detailsSaving = false, detailsSaved = false;
   let ordersLoaded = false;
   let wallet = null;
   const detailFields = ['full_name','phone','address','unit','city','state','zip'];
@@ -136,17 +134,23 @@
   const detailsDirty = () => Object.entries(detailValues()).some(([name,value]) => value !== (details?.[name] || ''));
   function updateDetailsStatus() {
     const dirty = detailsDirty();
-    $('#customerDetailsStatus').textContent = detailsBusy ? '正在同步资料…' : dirty ? '有未保存的修改' : details ? '资料已同步' : '资料尚未加载';
-    detailsForm.querySelector('[type=submit]').disabled = detailsBusy || !session || !details || authExpired;
-    $('#customerDiscardDetails').disabled = detailsBusy || !dirty;
-    $('#customerReloadDetails').disabled = detailsBusy;
+    $('#customerDetailsStatus').textContent = detailsBusy ? (detailsSaving ? '正在保存资料…' : '正在同步资料…') : dirty ? '' : details ? '资料已同步' : '资料尚未加载';
+    const submit = $('#customerSaveDetails');
+    submit.disabled = detailsBusy || !session || !details || authExpired || !dirty;
+    submit.textContent = detailsSaving ? '正在保存…' : detailsSaved && !dirty ? '已保存' : '保存资料';
   }
-  detailsForm.addEventListener('input', () => { detailEdits++; updateDetailsStatus(); });
-  $('#customerDiscardDetails').onclick = () => {
+  detailsForm.addEventListener('input', () => { detailEdits++; detailsSaved = false; updateDetailsStatus(); });
+  function discardDetails() {
+    detailsSaved = false;
     for (const name of detailFields) detailsForm.elements[name].value = details?.[name] || '';
-    detailEdits++; updateDetailsStatus(); message('已恢复到上次保存的资料。');
-  };
-  const mayDiscard = () => !session || !detailsDirty() || window.confirm('收货资料尚未保存，确定离开吗？修改不会保存。');
+    detailEdits++; updateDetailsStatus();
+  }
+  function mayDiscard() {
+    if (detailsSaving) { message('资料正在保存，请稍候再离开。'); return false; }
+    if (session && detailsDirty() && !window.confirm('收货资料尚未保存，确定离开吗？修改不会保存。')) return false;
+    if (detailsDirty()) discardDetails();
+    return true;
+  }
   window.addEventListener('beforeunload', event => {
     if (session && detailsDirty()) { event.preventDefault(); event.returnValue = ''; }
   });
@@ -179,7 +183,7 @@
       epoch++; orderRequest++; detailRequest++;
       wallet?.reset();
       details = null; offset = 0; clearAutofill(); detailsForm.reset();
-      detailEdits++; detailsBusy = false; reorderBusy = false; orderRows = []; ordersLoaded = false;
+      detailEdits++; detailsBusy = false; detailsSaving = false; detailsSaved = false; reorderBusy = false; orderRows = []; ordersLoaded = false;
       authExpired = false; $('#customerReauthenticate').hidden = true;
       if (session) authBlocked = false;
       $('#customerOrderSearch').value = ''; $('#customerOrderFilter').value = 'all';
@@ -238,10 +242,12 @@
     message('');
     $('#customerAccountTitle').focus();
     if (accountView === 'orders') void loadOrders();
+    if (accountView === 'details') void loadDetails();
     if (accountView === 'coupons' || accountView === 'rewards') void wallet.load();
   };
   $('#customerAccountBack').onclick = () => {
     if (!session || accountView === 'home') { if (mayDiscard()) dialog.close(); return; }
+    if (accountView === 'details' && !mayDiscard()) return;
     const previous = accountView; showAccountView('home'); message('');
     dialog.querySelector(`[data-account-tab="${previous}"]`)?.focus();
   };
@@ -324,14 +330,15 @@
       const {data, error} = await accountRpc('get_my_customer_details');
       if (error) throw error;
       if (stamp !== epoch || request !== detailRequest) return;
+      // Keep edits made during the read, but refill a draft discarded on Back.
+      const preserveDraft = edits !== detailEdits && detailsDirty();
       details = data || {};
-      if (edits === detailEdits)
+      if (!preserveDraft)
         for (const name of detailFields) detailsForm.elements[name].value = details[name] || '';
       fillCheckout();
-    } catch (error) { if (stamp === epoch) message(accountError(error,'收货资料暂时无法加载，请检查网络后点“重新加载”重试。')); }
+    } catch (error) { if (stamp === epoch && request === detailRequest) message(accountError(error,'收货资料暂时无法加载，请检查网络后返回账户，再打开“收货资料”重试。')); }
     finally { if (stamp === epoch && request === detailRequest) { detailsBusy = false; updateDetailsStatus(); } }
   }
-  $('#customerReloadDetails').onclick = () => { if (mayDiscard()) void loadDetails(); };
   detailsForm.onsubmit = async (event) => {
     event.preventDefault();
     if (!session) return;
@@ -339,14 +346,14 @@
     if (submit.disabled) return;
     const values = detailValues();
     if (deliveryAddress(values).length > 500) { message('完整配送地址过长，请缩短至 500 个字符以内。资料未保存。'); return; }
-    detailsBusy = true; updateDetailsStatus(); message('正在保存…');
+    detailsBusy = true; detailsSaving = true; detailsSaved = false; updateDetailsStatus(); message('正在保存…');
     try {
       const {data, error} = await accountRpc('save_my_customer_details_v2', Object.fromEntries(detailFields.map(name=>[`p_${name}`,values[name]])));
       if (error) throw error;
       if (stamp !== epoch) return;
-      details = data; fillCheckout(); message(detailsDirty() ? '资料已保存；你随后修改的内容尚未保存。' : '收货资料已保存。');
+      details = data; detailsSaved = !detailsDirty(); fillCheckout(); message(detailsDirty() ? '资料已保存；你随后修改的内容尚未保存。' : '收货资料已保存。');
     } catch (error) { if (stamp === epoch) message(accountError(error,'资料未保存，请检查网络和填写格式后重试。')); }
-    finally { if (stamp === epoch) { detailsBusy = false; updateDetailsStatus(); } }
+    finally { if (stamp === epoch) { detailsBusy = false; detailsSaving = false; updateDetailsStatus(); } }
   };
 
   function renderOrder(order) {

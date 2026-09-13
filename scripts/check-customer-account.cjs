@@ -49,6 +49,7 @@ function mockSdk() {
         }
         if(name==='get_my_customer_details'){
           if(state.delayDetails)await new Promise(resolve=>{state.resolveDetails=resolve});
+          if(state.detailsError)return {error:{message:'network'}};
           return {data:state.profile[uid]||{full_name:'',phone:'',address:''}};
         }
         if(name==='get_my_customer_wallet'){
@@ -58,6 +59,7 @@ function mockSdk() {
         }
         if(name==='preview_account_offer')return {data:{valid:args.p_subtotal>=30,discount:5,name:'推荐奖励券',is_referral:false,allow_campaign_stack:true}};
         if(name==='save_my_customer_details_v2'){
+          if(state.delaySave)await new Promise(resolve=>{state.resolveSave=resolve});
           if(state.saveError)return {error:{message:'network'}};
           state.profile[uid]=Object.fromEntries(['full_name','phone','address','unit','city','state','zip'].map(key=>[key,args['p_'+key]]));
           return {data:state.profile[uid]};
@@ -343,6 +345,11 @@ function mockSdk() {
     await page.waitForFunction(()=>document.querySelector('#customerOrders').textContent.includes('取消申请中'));
     assert.equal(await page.evaluate(()=>__accountTest.calls.some(c=>c.name==='request_order_cancellation_v2')),false);
     await page.click('#customerAccountBack');await page.click('[data-account-tab=details]');
+    await page.waitForFunction(()=>!document.querySelector('#customerDetailsStatus').textContent.includes('正在'));
+    assert.equal(await page.locator('#customerDiscardDetails, #customerReloadDetails, #customerDetailsForm > small').count(),0);
+    assert.equal(await page.locator('#customerSaveDetails').isDisabled(),true);
+    assert.equal(await page.textContent('#customerSaveDetails'),'保存资料');
+    assert.match(await page.locator('#customerIdentityEmail').locator('..').textContent(),/不可更改/);
     await page.fill('#customerDetailsForm [name=full_name]','Alice');
     await page.fill('#customerDetailsForm [name=phone]','3125550100');
     await page.fill('#customerDetailsForm [name=address]','Saved address');
@@ -350,10 +357,13 @@ function mockSdk() {
     await page.fill('#customerDetailsForm [name=city]','Chicago');
     await page.fill('#customerDetailsForm [name=state]','il');
     await page.fill('#customerDetailsForm [name=zip]','60601-1234');
+    assert.equal(await page.locator('#customerSaveDetails').isEnabled(),true);
     assert.equal(await page.inputValue('#customerIdentityEmail'),'alice@example.test');
     assert.equal(await page.locator('#customerIdentityEmail').isEditable(),false);
     await page.click('#customerDetailsForm [type=submit]');
     await page.waitForFunction(()=>document.querySelector('#customerAccountMessage').textContent.includes('已保存'));
+    assert.equal(await page.textContent('#customerSaveDetails'),'已保存');
+    assert.equal(await page.locator('#customerSaveDetails').isDisabled(),true);
     for (const width of [320,390,780,1100]) {
       await page.setViewportSize({width,height:844});
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
@@ -363,10 +373,11 @@ function mockSdk() {
         const rows=['full_name','phone','address','unit','city','state'].map(name=>label(name).getBoundingClientRect());
         rows.push(form.querySelector('#customerIdentityEmail').closest('label').getBoundingClientRect());
         return {phone:margin(label('phone')),unit:margin(label('unit')),region:margin(form.querySelector('.customer-address-region')),
-          noOverlap:rows.every((row,i)=>!i||row.top>=rows[i-1].bottom+8),
+          regionHeight:form.querySelector('.customer-address-region').getBoundingClientRect().height,
+          noOverlap:rows.every((row,i)=>!i||row.top>=rows[i-1].bottom+1),
           stateZipAligned:Math.abs(label('state').getBoundingClientRect().top-label('zip').getBoundingClientRect().top)<1};
       });
-      assert.deepEqual(spacing,{phone:['-10px','-10px'],unit:['-10px','-10px'],region:['-30px','-20px'],noOverlap:true,stateZipAligned:true},`address spacing at ${width}px`);
+      assert.deepEqual(spacing,{phone:['-15px','-15px'],unit:['-15px','-15px'],region:['-32px','-20px'],regionHeight:85,noOverlap:true,stateZipAligned:true},`address spacing at ${width}px`);
       const density=await page.locator('#customerDetailsForm').evaluate(form=>{
         const style=getComputedStyle(form),dialogStyle=getComputedStyle(form.closest('dialog'));
         const status=getComputedStyle(document.querySelector('#customerDetailsStatus')),address=form.querySelector('[name=address]');
@@ -374,7 +385,7 @@ function mockSdk() {
           padding:[dialogStyle.paddingTop,dialogStyle.paddingBottom],inputMargins:[...form.querySelectorAll('input')].map(el=>getComputedStyle(el).marginTop),
           addressHeight:address.getBoundingClientRect().height,resize:getComputedStyle(address).resize};
       });
-      assert.deepEqual(density,{formMargins:['0px','0px'],statusMargins:['0px','0px'],padding:['10px','10px'],inputMargins:Array(7).fill('0px'),addressHeight:44,resize:'vertical'},`address density at ${width}px`);
+      assert.deepEqual(density,{formMargins:['0px','0px'],statusMargins:['0px','0px'],padding:['20px','20px'],inputMargins:Array(7).fill('0px'),addressHeight:44,resize:'vertical'},`address density at ${width}px`);
     }
     await page.setViewportSize({width:390,height:1000});
     await page.locator('#customerAccountDialog').evaluate(el=>{el.scrollTop=0});
@@ -448,7 +459,7 @@ function mockSdk() {
     assert.equal(await page.locator('#customerDetailsForm [type=submit]').isDisabled(),true);
     page.once('dialog',dialog=>dialog.dismiss());await page.click('#customerReauthenticate');
     assert.equal(await page.inputValue('#customerDetailsForm [name=unit]'),'Unsaved 2B');
-    await page.click('#customerDiscardDetails');await page.click('#customerReauthenticate');
+    page.once('dialog',dialog=>dialog.accept());await page.click('#customerReauthenticate');
     await page.waitForSelector('#customerSignedOut:not([hidden])');
     await page.evaluate(()=>{__accountTest.expired=false;__accountTest.change({access_token:'b',user:{id:'bob@example.test',email:'bob@example.test'}})});
     await page.waitForSelector('#customerSignedIn:not([hidden])');
@@ -559,25 +570,70 @@ function mockSdk() {
     await page.waitForFunction(()=>document.querySelector('.customer-reorder-preview').textContent.includes('达到当前库存'));
     assert.equal(await page.getByRole('button',{name:'确认加入购物篮',exact:true}).isDisabled(),true);
     // Dirty fields survive delayed loads, failed saves and a dismissed close confirmation.
-    await page.click('#customerAccountBack');await page.click('[data-account-tab=details]');
+    await page.click('#customerAccountBack');
     await page.evaluate(()=>{__accountTest.delayDetails=true});
-    await page.click('#customerReloadDetails');
+    await page.click('[data-account-tab=details]');
     await page.waitForFunction(()=>typeof __accountTest.resolveDetails==='function');
     await page.fill('#customerDetailsForm [name=full_name]','正在编辑的姓名');
     await page.evaluate(()=>{__accountTest.delayDetails=false;__accountTest.resolveDetails()});
-    await page.waitForFunction(()=>!document.querySelector('#customerReloadDetails').disabled);
+    await page.waitForFunction(()=>!document.querySelector('#customerSaveDetails').disabled);
     assert.equal(await page.inputValue('#customerDetailsForm [name=full_name]'),'正在编辑的姓名');
     await page.evaluate(()=>{__accountTest.saveError=true});
     await page.click('#customerDetailsForm [type=submit]');
     await page.waitForFunction(()=>document.querySelector('#customerAccountMessage').textContent.includes('未保存'));
     assert.equal(await page.inputValue('#customerDetailsForm [name=full_name]'),'正在编辑的姓名');
-    await page.click('#customerAccountBack');await page.click('[data-account-tab=details]');
+    page.once('dialog',dialog=>{assert.match(dialog.message(),/未保存/);dialog.dismiss()});
+    await page.click('#customerAccountBack');
+    assert.equal(await page.locator('#customerDetailsPanel').isVisible(),true);
     assert.equal(await page.inputValue('#customerDetailsForm [name=full_name]'),'正在编辑的姓名');
     page.once('dialog',dialog=>dialog.dismiss());await page.keyboard.press('Escape');
     assert.equal(await page.locator('#customerAccountDialog').evaluate(el=>el.open),true);
-    await page.click('#customerDiscardDetails');
+    const savesBeforeDiscard=await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='save_my_customer_details_v2').length);
+    page.once('dialog',dialog=>dialog.accept());await page.click('#customerAccountBack');
+    assert.equal(await page.locator('#customerHomePanel').isVisible(),true);
+    await page.click('[data-account-tab=details]');
+    await page.waitForFunction(()=>!document.querySelector('#customerDetailsStatus').textContent.includes('正在'));
     assert.equal(await page.inputValue('#customerDetailsForm [name=full_name]'),'');
+    assert.equal(await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='save_my_customer_details_v2').length),savesBeforeDiscard);
+    assert.equal(await page.locator('#customerSaveDetails').isDisabled(),true);
     await page.evaluate(()=>{__accountTest.saveError=false});
+    // A save commits its submitted snapshot, never overwriting later edits.
+    await page.fill('#customerDetailsForm [name=full_name]','Saved snapshot');
+    await page.evaluate(()=>{__accountTest.delaySave=true});await page.click('#customerSaveDetails');
+    await page.waitForFunction(()=>typeof __accountTest.resolveSave==='function');
+    await page.click('#customerAccountBack');
+    assert.equal(await page.locator('#customerDetailsPanel').isVisible(),true);
+    assert.match(await page.textContent('#customerAccountMessage'),/正在保存/);
+    await page.fill('#customerDetailsForm [name=full_name]','Later draft');
+    await page.evaluate(()=>{__accountTest.delaySave=false;__accountTest.resolveSave()});
+    await page.waitForFunction(()=>!document.querySelector('#customerSaveDetails').disabled);
+    assert.equal(await page.inputValue('#customerDetailsForm [name=full_name]'),'Later draft');
+    assert.equal(await page.textContent('#customerSaveDetails'),'保存资料');
+    assert.equal(await page.evaluate(()=>__accountTest.profile['bob@example.test'].full_name),'Saved snapshot');
+    await page.click('#customerSaveDetails');
+    await page.waitForFunction(()=>document.querySelector('#customerSaveDetails').textContent==='已保存');
+    await page.fill('#customerDetailsForm [name=full_name]','Another draft');
+    assert.equal(await page.textContent('#customerSaveDetails'),'保存资料');
+    assert.equal(await page.locator('#customerSaveDetails').isEnabled(),true);
+    page.once('dialog',dialog=>dialog.accept());await page.click('#customerAccountBack');
+    // With the reload button removed, re-entering the view retries a failed read.
+    await page.evaluate(()=>{__accountTest.detailsError=true});await page.click('[data-account-tab=details]');
+    await page.waitForFunction(()=>document.querySelector('#customerAccountMessage').textContent.includes('暂时无法加载'));
+    await page.click('#customerAccountBack');
+    await page.evaluate(()=>{__accountTest.detailsError=false});await page.click('[data-account-tab=details]');
+    await page.waitForFunction(()=>document.querySelector('#customerDetailsStatus').textContent==='资料已同步');
+    assert.equal(await page.inputValue('#customerDetailsForm [name=full_name]'),'Later draft');
+    // Discard during a slow read must not resurrect the abandoned edit or cancel default-address loading.
+    await page.click('#customerAccountBack');
+    await page.evaluate(()=>{__accountTest.delayDetails=true;__accountTest.resolveDetails=null});
+    await page.click('[data-account-tab=details]');
+    await page.waitForFunction(()=>typeof __accountTest.resolveDetails==='function');
+    await page.fill('#customerDetailsForm [name=full_name]','Abandoned during read');
+    page.once('dialog',dialog=>dialog.accept());await page.click('#customerAccountBack');
+    await page.evaluate(()=>{__accountTest.delayDetails=false;__accountTest.resolveDetails()});
+    await page.waitForFunction(()=>document.querySelector('#customerDetailsStatus').textContent==='资料已同步');
+    assert.equal(await page.inputValue('#customerDetailsForm [name=full_name]'),'Later draft');
+    await page.click('[data-account-tab=details]');
     await page.click('#customerAccountBack');await page.click('[data-account-tab=orders]');
     await page.waitForSelector('#customerOrders .lookup-order-card');
     await page.click('#customerOrders .lookup-order-card header');
@@ -692,13 +748,15 @@ function mockSdk() {
     assert.equal(await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='signOut').length),signOutCalls);
     await page.click('[data-account-tab=details]');
     await page.fill('#customerDetailsForm [name=unit]','Keep this draft');
-    await page.click('#customerAccountBack');
     page.once('dialog',dialog=>{assert.match(dialog.message(),/未保存/);dialog.dismiss()});
-    await page.click('#customerSignOut');
+    await page.click('#customerAccountBack');
     assert.equal(await page.inputValue('#customerDetailsForm [name=unit]'),'Keep this draft');
     assert.equal(await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='signOut').length),signOutCalls);
-    await page.evaluate(()=>{__accountTest.signOutError=true});
     page.once('dialog',dialog=>{assert.match(dialog.message(),/未保存/);dialog.accept()});
+    await page.click('#customerAccountBack');
+    assert.equal(await page.inputValue('#customerDetailsForm [name=unit]'),'');
+    await page.evaluate(()=>{__accountTest.signOutError=true});
+    page.once('dialog',dialog=>{assert.match(dialog.message(),/确定退出登录/);dialog.accept()});
     await page.click('#customerSignOut');
     await page.waitForSelector('#customerRetrySignOut:not([hidden])');
     assert.equal(await page.textContent('#customerOrders'),'');
