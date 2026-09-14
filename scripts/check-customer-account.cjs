@@ -155,6 +155,11 @@ function mockSdk() {
       }
       assert.ok(boxes.at(-1).right<=width,JSON.stringify({width,boxes}));
       assert.ok(await page.locator('.brand-logo').evaluate(img=>img.complete&&img.naturalWidth>0));
+      const logoWidth=await page.locator('.brand-logo').evaluate(img=>img.getBoundingClientRect().width);
+      const expectedLogoWidth=width<=780?Math.min((width-128)*.7,210):width<=1000?180:210;
+      assert.ok(Math.abs(logoWidth-expectedLogoWidth)<1,`logo width at ${width}px: ${logoWidth}`);
+      const headerHeight=await page.locator('.site-header').evaluate(el=>el.getBoundingClientRect().height);
+      assert.ok(Math.abs(headerHeight-(width<=780?Math.max(56,expectedLogoWidth/3+9):82))<1,`header height at ${width}px: ${headerHeight}`);
       assert.equal(await page.locator('.brand').getAttribute('href'),'#top');
       if(process.env.TINGS_ACCOUNT_SCREENSHOT && [390,1710].includes(width))await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-header-${width}.png`)});
       if(width<=780){

@@ -10,8 +10,9 @@
 .site-header>.mobile-header-menu[hidden]{display:none}
 /* Match the existing mobile breakpoint. Equal side columns keep the unchanged logo centered. */
 @media(max-width:780px){
-  .site-header,.customer-account-preview .site-header{height:auto;min-height:78px;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:8px;padding:4px 12px;background:var(--paper)}
-  .site-header .brand{grid-column:2;grid-row:1;justify-self:center;width:min(100%,300px)}
+  .site-header,.customer-account-preview .site-header{height:auto;min-height:56px;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:8px;padding:4px 12px;background:var(--paper)}
+  /* 70% of the original mobile width; intrinsic height now shrinks with the logo. */
+  .site-header .brand{grid-column:2;grid-row:1;justify-self:center;width:min(70%,210px)}
   .site-header>.order-lookup-button,.site-header>.customer-account-button,.site-header>nav:not(.mobile-header-menu){display:none}
   .site-header>.mobile-menu-toggle{display:grid;place-items:center;grid-column:1;grid-row:1;width:44px;height:44px;padding:4px;border:0;background:transparent;color:#321207;cursor:pointer}
   .mobile-menu-toggle svg{fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round}
