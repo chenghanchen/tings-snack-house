@@ -99,6 +99,7 @@
   let wallet = null;
   const detailFields = ['full_name','phone','address','unit','city','state','zip'];
   let accountView = 'home';
+  let pendingAccountView = null, accountOpener = button;
   const accountTitles = {home:'我的账户',orders:'我的订单',details:'收货资料',coupons:'我的优惠券',rewards:'推荐奖励'};
   let checkoutOwner, checkoutContext = Promise.resolve();
   const filled = new Map();
@@ -203,6 +204,11 @@
     checkoutHint();
     updateDetailsStatus();
     if (changed && session) void loadDetails();
+    if (changed && session && pendingAccountView && dialog.open) {
+      const destination = pendingAccountView; pendingAccountView = null;
+      showAccountView(destination); $('#customerAccountTitle').focus();
+      if (destination === 'coupons') void wallet?.load();
+    }
   }
   const ready = client.auth.getSession().then(({data, error}) => {
     if (error) throw error;
@@ -220,14 +226,21 @@
     });
   });
 
-  button.addEventListener('click', async () => {
-    dialog.showModal();
+  async function openAccount(view = 'home', opener = button) {
+    const destination = view === 'coupons' ? 'coupons' : 'home';
+    accountOpener = opener; pendingAccountView = destination === 'coupons' ? destination : null;
+    if (!dialog.open) dialog.showModal();
     await ready;
-    if (session) { showAccountView('home'); $('#customerAccountTitle').focus(); }
+    if (!dialog.open) return;
+    if (session) {
+      pendingAccountView = null; showAccountView(destination); $('#customerAccountTitle').focus();
+      if (destination === 'coupons') void wallet.load();
+    }
     else emailForm.elements.email.focus();
-  });
+  }
+  button.addEventListener('click', () => { void openAccount(); });
   dialog.addEventListener('cancel', event => { if (!mayDiscard()) event.preventDefault(); });
-  dialog.addEventListener('close', () => { codeForm.elements.code.value = ''; button.focus(); });
+  dialog.addEventListener('close', () => { pendingAccountView = null; codeForm.elements.code.value = ''; accountOpener.focus(); });
   function showAccountView(view) {
     accountView = view;
     for (const panel of dialog.querySelectorAll('[data-account-panel]')) panel.hidden = panel.dataset.accountPanel !== view;
@@ -492,6 +505,7 @@
     filled.clear(); offset = 0; if (session && dialog.open) void loadOrders();
   });
   window.TingsAccount = {
+    open: openAccount,
     async previewAccountOffer(args) {
       await ready;
       if(!session)return guestOfferPreview(args);

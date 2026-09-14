@@ -14,23 +14,24 @@
       type="image/webp"
       fetchpriority="high"
     />
-    <link rel="stylesheet" href="styles.css?v=20260909n" />
+    <link rel="stylesheet" href="styles.css?v=20260914a" />
     <link rel="stylesheet" href="checkout-layout.css?v=20260913c" />
     <link rel="stylesheet" href="footer-layout.css?v=20260909o" />
     <link rel="stylesheet" href="customer-account.css?v=20260913g" />
     <link rel="stylesheet" href="customer-wallet.css?v=20260913f" />
     <link rel="stylesheet" href="brand-header.css?v=20260914d" />
+    <link rel="stylesheet" href="activity-announcement.css?v=20260914a" />
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
     ></script>
     <script defer src="supabase-config.js?v=20260913b"></script>
     <script defer src="customer-order-tools.js?v=20260911a"></script>
-    <script defer src="customer-wallet.js?v=20260913f"></script>
-    <script defer src="customer-account.js?v=20260913g"></script>
-    <script defer src="app.js?v=20260913a"></script>
+    <script defer src="customer-wallet.js?v=20260914a"></script>
+    <script defer src="customer-account.js?v=20260914a"></script>
+    <script defer src="app.js?v=20260914a"></script>
     <script defer src="mobile-header.js?v=20260914a"></script>
-    <script defer src="activity-announcement.js?v=20260908a"></script>
+    <script defer src="activity-announcement.js?v=20260914a"></script>
     <script defer src="site-appearance.js?v=20260906b"></script>
     <script defer src="footer-contact-overlay.js?v=20260909g"></script>
     <script defer src="store-order-rules.js?v=20260909k"></script>
@@ -245,6 +246,27 @@
           </div>
           <img id="heroIllustration" alt="" hidden />
         </div>
+      </section>
+
+      <section class="activity-announcement" aria-label="活动公告">
+        <div class="activity-announcement__cards" tabindex="0" role="region" aria-label="活动卡片，可左右滑动">
+          <article class="activity-card activity-card--welcome">
+            <img src="activity-welcome-v1.webp" alt="" width="1774" height="887" loading="lazy" decoding="async" />
+            <div class="activity-card__copy"><h2>新人专享礼</h2><p id="activityWelcomeOffer">查看新人专属优惠</p>
+              <button type="button" data-promotion-account="coupons">查看优惠券 <span aria-hidden="true">›</span></button></div>
+          </article>
+          <article class="activity-card activity-card--popular">
+            <img src="activity-popular-v1.webp" alt="" width="1774" height="887" loading="lazy" decoding="async" />
+            <div class="activity-card__copy"><h2>热销TOP榜</h2><p>大家都在买</p>
+              <button type="button" data-promotion-filter="热销TOP榜">立即查看 <span aria-hidden="true">›</span></button></div>
+          </article>
+          <article class="activity-card activity-card--new">
+            <img src="activity-new-v1.webp" alt="" width="1774" height="887" loading="lazy" decoding="async" />
+            <div class="activity-card__copy"><h2>新品尝鲜</h2><p>发现新美味</p>
+              <button type="button" data-promotion-filter="新品">立即抢购 <span aria-hidden="true">›</span></button></div>
+          </article>
+        </div>
+        <p id="activityAnnouncementStatus" class="activity-announcement__status" role="status" hidden></p>
       </section>
 
       <section class="benefits" aria-label="服务特色">

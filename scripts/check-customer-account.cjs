@@ -143,6 +143,40 @@ function mockSdk() {
     });
     await page.goto('http://localhost/');
     await page.waitForSelector('#productGrid .product');
+    assert.equal(await page.locator('.activity-card').count(),3);
+    for(const width of [320,390,600,780,781,1100,1710]){
+      await page.setViewportSize({width,height:1000});
+      await page.locator('.activity-announcement').scrollIntoViewIfNeeded();
+      await page.locator('.activity-announcement__cards').evaluate(el=>{el.scrollLeft=0});
+      const layout=await page.locator('.activity-announcement__cards').evaluate(el=>{
+        const rows=[...el.children].map(card=>card.getBoundingClientRect());
+        return {sameRow:rows.every(r=>Math.abs(r.top-rows[0].top)<1),scrollable:el.scrollWidth>el.clientWidth+1,
+          peek:rows[1].left<el.getBoundingClientRect().right-4&&rows[1].right>el.getBoundingClientRect().right,
+          overflow:document.documentElement.scrollWidth>innerWidth,
+          copyFits:[...el.querySelectorAll('.activity-card__copy')].every(copy=>copy.scrollWidth<=copy.clientWidth+1)};
+      });
+      assert.deepEqual(layout,{sameRow:true,scrollable:width<=780,peek:width<=780,overflow:false,copyFits:true},`activity cards at ${width}px`);
+      if(width<=780){
+        await page.locator('.activity-announcement__cards').evaluate(el=>{el.scrollLeft=el.scrollWidth});
+        assert.ok(await page.locator('.activity-announcement__cards').evaluate(el=>el.scrollLeft>0));
+        await page.locator('.activity-announcement__cards').evaluate(el=>{el.scrollLeft=0});
+      }
+      if(process.env.TINGS_ACCOUNT_SCREENSHOT&&[390,1710].includes(width)){
+        await page.locator('.activity-card img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
+        await page.locator('.activity-announcement').screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-activities-${width}.png`)});
+      }
+    }
+    await page.setViewportSize({width:390,height:844});
+    await page.fill('#productSearch','nonexistent');
+    await page.click('[data-promotion-filter="热销TOP榜"]');
+    assert.equal(await page.inputValue('#productSearch'),'');
+    assert.equal(await page.getAttribute('#filters .active','data-filter'),'热销TOP榜');
+    assert.equal(await page.locator('#productGrid .product').count(),1);
+    await page.click('[data-promotion-filter="新品"]');
+    assert.equal(await page.getAttribute('#filters .active','data-filter'),'新品');
+    assert.equal(await page.locator('#productGrid .no-products').count(),1);
+    await page.click('#filters [data-filter="全部"]');
+    await page.evaluate(()=>scrollTo(0,0));
     for(const width of [320,360,375,390,430,580,581,600,780,781,1000,1100,1710]){
       await page.setViewportSize({width,height:844});
       const boxes=await page.locator('.site-header').evaluate(header=>[...header.children]
@@ -184,6 +218,22 @@ function mockSdk() {
     assert.equal(await page.locator('#mobileHeaderMenu').isVisible(),false);
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#mobileMenuToggle').evaluate(el=>el===document.activeElement),true);
+    for(const width of [320,350,390,600,780]){
+      await page.setViewportSize({width,height:844});
+      await page.click('#mobileMenuToggle');await page.click('#mobileLookupEntry');
+      const layout=await page.locator('#orderLookupDialog').evaluate(dialog=>{
+        const back=dialog.querySelector('[data-return-lookup]').getBoundingClientRect();
+        const title=dialog.querySelector('h2').getBoundingClientRect(),bounds=dialog.getBoundingClientRect();
+        return {width:back.width,height:back.height,rightGap:bounds.right-back.right,topGap:back.top-bounds.top,
+          titleClear:back.bottom<=title.top,overflow:dialog.scrollWidth>dialog.clientWidth};
+      });
+      assert.deepEqual(layout,{width:56,height:40,rightGap:16,topGap:12,titleClear:true,overflow:false},`lookup Back layout at ${width}px`);
+      if(process.env.TINGS_ACCOUNT_SCREENSHOT&&width===390)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-lookup-back.png')});
+      await page.click('#orderLookupDialog [data-return-lookup]');
+      assert.equal(await page.locator('#orderLookupDialog').evaluate(el=>el.open),false);
+      assert.equal(await page.locator('#mobileMenuToggle').evaluate(el=>el===document.activeElement),true);
+    }
+    await page.setViewportSize({width:390,height:844});
     await page.click('#mobileMenuToggle');await page.click('.brand');
     assert.equal(await page.locator('#mobileHeaderMenu').isVisible(),false);
     await page.click('#mobileMenuToggle');await page.setViewportSize({width:1100,height:844});
@@ -229,7 +279,7 @@ function mockSdk() {
     assert.equal((await page.evaluate(()=>__accountTest.calls.find(c=>c.name==='submit-order'))).headers.Authorization,guestHeader.Authorization);
     await page.click('#done');await page.click('#productGrid .add');
 
-    await openCustomerAccount();
+    await page.click('[data-promotion-account="coupons"]');
     await page.fill('#customerEmailForm input','alice@example.test');
     await page.evaluate(()=>{__accountTest.sendError=true});
     await page.click('#customerSendCode');
@@ -249,6 +299,8 @@ function mockSdk() {
     await page.evaluate(()=>{__accountTest.verifyError=null});
     await page.fill('#customerCodeForm input','123456');await page.click('#customerCodeForm [type=submit]');
     await page.waitForSelector('#customerSignedIn:not([hidden])');
+    assert.equal(await page.locator('#customerCouponsPanel').isVisible(),true);
+    await page.click('#customerAccountBack');
     assert.equal(await page.locator('#customerHomePanel').isVisible(),true);
     assert.equal(await page.locator('#customerOrdersPanel').isVisible(),false);
     assert.deepEqual(await page.locator('.customer-home-menu strong').allTextContents(),['我的订单','收货资料','我的优惠券','推荐奖励']);
@@ -296,6 +348,7 @@ function mockSdk() {
     }});
     await page.click('[data-account-tab=coupons]');
     await page.waitForSelector('#customerCouponsPanel .customer-coupon-card');
+    assert.equal(await page.textContent('#activityWelcomeOffer'),'满 $35 减 $5');
     assert.deepEqual(await page.locator('#customerCouponsPanel h3').allTextContents(),['可用优惠券']);
     assert.deepEqual(await page.locator('#customerCouponsPanel .customer-coupon-source').allTextContents(),['【推荐奖励】','【店铺优惠券】','【新人券】']);
     assert.deepEqual(await page.locator('#customerCouponsPanel .customer-coupon-card code').allTextContents(),['RWD-ALICE','TEN','NEW']);
@@ -314,6 +367,7 @@ function mockSdk() {
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-coupons.png')});
     await page.evaluate(()=>{__accountTest.walletError=true});await page.click('#customerRefreshCoupons');
     await page.waitForFunction(()=>document.querySelector('#customerCouponsPanel').textContent.includes('暂时无法加载'));
+    assert.equal(await page.textContent('#activityWelcomeOffer'),'查看新人专属优惠');
     assert.equal(await page.locator('#customerCouponsPanel .customer-coupon-card').count(),0);
     assert.equal(await page.locator('#customerRefreshCoupons').isEnabled(),true);
     await page.evaluate(()=>{__accountTest.walletError=false;__accountTest.savedCoupons=__accountTest.wallet.coupons;__accountTest.wallet.coupons=__accountTest.savedCoupons.filter(c=>c.status!=='available')});

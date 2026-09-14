@@ -106,3 +106,11 @@
 
 /* Shared by desktop/mobile text, native controls and generated content. */
 *,::before,::after{font-family:Arial, sans-serif}
+
+/* Mobile lookup form only: compact corner Back button, with clear title space. */
+@media(max-width:780px){
+  #orderLookupDialog.lookup-form-mode #lookupResultToolbar{position:absolute;top:12px;right:16px;display:flex;justify-content:flex-end;width:auto;min-height:40px;margin:0}
+  #orderLookupDialog.lookup-form-mode .lookup-toolbar-actions{width:auto;flex-direction:row;margin:0}
+  #orderLookupDialog.lookup-form-mode #lookupResultToolbar [data-return-lookup]{flex:none;width:56px;min-height:40px;padding:0 10px;white-space:nowrap}
+  #orderLookupDialog.lookup-form-mode #orderLookupFormWrap{margin-top:0;padding-top:32px}
+}

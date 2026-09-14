@@ -17,6 +17,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   });
   function reset(){
     request++;wallet=null;checkout.hidden=true;checkout.replaceChildren();
+    window.dispatchEvent(new CustomEvent('tings:wallet-summary',{detail:null}));
     refreshCoupons.disabled=false;
     couponsPanel.replaceChildren();rewardsPanel.replaceChildren();
     if(selectedCode&&couponInput.value.trim().toUpperCase()===selectedCode){couponInput.value='';couponInput.dispatchEvent(new Event('input',{bubbles:true}));}
@@ -59,6 +60,8 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   }
   function render(){
     const available=wallet.coupons.filter(c=>c.status==='available');
+    const newcomer=available.find(c=>c.kind==='new');
+    window.dispatchEvent(new CustomEvent('tings:wallet-summary',{detail:newcomer?{amount:newcomer.amount,min_spend:newcomer.min_spend,discount_kind:newcomer.discount_kind}:null}));
     couponsPanel.replaceChildren(el('h3','可用优惠券'),...available.map(c=>card(c,true)));
     if(!available.length)couponsPanel.append(el('p','暂无可用优惠券。','customer-muted'));
     rewardsPanel.replaceChildren(button('刷新推荐奖励',()=>load()));
@@ -90,6 +93,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     }catch(error){
       if(stamp!==identity()||ticket!==request)return;
       wallet=null;
+      window.dispatchEvent(new CustomEvent('tings:wallet-summary',{detail:null}));
       const message=error?.code==='PGRST202'?'优惠券服务尚未完成数据库升级，请联系店主。':onError(error,'优惠券暂时无法加载，请重试。');
       for(const panel of [couponsPanel,rewardsPanel])panel.replaceChildren(el('p',message),button('重试',()=>load()));
       if(document.querySelector('#orderDialog').open){checkout.hidden=false;checkout.replaceChildren(el('p',message),button('重新加载优惠券',()=>load()));}

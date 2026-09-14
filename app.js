@@ -363,12 +363,14 @@ function renderFilters() {
   const hasUncategorized = products.some(
     (p) => p.type === "未分类" || !ordinary.some((c) => c.name === p.type),
   );
-  const names = [
+  const names = [...new Set([
     "全部",
     ...ordinary.map((x) => x.name),
+    "热销TOP榜",
+    "新品",
     "促销",
     ...(hasUncategorized ? ["未分类"] : []),
-  ];
+  ])];
   $("#filters").innerHTML = names
     .map(
       (x, i) =>
@@ -1037,7 +1039,7 @@ $("#productGrid").addEventListener("keydown", (e) => {
 renderProducts = function (filter = "全部") {
   const query = $("#productSearch")?.value.trim().toLowerCase() || "",
     base =
-      filter === "全部"
+      filter === "全部" || filter === "热销TOP榜"
         ? sortByPopularity(products)
         : filter === "促销"
           ? products.filter(isPromotedProduct)

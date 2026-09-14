@@ -527,122 +527,40 @@ test("活动实时：较新发布阻止慢快照回写，订阅可持续收到�
   );
 });
 
-test("活动公告：发布后可原位刷新、新增和移除，已滚过首屏时保持视口", async () => {
-  const [app, announcementSource] = await Promise.all([
-      read("app.js"),
-      read("activity-announcement.js"),
-    ]),
-    state = storefrontStateFactory(app)(),
-    scrollOffsets = [];
-  let announcement = null,
-    styleAdded = false,
-    snackTop = 320,
-    heroBottom = 120;
-  const rootStyle = { scrollBehavior: "smooth" },
-    snacks = {
-      getBoundingClientRect: () => ({ top: snackTop }),
-      scrollIntoView() {},
-    },
-    makeAnnouncement = () => {
-      const values = new Map();
-      return {
-        dataset: {},
-        innerHTML: "",
-        listenerCount: 0,
-        style: {
-          setProperty(name, value) {
-            values.set(name, value);
-          },
-          values,
-        },
-        addEventListener() {
-          this.listenerCount += 1;
-        },
-        remove() {
-          announcement = null;
-          snackTop -= 104;
-        },
-      };
-    },
-    hero = {
-      getBoundingClientRect: () => ({ bottom: heroBottom }),
-      insertAdjacentHTML(position, html) {
-        assert.equal(position, "afterend");
-        assert.match(html, /activity-announcement/);
-        announcement = makeAnnouncement();
-        snackTop += 104;
-      },
-    },
-    document = {
-      documentElement: { style: rootStyle },
-      head: {
-        insertAdjacentHTML() {
-          styleAdded = true;
-        },
-      },
-      querySelector(selector) {
-        if (selector === ".hero") return hero;
-        if (selector === ".activity-announcement") return announcement;
-        if (selector === "#activityAnnouncementStyles")
-          return styleAdded ? {} : null;
-        if (selector === "#snacks") return snacks;
-        return null;
-      },
-    },
-    window = {
-      TingsStorefront: state,
-      scrollBy(_x, y) {
-        scrollOffsets.push(y);
-      },
-    };
-  assert.doesNotMatch(announcementSource, /\.from\(|\.rpc\(|functions\.invoke/);
-  state.publishSettings({
-    content: { activityAnnouncementImage: "https://example.test/banner.webp" },
-  });
-  vm.runInNewContext(announcementSource, {
-    window,
-    document,
-    console,
-    Intl,
-    Date,
-    JSON,
-    Number,
-    String,
-    Math,
-    setTimeout,
-    requestAnimationFrame: (callback) => callback(),
-  });
-
-  state.publishCampaigns([
-    { id: "one", name: "活动一", kind: "free_shipping", active: true },
-  ]);
-  assert.ok(announcement);
-  assert.match(announcement.innerHTML, /活动一/);
-  assert.equal(announcement.listenerCount, 1);
-  assert.match(
-    announcement.style.values.get("--activity-announcement-image"),
-    /banner\.webp/,
-  );
-  const original = announcement;
-  state.publishCampaigns([
-    { id: "two", name: "活动二", kind: "free_shipping", active: true },
-  ]);
-  assert.strictEqual(announcement, original, "刷新应复用现有节点");
-  assert.match(announcement.innerHTML, /活动二/);
-  assert.doesNotMatch(announcement.innerHTML, /活动一/);
-  assert.equal(announcement.listenerCount, 1, "原位刷新不应重复绑定");
-
-  heroBottom = -20;
-  state.publishCampaigns([]);
-  assert.equal(announcement, null);
-  assert.equal(scrollOffsets.at(-1), -104);
-  state.publishCampaigns([
-    { id: "three", name: "活动三", kind: "free_shipping", active: true },
-  ]);
-  assert.ok(announcement);
-  assert.match(announcement.innerHTML, /活动三/);
-  assert.equal(scrollOffsets.at(-1), 104);
-  assert.equal(rootStyle.scrollBehavior, "smooth");
+test("活动公告：三张常驻入口、账户券摘要和安全商品筛选", async () => {
+  const [source, html, css] = await Promise.all([read("activity-announcement.js"),read("index.html"),read("activity-announcement.css")]);
+  assert.doesNotMatch(source, /\.from\(|\.rpc\(|functions\.invoke|innerHTML/);
+  for(const name of ["welcome","popular","new"]){
+    assert.match(html,new RegExp(`activity-${name}-v1\\.webp`));
+    assert.ok((await readFile(path.join(root,`activity-${name}-v1.webp`))).length>0);
+  }
+  assert.match(css,/repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(css,/scroll-snap-type:x mandatory/);
+  const events={},status={hidden:true,textContent:""},offer={textContent:""},search={value:"旧搜索"},actions=[];
+  const section={addEventListener(name,callback){events[name]=callback}};
+  const filter={dataset:{filter:"新品"},click(){actions.push("新品")}};
+  const window={TingsAccount:{async open(view){actions.push(view)}},matchMedia(){return {matches:true}},addEventListener(name,callback){events[name]=callback}};
+  const document={
+    querySelector(){return section},querySelectorAll(){return [filter]},
+    getElementById(id){return {activityAnnouncementStatus:status,activityWelcomeOffer:offer,productSearch:search,
+      snacks:{querySelector(){return {setAttribute(){},focus(){}}},scrollIntoView(){actions.push("scroll")}}}[id]}
+  };
+  vm.runInNewContext(source,{window,document,Number});
+  const click=async(selector,target)=>events.click({target:{closest(s){return s===selector?target:null}}});
+  await click("[data-promotion-account]",{});
+  assert.deepEqual(actions,["coupons"]);
+  await click("[data-promotion-filter]",{dataset:{promotionFilter:"新品"}});
+  assert.equal(search.value,"");assert.deepEqual(actions,["coupons","新品","scroll"]);
+  await click("[data-promotion-filter]",{dataset:{promotionFilter:"missing"}});
+  assert.equal(status.hidden,false);
+  events["tings:wallet-summary"]({detail:{amount:5,min_spend:35,discount_kind:"fixed"}});
+  assert.equal(offer.textContent,"满 $35 减 $5");
+  events["tings:wallet-summary"]({detail:{amount:10,min_spend:50,discount_kind:"percent"}});
+  assert.equal(offer.textContent,"满 $50 享 10% OFF");
+  events["tings:wallet-summary"]({detail:{amount:"<img onerror=bad>",min_spend:0}});
+  assert.equal(offer.textContent,"查看新人专属优惠");
+  events["tings:wallet-summary"]({detail:null});
+  assert.equal(offer.textContent,"查看新人专属优惠");
 });
 
 test("字体与仓库：顾客页无需远程字体，三张旧 PNG 已移除", async () => {
