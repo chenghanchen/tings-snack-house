@@ -144,6 +144,11 @@ function mockSdk() {
     await page.goto('http://localhost/');
     await page.waitForSelector('#productGrid .product');
     assert.equal(await page.locator('.activity-card').count(),4);
+    assert.equal(await page.textContent('#openCustomerAccount'),'登录账户');
+    assert.equal(await page.textContent('#mobileAccountEntry'),'登录账户');
+    assert.equal(await page.locator('#openOrderLookup').textContent(),'查询游客订单');
+    assert.equal(await page.locator('#mobileLookupEntry').textContent(),'查询游客订单');
+    assert.equal(await page.locator('.activity-card--welcome button').evaluate(el=>getComputedStyle(el).fontWeight),'500');
     assert.equal(await page.locator('#activityPromotionOffer').textContent(),'敬请期待');
     assert.equal(await page.locator('.activity-card:last-child h2').textContent(),'限定促销');
     assert.equal(await page.locator('#activityPromotionCard button').isDisabled(),true);
@@ -157,15 +162,19 @@ function mockSdk() {
       const layout=await page.locator('.activity-announcement__cards').evaluate(el=>{
         const rows=[...el.children].map(card=>card.getBoundingClientRect());
         return {sameRow:rows.every(r=>Math.abs(r.top-rows[0].top)<1),scrollable:el.scrollWidth>el.clientWidth+1,
-          peek:rows[1].left<el.getBoundingClientRect().right-4&&rows[1].right>el.getBoundingClientRect().right,
           overflow:document.documentElement.scrollWidth>innerWidth,
           copyFits:[...el.querySelectorAll('.activity-card__copy')].every(copy=>copy.scrollWidth<=copy.clientWidth+1)};
       });
-      assert.deepEqual(layout,{sameRow:true,scrollable:width<1710,peek:width<=780,overflow:false,copyFits:true},`activity cards at ${width}px`);
-      if(width>780){
-        const sizes=await page.locator('.activity-card').evaluateAll(cards=>cards.map(card=>({width:card.offsetWidth,height:card.offsetHeight})));
-        assert.ok(sizes.every(size=>size.width===350&&size.height===185),`fixed desktop card size at ${width}px`);
-      }
+      assert.deepEqual(layout,{sameRow:true,scrollable:width<1710,overflow:false,copyFits:true},`activity cards at ${width}px`);
+      const spacing=await page.locator('.activity-announcement').evaluate(section=>{
+        const style=getComputedStyle(section),track=section.querySelector('.activity-announcement__cards');
+        return {top:style.paddingTop,bottom:style.paddingBottom,width:track.getBoundingClientRect().width};
+      });
+      assert.equal(spacing.top,'10px');assert.equal(spacing.bottom,'10px');
+      if(width===1710)assert.equal(spacing.width,1500);
+      const sizes=await page.locator('.activity-card').evaluateAll(cards=>cards.map(card=>({width:card.offsetWidth,height:card.offsetHeight})));
+      assert.ok(sizes.every(size=>size.width===350&&size.height===185),`fixed card size at ${width}px`);
+      assert.equal(await page.locator('.activity-card--welcome button').evaluate(el=>getComputedStyle(el).fontWeight),'500');
       if(width<=780){
         await page.locator('.activity-announcement__cards').evaluate(el=>{el.scrollLeft=el.scrollWidth});
         assert.ok(await page.locator('.activity-announcement__cards').evaluate(el=>el.scrollLeft>0));
@@ -342,6 +351,17 @@ function mockSdk() {
     await page.evaluate(()=>{__accountTest.verifyError=null});
     await page.fill('#customerCodeForm input','123456');await page.click('#customerCodeForm [type=submit]');
     await page.waitForSelector('#customerSignedIn:not([hidden])');
+    assert.equal(await page.textContent('#openCustomerAccount'),'我的账户');
+    assert.equal(await page.textContent('#mobileAccountEntry .mobile-account-label'),'我的账户');
+    assert.equal(await page.textContent('#mobileAccountEntry .mobile-account-email'),'alice@example.test');
+    for(const width of [781,1000,1100,1710]){
+      await page.setViewportSize({width,height:844});
+      assert.ok(await page.locator('.site-header').evaluate(header=>{
+        const boxes=[...header.children].filter(el=>getComputedStyle(el).display!=='none').map(el=>el.getBoundingClientRect());
+        return boxes.every((box,index)=>box.right<=innerWidth&&boxes.slice(index+1).every(next=>box.right<=next.left+1||next.right<=box.left+1));
+      }),`longer signed-in header labels fit at ${width}px`);
+    }
+    await page.setViewportSize({width:390,height:844});
     assert.equal(await page.locator('#customerCouponsPanel').isVisible(),true);
     await page.click('#customerAccountBack');
     assert.equal(await page.locator('#customerHomePanel').isVisible(),true);
@@ -550,7 +570,7 @@ function mockSdk() {
     await page.evaluate(()=>{__accountTest.expired=true});
     assert.match(await page.evaluate(()=>TingsAccount.checkoutHeaders().catch(e=>e.message)),/登录已失效/);
     await page.evaluate(()=>{__accountTest.expired=false;__accountTest.change(null)});
-    await page.waitForFunction(()=>document.querySelector('#openCustomerAccount').textContent==='账户');
+    await page.waitForFunction(()=>document.querySelector('#openCustomerAccount').textContent==='登录账户');
     assert.equal(await page.inputValue('#orderForm [name=email]'),'');
     assert.match(await page.evaluate(()=>TingsAccount.checkoutHeaders().catch(e=>e.message)),/账户已改变/);
     await page.click('#closeDialog');
@@ -872,7 +892,7 @@ function mockSdk() {
     await page.getByRole('button',{name:'确认加入购物篮',exact:true}).click();
     await page.waitForFunction(()=>typeof __accountTest.resolveCatalog==='function');
     await page.evaluate(()=>{__accountTest.change(null);__accountTest.delayCatalog=false;__accountTest.resolveCatalog()});
-    await page.waitForFunction(()=>document.querySelector('#openCustomerAccount').textContent==='账户');
+    await page.waitForFunction(()=>document.querySelector('#openCustomerAccount').textContent==='登录账户');
     assert.equal(Number(await page.textContent('#cartCount')),3);
     await page.evaluate(()=>{__accountTest.change({access_token:'b',user:{id:'bob@example.test',email:'bob@example.test'}})});
     await page.waitForSelector('#customerSignedIn:not([hidden])');
@@ -897,6 +917,9 @@ function mockSdk() {
     assert.equal(await page.textContent('#customerOrders'),'');
     await page.evaluate(()=>{__accountTest.signOutError=false});await page.click('#customerRetrySignOut');
     await page.waitForFunction(()=>document.querySelector('#customerAccountMessage').textContent.includes('已退出'));
+    assert.equal(await page.textContent('#openCustomerAccount'),'登录账户');
+    assert.equal(await page.textContent('#mobileAccountEntry'),'登录账户');
+    assert.equal(await page.locator('#mobileAccountEntry .mobile-account-email').count(),0);
     await page.goto('http://account-public.test/');
     await page.waitForSelector('#productGrid .product');
     assert.equal(await page.locator('#openCustomerAccount').count(),1);

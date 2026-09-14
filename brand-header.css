@@ -24,5 +24,8 @@
   .site-header>.mobile-header-menu:not([hidden]){position:absolute;top:100%;left:12px;right:12px;display:grid;gap:0;margin:0;padding:8px;background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 20px #29373020;max-height:calc(100dvh - 120px);overflow:auto}
   .mobile-header-menu a,.mobile-header-menu button{display:flex;align-items:center;min-height:44px;padding:10px 14px;text-align:left;text-decoration:none;font:14px Arial, sans-serif;color:var(--ink);border:0;border-radius:6px;background:transparent;cursor:pointer}
   .mobile-header-menu a:hover,.mobile-header-menu button:hover{background:var(--cream)}
+  #mobileAccountEntry{gap:8px;flex-wrap:wrap}
+  .mobile-account-label{white-space:nowrap}
+  .mobile-account-email{flex:1;min-width:0;font-size:12px;color:#68746c;overflow-wrap:anywhere;white-space:normal}
   .mobile-menu-toggle:focus-visible,.mobile-header-menu :focus-visible,#openCart:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 }

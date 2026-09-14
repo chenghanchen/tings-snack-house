@@ -18,7 +18,7 @@
   button.id = 'openCustomerAccount';
   button.className = 'customer-account-button';
   button.type = 'button';
-  button.textContent = '账户';
+  button.textContent = '登录账户';
   button.setAttribute('aria-haspopup', 'dialog');
   document.querySelector('#openCart').before(button);
 
@@ -194,8 +194,21 @@
       showAccountView('home');
       message('');
     }
-    button.textContent = session ? '我的' : '账户';
-    button.setAttribute('aria-label', session ? '我的账户' : '登录或注册账户');
+    button.textContent = session ? '我的账户' : '登录账户';
+    button.setAttribute('aria-label', button.textContent);
+    const mobileAccountEntry = document.getElementById('mobileAccountEntry');
+    if (mobileAccountEntry) {
+      const label = document.createElement('span');
+      label.className = 'mobile-account-label';
+      label.textContent = button.textContent;
+      mobileAccountEntry.replaceChildren(label);
+      if (session?.user.email) {
+        const email = document.createElement('span');
+        email.className = 'mobile-account-email';
+        email.textContent = session.user.email;
+        mobileAccountEntry.append(email);
+      }
+    }
     $('#customerSignedOut').hidden = !!session;
     $('#customerSignedIn').hidden = !session;
     $('#customerAccountTitle').textContent = session ? accountTitles[accountView] : '登录 / 注册';
