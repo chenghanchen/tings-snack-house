@@ -143,7 +143,13 @@ function mockSdk() {
     });
     await page.goto('http://localhost/');
     await page.waitForSelector('#productGrid .product');
-    assert.equal(await page.locator('.activity-card').count(),3);
+    assert.equal(await page.locator('.activity-card').count(),4);
+    assert.equal(await page.locator('#activityPromotionOffer').textContent(),'敬请期待');
+    assert.equal(await page.locator('.activity-card:last-child h2').textContent(),'限定促销');
+    assert.equal(await page.locator('#activityPromotionCard button').isDisabled(),true);
+    await page.evaluate(()=>TingsStorefront.publishCampaigns([{id:'promo',active:true,status:'published',kind:'product_discount',discount_kind:'percent',amount:10}]));
+    assert.equal(await page.locator('.activity-card:nth-child(2) h2').textContent(),'限定促销');
+    assert.equal(await page.locator('#activityPromotionOffer').textContent(),'10% OFF');
     for(const width of [320,390,600,780,781,1100,1710]){
       await page.setViewportSize({width,height:1000});
       await page.locator('.activity-announcement').scrollIntoViewIfNeeded();
@@ -155,7 +161,11 @@ function mockSdk() {
           overflow:document.documentElement.scrollWidth>innerWidth,
           copyFits:[...el.querySelectorAll('.activity-card__copy')].every(copy=>copy.scrollWidth<=copy.clientWidth+1)};
       });
-      assert.deepEqual(layout,{sameRow:true,scrollable:width<=780,peek:width<=780,overflow:false,copyFits:true},`activity cards at ${width}px`);
+      assert.deepEqual(layout,{sameRow:true,scrollable:width<1710,peek:width<=780,overflow:false,copyFits:true},`activity cards at ${width}px`);
+      if(width>780){
+        const sizes=await page.locator('.activity-card').evaluateAll(cards=>cards.map(card=>({width:card.offsetWidth,height:card.offsetHeight})));
+        assert.ok(sizes.every(size=>size.width===350&&size.height===185),`fixed desktop card size at ${width}px`);
+      }
       if(width<=780){
         await page.locator('.activity-announcement__cards').evaluate(el=>{el.scrollLeft=el.scrollWidth});
         assert.ok(await page.locator('.activity-announcement__cards').evaluate(el=>el.scrollLeft>0));
@@ -165,6 +175,39 @@ function mockSdk() {
         await page.locator('.activity-card img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
         await page.locator('.activity-announcement').screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-activities-${width}.png`)});
       }
+    }
+    await page.setViewportSize({width:1100,height:1000});
+    await page.locator('.activity-announcement').scrollIntoViewIfNeeded();
+    await page.locator('.activity-announcement__cards').evaluate(el=>{el.scrollLeft=0});
+    const dragStart=await page.locator('[data-promotion-account="coupons"]').boundingBox();
+    await page.mouse.move(dragStart.x+dragStart.width/2,dragStart.y+dragStart.height/2);
+    await page.mouse.down();
+    await page.mouse.move(dragStart.x-300,dragStart.y+dragStart.height/2,{steps:12});
+    await page.mouse.up();
+    assert.ok(await page.locator('.activity-announcement__cards').evaluate(el=>el.scrollLeft>100),'mouse drag scrolls narrow desktop');
+    assert.equal(await page.locator('#customerAccountDialog').evaluate(el=>el.open),false,'drag from a button must not activate it');
+    await page.click('[data-promotion-filter="促销"]');
+    assert.equal(await page.getAttribute('#filters .active','data-filter'),'促销');
+    await page.evaluate(()=>TingsStorefront.publishCampaigns([
+      {active:true,kind:'full_reduction',threshold:50,amount:5},
+      {active:true,kind:'category_discount',discount_kind:'percent',amount:15,category_names:['零食'],customer_scope:'new'},
+      {active:true,kind:'product_discount',discount_kind:'fixed',amount:1}
+    ]));
+    for(const width of [320,390,1100,1710]){
+      await page.setViewportSize({width,height:1000});
+      await page.locator('#activityPromotionCard').scrollIntoViewIfNeeded();
+      assert.ok(await page.locator('#activityPromotionCard').evaluate(card=>{
+        const box=card.getBoundingClientRect(),button=card.querySelector('button').getBoundingClientRect();
+        const offer=card.querySelector('p');
+        return button.bottom<=box.bottom&&button.top>=offer.getBoundingClientRect().bottom&&offer.scrollHeight>offer.clientHeight;
+      }),`multiple offers scroll within the card without covering the button at ${width}px`);
+    }
+    await page.evaluate(()=>TingsStorefront.publishCampaigns([]));
+    assert.equal(await page.locator('.activity-card:last-child h2').textContent(),'限定促销');
+    assert.equal(await page.locator('#activityPromotionCard button').isDisabled(),true);
+    if(process.env.TINGS_ACCOUNT_SCREENSHOT){
+      await page.setViewportSize({width:1710,height:1000});
+      await page.locator('.activity-announcement').screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-activities-empty.png')});
     }
     await page.setViewportSize({width:390,height:844});
     await page.fill('#productSearch','nonexistent');

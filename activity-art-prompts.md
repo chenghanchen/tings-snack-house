@@ -1,6 +1,6 @@
 # 活动公告配图
 
-使用内置图像生成工具，参考用户提供的活动公告.png，为三张卡片分别生成背景；无图片内文字或按钮。最终输出保存在项目根目录，压缩为 WebP，不改变构图。图片仅为主题插画，不表示实际售卖组合。
+使用内置图像生成工具，参考用户提供的活动公告.png，为前三张卡片分别生成背景；新增限定促销卡片参考已有热销卡片的风格生成。无图片内文字或按钮。最终输出保存在项目根目录，压缩为 WebP，不改变构图。图片仅为主题插画，不表示实际售卖组合。
 
 ## activity-welcome-v1.webp
 
@@ -13,3 +13,7 @@ Use case: ads-marketing. Asset type: background artwork for ONE clickable snack-
 ## activity-new-v1.webp
 
 Use case: ads-marketing. Asset type: background artwork for ONE clickable snack-shop website promotional card. The attached image is the visual style and composition reference only; recreate only the specified card as a separate full-bleed 2:1 horizontal image, not the three-card strip. THIRD (yellow) card: on the RIGHT a white plate of golden round butter cookies with visible crumb texture, a few hazelnuts, soft pale golden circle behind plate. Soft pale yellow cream background. Keep all solid objects within the RIGHT 55% of the image, leave the LEFT 45% simple softly colored empty negative space for live HTML text and buttons. Match the reference's bright appetizing commercial food photography / polished playful gift illustration, soft studio shadows and pastel color palette. No text, no letters, no numbers, no logos, no watermarks, no buttons, no white surrounding frame, no rounded outer border. 1200x600-style wide composition. Generic illustrative products, no recognizable commercial brands.
+
+## activity-promotion-v1.webp
+
+Use case: ads-marketing. Asset type: background artwork for ONE limited-promotion snack-shop website card. Input image 1 is a visual style and composition reference only, not an edit target. Create a new full-bleed 2:1 horizontal pastel food advertising image matching its bright polished studio photography and soft shadows. Scene: warm pale rose / coral cream backdrop, an appetizing assortment of golden ridged potato chips and spicy crispy crackers on a small white plate with a subtle coral ribbon and one blank sale tag. Keep all solid objects within the RIGHT 55% and leave the LEFT 45% clean softly colored negative space for live HTML copy. Generic illustrative snacks only. No text, letters, numbers, percent symbols, logos, watermarks, buttons, surrounding white frame or rounded outer border. The picture must not depict or promise any specific discount.

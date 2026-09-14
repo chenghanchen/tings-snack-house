@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="customer-account.css?v=20260913g" />
     <link rel="stylesheet" href="customer-wallet.css?v=20260913f" />
     <link rel="stylesheet" href="brand-header.css?v=20260914d" />
-    <link rel="stylesheet" href="activity-announcement.css?v=20260914a" />
+    <link rel="stylesheet" href="activity-announcement.css?v=20260914b" />
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
@@ -32,6 +32,7 @@
     <script defer src="app.js?v=20260914a"></script>
     <script defer src="mobile-header.js?v=20260914a"></script>
     <script defer src="activity-announcement.js?v=20260914a"></script>
+    <script defer src="activity-promotions.js?v=20260914a"></script>
     <script defer src="site-appearance.js?v=20260906b"></script>
     <script defer src="footer-contact-overlay.js?v=20260909g"></script>
     <script defer src="store-order-rules.js?v=20260909k"></script>
@@ -264,6 +265,11 @@
             <img src="activity-new-v1.webp" alt="" width="1774" height="887" loading="lazy" decoding="async" />
             <div class="activity-card__copy"><h2>新品尝鲜</h2><p>发现新美味</p>
               <button type="button" data-promotion-filter="新品">立即抢购 <span aria-hidden="true">›</span></button></div>
+          </article>
+          <article id="activityPromotionCard" class="activity-card activity-card--promotion">
+            <img src="activity-promotion-v1.webp" alt="" width="1774" height="887" loading="lazy" decoding="async" />
+            <div class="activity-card__copy"><h2>限定促销</h2><p id="activityPromotionOffer">活动加载中</p>
+              <button type="button" data-promotion-filter="促销" disabled>立即抢购 <span aria-hidden="true">›</span></button></div>
           </article>
         </div>
         <p id="activityAnnouncementStatus" class="activity-announcement__status" role="status" hidden></p>
