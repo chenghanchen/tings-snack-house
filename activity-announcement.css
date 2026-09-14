@@ -1,15 +1,15 @@
-/* Cards keep the same 350px by 185px size on desktop and mobile; the track scrolls. */
-.activity-announcement{margin:0;padding:10px 3vw;background:var(--paper);border-radius:24px 24px 0 0}
+/* Cards keep the same 350px by 160px size on desktop and mobile; the track scrolls. */
+.activity-announcement{margin:0;padding:10px 3vw 5px;background:var(--paper);border-radius:24px 24px 0 0}
 /* Cap the centered track at 1500px without making narrow screens overflow. */
 .activity-announcement__cards{display:flex;width:100%;max-width:1500px;margin-inline:auto;gap:20px;overflow-x:auto;padding:3px 0 10px;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:#d9cbb6 transparent;cursor:grab}
 .activity-announcement__cards.is-dragging{cursor:grabbing;scroll-snap-type:none;user-select:none}
-.activity-card{position:relative;isolation:isolate;overflow:hidden;flex:0 0 350px;width:350px;min-width:0;height:185px;scroll-snap-align:start;border-radius:22px;background:#fff0df;color:#b64110}
+.activity-card{position:relative;isolation:isolate;overflow:hidden;flex:0 0 350px;width:350px;min-width:0;height:160px;scroll-snap-align:start;border-radius:22px;background:#fff0df;color:#b64110}
 .activity-card--promotion{background:#ffe5dd;color:#a63720}
 .activity-card--popular{background:#edf8f3;color:#096a61}
 .activity-card--new{background:#fff8df;color:#a76200}
 .activity-card>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;pointer-events:none}
 .activity-card::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#fffdf838,transparent 65%);z-index:-1}
-.activity-card__copy{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;height:100%;width:62%;padding:16px 0 16px 22px}
+.activity-card__copy{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;height:100%;width:62%;padding:12px 0 12px 22px}
 .activity-card h2{font-size:24px;line-height:1.25;margin:0 0 8px;font-weight:700;white-space:nowrap}
 .activity-card p{font-size:14px;line-height:1.45;margin:0 0 12px;max-width:100%;overflow-wrap:anywhere}
 #activityPromotionOffer{max-height:3em;overflow-y:auto;white-space:pre-line;scrollbar-width:thin}
@@ -26,10 +26,10 @@
   .activity-announcement__cards{gap:14px}
 }
 @media(max-width:780px){
-  .activity-announcement{padding:10px 0;border-radius:20px 20px 0 0}
+  .activity-announcement{padding:10px 0 5px;border-radius:20px 20px 0 0}
   .activity-announcement__cards{display:flex;gap:14px;overflow-x:auto;padding:3px 5vw 10px;scroll-snap-type:x mandatory;scroll-padding-inline:5vw;overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:#d9cbb6 transparent}
   .activity-card{border-radius:18px}
-  .activity-card__copy{padding:16px 0 16px 20px;width:65%}
+  .activity-card__copy{padding:12px 0 12px 20px;width:65%}
   .activity-card h2{font-size:clamp(21px,5.6vw,28px)}
   .activity-card p{font-size:14px;max-width:160px;margin-bottom:12px}
   .activity-card button{min-height:40px;padding:6px 12px;font-size:13px}

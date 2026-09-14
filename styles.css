@@ -104,6 +104,10 @@
 /* Keep at least 170px per card so 20px prices and quantity controls fit together. */
 @media(max-width:388px){#productGrid{grid-template-columns:minmax(0,1fr)}}
 
+/* Catalog spacing applies consistently on mobile and desktop. */
+#filters{margin-bottom:15px}
+#snacks>.section-heading h2{margin-top:-10px;margin-bottom:5px}
+
 /* Shared by desktop/mobile text, native controls and generated content. */
 *,::before,::after{font-family:Arial, sans-serif}
 

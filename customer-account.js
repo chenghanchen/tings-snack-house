@@ -196,6 +196,10 @@
     }
     button.textContent = session ? '我的账户' : '登录账户';
     button.setAttribute('aria-label', button.textContent);
+    for (const id of ['openOrderLookup', 'openOrderLookupMobile', 'mobileLookupEntry']) {
+      const entry = document.getElementById(id);
+      if (entry) entry.hidden = !!session;
+    }
     const mobileAccountEntry = document.getElementById('mobileAccountEntry');
     if (mobileAccountEntry) {
       const label = document.createElement('span');

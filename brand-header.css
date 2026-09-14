@@ -8,6 +8,7 @@
 }
 .mobile-menu-toggle,.mobile-cart-icon,.site-header>.mobile-header-menu{display:none}
 .site-header>.mobile-header-menu[hidden]{display:none}
+.site-header #openOrderLookup[hidden],.site-header #openOrderLookupMobile[hidden],.site-header #mobileLookupEntry[hidden]{display:none}
 /* Match the existing mobile breakpoint. Equal side columns keep the unchanged logo centered. */
 @media(max-width:780px){
   .site-header,.customer-account-preview .site-header{height:auto;min-height:56px;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:8px;padding:4px 12px;background:var(--paper)}

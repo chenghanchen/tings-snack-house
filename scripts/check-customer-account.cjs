@@ -44,8 +44,8 @@ function mockSdk() {
           return {data:{
           settings:{id:1,name:'婷婷的零食屋',english:"Ting’s Snack House",is_accepting_orders:true,delivery_fee:0,free_delivery_threshold:60,tax_rate:0,
             storeSettings:{delivery:{minDelivery:0},order:{minOrder:0}}},
-          products:[{id:1,name:'测试零食',price:state.price ?? 5,stock:state.stock ?? 100,type:'零食',icon:'🍪',is_active:true}],
-          categories:[],option_groups:[],option_values:[],variants:[],product_sales:[],campaigns:[]}};
+          products:[{id:1,name:'测试零食',price:state.price ?? 5,stock:state.stock ?? 100,type:'热卖',icon:'🍪',is_active:true}],
+          categories:[{name:'热卖'}],option_groups:[],option_values:[],variants:[],product_sales:[],campaigns:[]}};
         }
         if(name==='get_my_customer_details'){
           if(state.delayDetails)await new Promise(resolve=>{state.resolveDetails=resolve});
@@ -148,6 +148,8 @@ function mockSdk() {
     assert.equal(await page.textContent('#mobileAccountEntry'),'登录账户');
     assert.equal(await page.locator('#openOrderLookup').textContent(),'查询游客订单');
     assert.equal(await page.locator('#mobileLookupEntry').textContent(),'查询游客订单');
+    assert.equal(await page.locator('#filters [data-filter="热销TOP榜"]').count(),0);
+    assert.equal(await page.locator('#filters [data-filter="热卖"]').count(),1);
     assert.equal(await page.locator('.activity-card--welcome button').evaluate(el=>getComputedStyle(el).fontWeight),'500');
     assert.equal(await page.locator('#activityPromotionOffer').textContent(),'敬请期待');
     assert.equal(await page.locator('.activity-card:last-child h2').textContent(),'限定促销');
@@ -170,10 +172,12 @@ function mockSdk() {
         const style=getComputedStyle(section),track=section.querySelector('.activity-announcement__cards');
         return {top:style.paddingTop,bottom:style.paddingBottom,width:track.getBoundingClientRect().width};
       });
-      assert.equal(spacing.top,'10px');assert.equal(spacing.bottom,'10px');
+      assert.equal(spacing.top,'10px');assert.equal(spacing.bottom,'5px');
+      assert.equal(await page.locator('#filters').evaluate(el=>getComputedStyle(el).marginBottom),'15px');
+      assert.deepEqual(await page.locator('#snacks>.section-heading h2').evaluate(el=>({top:getComputedStyle(el).marginTop,bottom:getComputedStyle(el).marginBottom})),{top:'-10px',bottom:'5px'});
       if(width===1710)assert.equal(spacing.width,1500);
       const sizes=await page.locator('.activity-card').evaluateAll(cards=>cards.map(card=>({width:card.offsetWidth,height:card.offsetHeight})));
-      assert.ok(sizes.every(size=>size.width===350&&size.height===185),`fixed card size at ${width}px`);
+      assert.ok(sizes.every(size=>size.width===350&&size.height===160),`fixed card size at ${width}px`);
       assert.equal(await page.locator('.activity-card--welcome button').evaluate(el=>getComputedStyle(el).fontWeight),'500');
       if(width<=780){
         await page.locator('.activity-announcement__cards').evaluate(el=>{el.scrollLeft=el.scrollWidth});
@@ -220,9 +224,9 @@ function mockSdk() {
     }
     await page.setViewportSize({width:390,height:844});
     await page.fill('#productSearch','nonexistent');
-    await page.click('[data-promotion-filter="热销TOP榜"]');
+    await page.click('[data-promotion-filter="热卖"]');
     assert.equal(await page.inputValue('#productSearch'),'');
-    assert.equal(await page.getAttribute('#filters .active','data-filter'),'热销TOP榜');
+    assert.equal(await page.getAttribute('#filters .active','data-filter'),'热卖');
     assert.equal(await page.locator('#productGrid .product').count(),1);
     await page.click('[data-promotion-filter="新品"]');
     assert.equal(await page.getAttribute('#filters .active','data-filter'),'新品');
@@ -354,6 +358,10 @@ function mockSdk() {
     assert.equal(await page.textContent('#openCustomerAccount'),'我的账户');
     assert.equal(await page.textContent('#mobileAccountEntry .mobile-account-label'),'我的账户');
     assert.equal(await page.textContent('#mobileAccountEntry .mobile-account-email'),'alice@example.test');
+    for(const selector of ['#openOrderLookup','#openOrderLookupMobile','#mobileLookupEntry']) {
+      assert.equal(await page.locator(selector).evaluate(el=>el.hidden),true);
+      assert.equal(await page.locator(selector).evaluate(el=>getComputedStyle(el).display),'none');
+    }
     for(const width of [781,1000,1100,1710]){
       await page.setViewportSize({width,height:844});
       assert.ok(await page.locator('.site-header').evaluate(header=>{
@@ -920,6 +928,9 @@ function mockSdk() {
     assert.equal(await page.textContent('#openCustomerAccount'),'登录账户');
     assert.equal(await page.textContent('#mobileAccountEntry'),'登录账户');
     assert.equal(await page.locator('#mobileAccountEntry .mobile-account-email').count(),0);
+    for(const selector of ['#openOrderLookup','#openOrderLookupMobile','#mobileLookupEntry']) {
+      assert.equal(await page.locator(selector).evaluate(el=>el.hidden),false);
+    }
     await page.goto('http://account-public.test/');
     await page.waitForSelector('#productGrid .product');
     assert.equal(await page.locator('#openCustomerAccount').count(),1);

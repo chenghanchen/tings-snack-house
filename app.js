@@ -365,8 +365,8 @@ function renderFilters() {
   );
   const names = [...new Set([
     "全部",
-    ...ordinary.map((x) => x.name),
-    "热销TOP榜",
+    ...ordinary.map((x) => x.name).filter((name) => name !== "热销TOP榜"),
+    "热卖",
     "新品",
     "促销",
     ...(hasUncategorized ? ["未分类"] : []),
@@ -1039,7 +1039,7 @@ $("#productGrid").addEventListener("keydown", (e) => {
 renderProducts = function (filter = "全部") {
   const query = $("#productSearch")?.value.trim().toLowerCase() || "",
     base =
-      filter === "全部" || filter === "热销TOP榜"
+      filter === "全部"
         ? sortByPopularity(products)
         : filter === "促销"
           ? products.filter(isPromotedProduct)

@@ -535,7 +535,7 @@ test("活动公告：四张常驻入口、账户券摘要和安全商品筛选",
     assert.ok((await readFile(path.join(root,`activity-${name}-v1.webp`))).length>0);
   }
   assert.match(css,/flex:0 0 350px/);
-  assert.match(css,/height:185px/);
+  assert.match(css,/height:160px/);
   assert.match(css,/scroll-snap-type:x mandatory/);
   const events={},status={hidden:true,textContent:""},offer={textContent:""},search={value:"旧搜索"},actions=[];
   const section={addEventListener(name,callback){events[name]=callback}};
