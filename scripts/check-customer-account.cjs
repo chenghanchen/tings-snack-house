@@ -84,6 +84,11 @@ function mockSdk() {
     const page=await browser.newPage({viewport:{width:390,height:844}});
     const errors=[];
     page.on('pageerror',e=>errors.push(e.message));
+    async function openCustomerAccount(){
+      if(await page.locator('#mobileMenuToggle').isVisible()){
+        await page.click('#mobileMenuToggle');await page.click('#mobileAccountEntry');
+      }else await page.locator('#openCustomerAccount').click();
+    }
     async function closeCustomerAccount(){
       if(await page.locator('#customerSignedIn').isVisible() && !await page.locator('#customerHomePanel').isVisible())await page.click('#customerAccountBack');
       await page.click('#customerAccountBack');
@@ -130,7 +135,7 @@ function mockSdk() {
       if(['localhost','account-public.test'].includes(url.hostname)){
         const file=path.resolve(root,decodeURIComponent(url.pathname==='/'?'index.html':url.pathname.slice(1)));
         if(!file.startsWith(root+path.sep)||!fs.existsSync(file))return route.fulfill({status:404,body:''});
-        return route.fulfill({body:fs.readFileSync(file),contentType:{'.html':'text/html; charset=utf-8','.js':'application/javascript','.css':'text/css','.webp':'image/webp'}[path.extname(file)]||'text/plain'});
+        return route.fulfill({body:fs.readFileSync(file),contentType:{'.html':'text/html; charset=utf-8','.js':'application/javascript','.css':'text/css','.webp':'image/webp','.png':'image/png'}[path.extname(file)]||'text/plain'});
       }
       if(url.hostname==='cdn.jsdelivr.net'&&url.pathname.includes('supabase-js'))
         return route.fulfill({contentType:'application/javascript',body:`(${mockSdk.toString()})()`});
@@ -138,21 +143,49 @@ function mockSdk() {
     });
     await page.goto('http://localhost/');
     await page.waitForSelector('#productGrid .product');
-    for(const width of [320,360,375,390,430,600,780,781,1100,1710]){
+    for(const width of [320,360,375,390,430,580,581,600,780,781,1000,1100,1710]){
       await page.setViewportSize({width,height:844});
       const boxes=await page.locator('.site-header').evaluate(header=>[...header.children]
         .filter(el=>getComputedStyle(el).display!=='none').map(el=>{
-          const r=el.getBoundingClientRect();return {name:el.id||el.className,left:r.left,right:r.right};
+          const r=el.getBoundingClientRect();return {name:el.id||el.className,left:r.left,right:r.right,top:r.top,bottom:r.bottom};
         }));
-      for(let i=1;i<boxes.length;i++)assert.ok(boxes[i].left>=boxes[i-1].right-1,JSON.stringify({width,boxes}));
+      for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){
+        const a=boxes[i],b=boxes[j];
+        assert.ok(a.right<=b.left+1||b.right<=a.left+1||a.bottom<=b.top+1||b.bottom<=a.top+1,JSON.stringify({width,boxes}));
+      }
       assert.ok(boxes.at(-1).right<=width,JSON.stringify({width,boxes}));
-      await page.click('#openCustomerAccount');
+      assert.ok(await page.locator('.brand-logo').evaluate(img=>img.complete&&img.naturalWidth>0));
+      assert.equal(await page.locator('.brand').getAttribute('href'),'#top');
+      if(process.env.TINGS_ACCOUNT_SCREENSHOT && [390,1710].includes(width))await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-header-${width}.png`)});
+      if(width<=780){
+        const center=await page.locator('.brand').evaluate(el=>{const r=el.getBoundingClientRect();return r.left+r.width/2});
+        assert.ok(Math.abs(center-width/2)<1);
+        assert.equal(await page.locator('#openCustomerAccount').isVisible(),false);
+        await page.click('#mobileMenuToggle');
+        assert.equal(await page.getAttribute('#mobileMenuToggle','aria-expanded'),'true');
+        assert.equal(await page.locator('#mobileHeaderMenu').isVisible(),true);
+        await page.keyboard.press('Escape');
+        assert.equal(await page.locator('#mobileHeaderMenu').isVisible(),false);
+        assert.equal(await page.locator('#mobileMenuToggle').evaluate(el=>el===document.activeElement),true);
+      }
+      await openCustomerAccount();
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
       await closeCustomerAccount();
     }
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.evaluate(()=>__accountTest.clients.filter(c=>c.customer).length),1);
+    await page.click('#mobileMenuToggle');await page.click('#mobileLookupEntry');
+    assert.equal(await page.locator('#orderLookupDialog').evaluate(el=>el.open),true);
+    assert.equal(await page.locator('#mobileHeaderMenu').isVisible(),false);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#mobileMenuToggle').evaluate(el=>el===document.activeElement),true);
+    await page.click('#mobileMenuToggle');await page.click('.brand');
+    assert.equal(await page.locator('#mobileHeaderMenu').isVisible(),false);
+    await page.click('#mobileMenuToggle');await page.setViewportSize({width:1100,height:844});
+    await page.waitForFunction(()=>document.querySelector('#mobileHeaderMenu').hidden);
+    await page.setViewportSize({width:390,height:844});
     await page.click('#productGrid .add');
+    await page.waitForFunction(()=>document.querySelector('#openCart').getAttribute('aria-label').includes('1 件商品'));
     await page.click('#openCart');
     for(const width of [320,390,780,1100,1710]){
       await page.setViewportSize({width,height:1180});
@@ -191,7 +224,7 @@ function mockSdk() {
     assert.equal((await page.evaluate(()=>__accountTest.calls.find(c=>c.name==='submit-order'))).headers.Authorization,guestHeader.Authorization);
     await page.click('#done');await page.click('#productGrid .add');
 
-    await page.click('#openCustomerAccount');
+    await openCustomerAccount();
     await page.fill('#customerEmailForm input','alice@example.test');
     await page.evaluate(()=>{__accountTest.sendError=true});
     await page.click('#customerSendCode');
@@ -310,7 +343,7 @@ function mockSdk() {
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-wallet-checkout.png')});
     await page.click('#closeDialog');
     await page.evaluate(()=>{__accountTest.wallet=null;__accountTest.walletError=true});
-    await page.click('#openCustomerAccount');await page.click('[data-account-tab=rewards]');
+    await openCustomerAccount();await page.click('[data-account-tab=rewards]');
     await page.waitForFunction(()=>document.querySelector('#customerRewardsPanel').textContent.includes('暂时无法加载'));
     assert.equal(await page.locator('#customerRewardsPanel .customer-coupon-card').count(),0);
     await page.evaluate(()=>{__accountTest.walletError=false});
@@ -422,7 +455,7 @@ function mockSdk() {
 
     // A late order response from Alice must not appear after switching to Bob.
     await page.evaluate(()=>{__accountTest.change({access_token:'a',user:{id:'alice@example.test',email:'alice@example.test'}})});
-    await page.click('#openCustomerAccount');
+    await openCustomerAccount();
     await page.click('[data-account-tab=orders]');
     await page.waitForSelector('#customerOrders .lookup-order-card');
     await page.evaluate(()=>{__accountTest.delayed=true});
@@ -438,7 +471,7 @@ function mockSdk() {
     await page.click('[data-account-tab=orders]');
     await page.waitForFunction(()=>document.querySelector('#customerOrders').textContent.includes('TSH-bob'));
     assert.equal((await page.textContent('#customerOrders')).includes('TSH-alice'),false);
-    await page.reload();await page.click('#openCustomerAccount');
+    await page.reload();await openCustomerAccount();
     await page.waitForSelector('#customerSignedIn:not([hidden])');
     assert.equal(await page.textContent('#customerAccountEmail'),'你好，bob@example.test');
     // Distinguish an empty result from a failed request, and support a safe expiry/relogin flow.
