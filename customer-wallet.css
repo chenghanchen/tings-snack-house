@@ -34,6 +34,7 @@
 .customer-coupon-card{container-type:inline-size}
 @container (min-width:360px){.customer-coupon-body{display:grid;grid-template-columns:minmax(80px,max-content) minmax(0,1fr);gap:12px;align-items:start}.customer-coupon-benefit{padding:0 14px;margin:20px 0;white-space:nowrap}.customer-coupon-card[data-shipping=true] .customer-coupon-benefit{font-size:24px;white-space:normal;max-width:108px}}
 .customer-wallet-checkout{margin:12px 0 24px;min-width:0}
+#orderForm #promotionChoice[hidden],#orderForm #customerWalletCheckout[hidden],#customerWalletCheckout [hidden]{display:none!important}
 .customer-wallet-checkout fieldset{border:0;padding:0;min-width:0;margin:0}
 .customer-wallet-checkout legend{font-size:14px;font-weight:700}
 #orderForm .customer-wallet-checkout label{display:flex;gap:8px;align-items:center;margin:10px 0;font-size:13px}

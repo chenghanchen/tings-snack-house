@@ -21,6 +21,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     couponsPanel.replaceChildren();rewardsPanel.replaceChildren();
     if(selectedCode&&couponInput.value.trim().toUpperCase()===selectedCode){couponInput.value='';couponInput.dispatchEvent(new Event('input',{bubbles:true}));}
     selectedCode='';
+    document.querySelector('#promotionChoice').hidden=false;
   }
   function button(text,fn){const node=el('button',text);node.type='button';node.onclick=fn;return node;}
   function unavailable(c,inCheckout=false){
@@ -86,7 +87,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     }else{
       const action=button(c.status==='claimable'?'立即领取':'去使用',()=>{
         if(c.status==='claimable')void claim(c,action,reason);
-        else {choose(c);dialog.close();if(document.querySelector('#orderDialog').open)couponInput.focus();else window.TingsCart?.open();}
+        else {choose(c);dialog.close();if(document.querySelector('#orderDialog').open)checkout.querySelector('input:checked:not(:disabled)')?.focus();else window.TingsCart?.open();}
       });
       action.className='customer-coupon-use';action.disabled=!!reason.textContent;
       if(c.status==='claimable')action.classList.add('is-claimable');else if(c.claimed||justClaimed.has(c.id))action.classList.add('is-claimed');
@@ -104,11 +105,12 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   }
   function renderCheckout(){
     document.querySelector('#promotionChoice').before(checkout);
-    checkout.replaceChildren();checkout.hidden=!identity()||!wallet; if(checkout.hidden)return;
+    checkout.replaceChildren();checkoutCards.clear();document.querySelector('#promotionChoice').hidden=false;
+    checkout.hidden=!identity()||!wallet; if(checkout.hidden)return;
     const rows=wallet.coupons.filter(c=>c.status!=='claimable');
     if(!rows.length){checkout.hidden=true;return;}
     checkoutCards.clear();
-    const fieldset=el('fieldset'),legend=el('legend','账户优惠券（每单选择一张）');
+    const fieldset=el('fieldset'),legend=el('legend','优惠券');
     fieldset.append(legend);
     for(const c of [{code:'',name:'不使用账户优惠券'}]){
       const label=el('label'),radio=el('input');radio.type='radio';radio.name='wallet_coupon_choice';radio.value=c.code;radio.checked=c.code===couponInput.value.trim().toUpperCase();
@@ -116,19 +118,33 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
       label.append(radio,el('span',text));fieldset.append(label);
       radio.onchange=()=>{if(!radio.checked)return;selectedCode=c.code;couponInput.value=c.code;couponInput.dispatchEvent(new Event('input',{bubbles:true}));};
     }
-    for(const c of rows.filter(c=>c.status==='available'))fieldset.append(card(c,true,true));
-    const historyRows=rows.filter(c=>c.status!=='available');
-    if(historyRows.length){const history=el('details',null,'customer-coupon-history');history.append(el('summary','查看不可用优惠券及原因'),...historyRows.map(c=>card(c,true,true)));fieldset.append(history)}
-    checkout.append(fieldset,el('small','选择后核算门槛和活动冲突；也可在下方输入兑换码，两者不会叠加。'));syncCheckout();
+    const history=el('details',null,'customer-coupon-history');history.append(el('summary','查看不可用优惠券及原因'));fieldset.append(history);
+    for(const c of rows){const node=card(c,true,true);if(unavailable(c,true))history.append(node);else fieldset.insertBefore(node,history);}
+    checkout.append(fieldset,el('small','每单选择一张优惠券；取消选择后可输入兑换码或推荐码，两者不会叠加。'));syncCheckout();
   }
   function syncCheckout(){
+    document.querySelector('#promotionChoice').hidden=!!identity()&&!!wallet&&!checkout.hidden&&checkoutCards.has(couponInput.value.trim().toUpperCase());
+    const fieldset=checkout.querySelector('fieldset'),history=fieldset?.querySelector('.customer-coupon-history');
+    // Rebuild only when eligibility changes; never move live cards through a closed details element.
+    if(history&&[...checkoutCards.values()].some(({c,node})=>node.parentElement!==(unavailable(c,true)?history:fieldset))){
+      const wasOpen=history.open,focused=document.activeElement,focusedCode=focused?.name==='wallet_coupon_choice'?focused.value:null;
+      renderCheckout();
+      const nextHistory=checkout.querySelector('.customer-coupon-history');if(nextHistory&&!nextHistory.hidden)nextHistory.open=wasOpen;
+      if(focusedCode!=null){const target=[...checkout.querySelectorAll('input')].find(input=>input.value===focusedCode);if(target?.disabled&&nextHistory&&!nextHistory.open)nextHistory.querySelector('summary').focus();else target?.focus();}
+      return;
+    }
+    let unavailableCount=0;
     const deliveryText=window.TingsCouponContext?.().deliveryText;
     if(deliveryText)for(const node of document.querySelectorAll('.customer-coupon-delivery-info'))node.textContent=deliveryText;
     for(const radio of checkout.querySelectorAll('input'))radio.checked=radio.value===couponInput.value.trim().toUpperCase();
     for(const {c,node,radio,text,reason} of checkoutCards.values()){
-      const why=unavailable(c,true);radio.disabled=!!why;reason.textContent=why;reason.hidden=!why;
+      const why=unavailable(c,true);
+      radio.checked=radio.value===couponInput.value.trim().toUpperCase();
+      radio.disabled=!!why;reason.textContent=why;reason.hidden=!why;
       node.classList.toggle('is-selected',radio.checked);node.classList.toggle('is-unavailable',!!why);text.textContent=why?'不可用':radio.checked?'✓ 已选':'使用';
+      if(why)unavailableCount++;
     }
+    if(history){history.hidden=!unavailableCount;history.querySelector('summary').textContent=`查看不可用优惠券及原因（${unavailableCount}）`;if(!unavailableCount)history.open=false;}
   }
   document.querySelector('#orderForm').addEventListener('input',event=>{if(event.target.name!=='wallet_coupon_choice')syncCheckout()});
   document.querySelector('#orderForm').addEventListener('change',syncCheckout);
@@ -163,7 +179,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     if(!identity()){reset();return;}
     const stamp=identity(),ticket=++request;
     for(const panel of [couponsPanel,rewardsPanel]){panel.replaceChildren(el('p','正在加载优惠券和奖励…'));panel.setAttribute('aria-busy','true');}
-    checkout.hidden=true;
+    checkout.hidden=true;document.querySelector('#promotionChoice').hidden=false;
     try{
       const {data,error}=await rpc('get_my_customer_wallet');if(error)throw error;
       if(!data||!Array.isArray(data.coupons)||!Array.isArray(data.referral_codes)||!Array.isArray(data.history))throw new Error('Invalid wallet');
