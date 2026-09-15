@@ -19,11 +19,12 @@
 .customer-coupon-action:before,.customer-coupon-action:after{content:"";position:absolute;width:12px;height:6px;background:var(--paper,#f8f4e9);left:-6px;border:1px solid #e2d6c4}
 .customer-coupon-action:before{top:-1px;border-top:0;border-radius:0 0 12px 12px}
 .customer-coupon-action:after{bottom:-1px;border-bottom:0;border-radius:12px 12px 0 0}
-#customerAccountDialog .customer-coupon-card button.customer-coupon-use{width:100%;min-height:44px;padding:9px 3px;border:1px solid #879b7d;border-radius:9px;background:#879b7d;color:#fff;font:600 12px Arial, sans-serif;white-space:nowrap}
+#customerAccountDialog .customer-coupon-card button.customer-coupon-use{width:100%;min-height:44px;padding:9px 3px;border:1px solid #ff1a1a;border-radius:9px;background:#ff1a1a;color:#fff;font:600 12px Arial, sans-serif;white-space:nowrap}
 #customerAccountDialog .customer-coupon-card button.is-claimable{background:#be4c38;border-color:#be4c38}
-#customerAccountDialog .customer-coupon-card button.is-claimed{background:#dce3d7;border-color:#cbd5c5;color:#4d614b}
+#customerAccountDialog .customer-coupon-card button.is-claimed{background:#ff1a1a;border-color:#ff1a1a;color:#fff}
 #customerAccountDialog .customer-coupon-card button:disabled{background:#e8e9e2;color:#697166;border-color:#d9ded3;opacity:1;cursor:default}
 .customer-coupon-card.is-selected{border:2px solid #b74735;background:#fff7ef;box-shadow:0 0 0 2px #b7473510}
+.customer-coupon-card[data-status=available]:not(.is-unavailable){background:#ffcccc}
 .customer-coupon-card.is-unavailable{background:#f4f3ed;border-color:#e0e1d9;box-shadow:none;--coupon-accent:#8c9288}
 .customer-coupon-card.is-unavailable .customer-coupon-minimum{color:#737c71}
 .customer-coupon-card.is-unavailable .customer-coupon-cap{background:#e8e8df;color:#717766}
@@ -35,9 +36,9 @@
 @container (min-width:360px){.customer-coupon-body{display:grid;grid-template-columns:minmax(80px,max-content) minmax(0,1fr);gap:12px;align-items:start}.customer-coupon-benefit{padding:0 14px;margin:20px 0;white-space:nowrap}.customer-coupon-card[data-shipping=true] .customer-coupon-benefit{font-size:24px;white-space:normal;max-width:108px}}
 .customer-wallet-checkout{margin:24px 0;min-width:0}
 #orderForm #promotionChoice[hidden],#orderForm #customerWalletCheckout[hidden],#customerWalletCheckout [hidden]{display:none!important}
-.customer-wallet-checkout fieldset{border:0;padding:0;min-width:0;margin:-20px 0 0}
+.customer-wallet-checkout fieldset{border:0;padding:0;min-width:0;margin:-30px 0 0}
 .customer-wallet-checkout legend{font-size:14px;font-weight:700}
-.customer-wallet-checkout .customer-coupon-history>summary{margin-top:-20px}
+.customer-wallet-checkout .customer-coupon-history>summary{margin-top:-30px;margin-bottom:-10px}
 .customer-wallet-checkout .customer-coupon-history{margin-top:30px}
 #orderForm .customer-wallet-checkout label{display:flex;gap:8px;align-items:center;margin:10px 0;font-size:13px}
 #orderForm .customer-wallet-checkout input[type=radio]{width:16px;height:16px;flex:0 0 16px;margin:0;padding:0;accent-color:#b74735}
@@ -45,5 +46,9 @@
 #orderForm .customer-coupon-select:has(:disabled){background:#e7e9e2;color:#747d70;border-color:#d6dbd0;cursor:default}
 #orderForm .is-selected .customer-coupon-select{background:#b74735;color:white;border-color:#b74735}
 .customer-wallet-rules{margin-left:8px;font-size:11px;font-weight:400;line-height:1.5;color:#687166}
-@media(max-width:780px){.customer-wallet-checkout{margin-top:12px}.customer-wallet-checkout fieldset{margin-top:-8px}.customer-wallet-checkout .customer-coupon-history{margin-top:18px}.customer-wallet-checkout .customer-coupon-history>summary{margin-top:-8px}}
+@media(min-width:781px){
+  .customer-wallet-checkout .customer-coupon-history .customer-coupon-body{margin-bottom:-10px}
+  #orderForm #customerWalletCheckout:not([hidden])+#promotionChoice>label{margin-top:-35px}
+}
+@media(max-width:780px){.customer-wallet-checkout{margin-top:12px}.customer-wallet-checkout fieldset{margin-top:-8px}.customer-wallet-checkout .customer-coupon-history{margin-top:18px}.customer-wallet-checkout .customer-coupon-history>summary{margin-top:-8px;margin-bottom:0}}
 @media(max-width:388px){.customer-coupon-card{grid-template-columns:minmax(0,1fr) 76px}.customer-coupon-body{padding:8px 12px}.customer-coupon-benefit{font-size:36px}.customer-coupon-card[data-shipping=true] .customer-coupon-benefit{font-size:24px}.customer-coupon-card .customer-coupon-minimum{font-size:15px}.customer-coupon-action{padding:8px 6px}}

@@ -57,6 +57,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   function card(c,showSource=false,inCheckout=false){
     const node=el('article',null,'customer-coupon-card');
     node.dataset.code=c.code;
+    node.dataset.status=c.status;
     node.dataset.shipping=String(c.discount_kind==='free_shipping');
     const body=el('div',null,'customer-coupon-body'),details=el('div',null,'customer-coupon-details'),aside=el('div',null,'customer-coupon-action');
     body.append(el('strong',amount(c),'customer-coupon-benefit'));
