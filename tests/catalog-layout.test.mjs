@@ -1,6 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFile, readdir} from "node:fs/promises";
+import {runInNewContext} from "node:vm";
+
+test("分类按钮：图标文案统一显示，保留原分类键与安全转义", async () => {
+  const source = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const code = source.slice(source.indexOf("function renderFilters()"), source.indexOf("function qtyControl("));
+  const output = {innerHTML:""};
+  const labels = [["新品","🌟 新品"],["热卖","🔥 热销"],["辣条","🌶️ 辣条"],["坚果","🥜 坚果"],["饼干","🍪 饼干"],["饮料","🥤 饮料"],["促销","🎁 促销"]];
+  runInNewContext(code+";renderFilters()", {
+    categories:[...labels.map(([name])=>({name})),{name:"constructor"},{name:"<test>"}],
+    products:[],
+    $:()=>output,
+    escapeHtml:value=>String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"),
+  });
+  for(const [key,label] of labels)assert.ok(output.innerHTML.includes('data-filter="'+key+'">'+label+'</button>'),key);
+  assert.ok(output.innerHTML.includes('data-filter="全部">全部</button>'));
+  assert.ok(output.innerHTML.includes('data-filter="constructor">constructor</button>'));
+  assert.ok(output.innerHTML.includes('data-filter="&lt;test&gt;">&lt;test&gt;</button>'));
+  assert.equal(output.innerHTML.includes('data-filter="🔥 热销"'),false);
+});
 
 test("商品排版：现价与按钮双端一致，所有卡片底部留白 10px", async () => {
   const css = await readFile(new URL("../styles.css", import.meta.url), "utf8");

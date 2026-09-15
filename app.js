@@ -359,6 +359,16 @@ function restoreSavedCart() {
   saveCartLocally();
 }
 function renderFilters() {
+  // Display labels are shared across screen sizes; category keys stay unchanged.
+  const labels = new Map([
+    ["新品", "🌟 新品"],
+    ["热卖", "🔥 热销"],
+    ["辣条", "🌶️ 辣条"],
+    ["坚果", "🥜 坚果"],
+    ["饼干", "🍪 饼干"],
+    ["饮料", "🥤 饮料"],
+    ["促销", "🎁 促销"],
+  ]);
   const ordinary = categories.filter((x) => x.name !== "未分类");
   const hasUncategorized = products.some(
     (p) => p.type === "未分类" || !ordinary.some((c) => c.name === p.type),
@@ -374,7 +384,7 @@ function renderFilters() {
   $("#filters").innerHTML = names
     .map(
       (x, i) =>
-        `<button class="${i ? "" : "active"}" data-filter="${escapeHtml(x)}">${escapeHtml(x)}</button>`,
+        `<button class="${i ? "" : "active"}" data-filter="${escapeHtml(x)}">${escapeHtml(labels.get(x) || x)}</button>`,
     )
     .join("");
 }
