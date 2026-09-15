@@ -42,7 +42,6 @@
 .customer-order-refresh{display:flex;align-items:center;gap:4px 6px;flex-wrap:wrap;max-width:100%}
 #customerAccountDialog #customerRefreshOrders{color:#ff0000;background-color:#ffffff;font-size:15px;border-radius:10px;border-color:#000000;padding:0 5px;width:80px;height:35px;min-height:35px;flex:none;white-space:nowrap}
 #customerOrderUpdated{font-size:10px;white-space:nowrap}
-#customerAccountDialog #customerRefreshCoupons{font-size:12px;padding:0 8px;min-height:35px;flex:none;white-space:nowrap}
 .customer-reorder-preview{padding:12px;background:var(--cream);border-radius:8px;margin:10px 0;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
 .customer-order-entry .lookup-order-card header{flex-wrap:wrap}
 .customer-order-entry .lookup-order-card header>div{flex:1 1 220px;min-width:0}

@@ -6,8 +6,6 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   const amount=c=>c.discount_kind==='free_shipping'?'免配送费':c.discount_kind==='percent'?`${Number(((100-Number(c.amount))/10).toFixed(2))}折`:money(c.amount);
   const date=value=>value ? new Date(value).toLocaleDateString('en-US') : '无固定期限';
   const couponsPanel=dialog.querySelector('#customerCouponsPanel'),rewardsPanel=dialog.querySelector('#customerRewardsPanel');
-  const refreshCoupons=dialog.querySelector('#customerRefreshCoupons');
-  refreshCoupons.onclick=()=>load();
   let request=0, wallet=null, selectedCode='',previewResult=null;
   const claiming=new Set(),justClaimed=new Set(),checkoutCards=new Map();
   const checkout=el('section',null,'customer-wallet-checkout'); checkout.id='customerWalletCheckout'; checkout.hidden=true;
@@ -20,7 +18,6 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   function reset(){
     request++;wallet=null;previewResult=null;claiming.clear();justClaimed.clear();checkoutCards.clear();checkout.hidden=true;checkout.replaceChildren();
     window.dispatchEvent(new CustomEvent('tings:wallet-summary',{detail:null}));
-    refreshCoupons.disabled=false;
     couponsPanel.replaceChildren();rewardsPanel.replaceChildren();
     if(selectedCode&&couponInput.value.trim().toUpperCase()===selectedCode){couponInput.value='';couponInput.dispatchEvent(new Event('input',{bubbles:true}));}
     selectedCode='';
@@ -72,7 +69,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     if(c.discount_kind==='percent')details.append(el('p',c.max_discount!=null?`最高减 ${money(c.max_discount)}`:'无固定金额封顶（旧券）','customer-coupon-cap'));
     if(c.customer_scope==='new'||c.kind==='new')details.append(el('p','仅限符合条件的新客','customer-coupon-scope'));
     const title=el('div',null,'customer-coupon-title');
-    if(showSource)title.append(el('span',`【${({new:'新人券',regular:'店铺优惠券',referral:'推荐奖励'})[c.kind]||'店铺优惠券'}】`,'customer-coupon-source'));
+    if(showSource)title.append(el('span',`【${({new:'新人券',regular:'店铺优惠券',referral:'推荐奖励'})[c.kind]||'店铺优惠券'}】：`,'customer-coupon-source'));
     title.append(el('h4',c.name));
     details.append(title,el('p',c.status==='claimable'&&c.claim_valid_days?`领取后 ${c.claim_valid_days} 天有效${c.ends_at?'，不超过 '+date(c.ends_at):''}`:c.ends_at?`有效期至 ${date(c.ends_at)}`:'无固定到期日'));
     const usageLimit=!c.requires_claim&&Number(c.per_user_limit)>1?`限用 ${Number(c.per_user_limit)} 次`:'限用一次';
@@ -87,7 +84,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
       label.append(radio,text);aside.append(label);radio.onchange=()=>{if(radio.checked)choose(c)};
       checkoutCards.set(c.code,{c,node,radio,text,reason});
     }else{
-      const action=button(c.status==='claimable'?'立即领取':(c.claimed||justClaimed.has(c.id))?'已领取':'去使用',()=>{
+      const action=button(c.status==='claimable'?'立即领取':'去使用',()=>{
         if(c.status==='claimable')void claim(c,action,reason);
         else {choose(c);dialog.close();if(document.querySelector('#orderDialog').open)couponInput.focus();else window.TingsCart?.open();}
       });
@@ -165,7 +162,6 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   async function load(){
     if(!identity()){reset();return;}
     const stamp=identity(),ticket=++request;
-    refreshCoupons.disabled=true;
     for(const panel of [couponsPanel,rewardsPanel]){panel.replaceChildren(el('p','正在加载优惠券和奖励…'));panel.setAttribute('aria-busy','true');}
     checkout.hidden=true;
     try{
@@ -180,7 +176,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
       const message=error?.code==='PGRST202'?'优惠券服务尚未完成数据库升级，请联系店主。':onError(error,'优惠券暂时无法加载，请重试。');
       for(const panel of [couponsPanel,rewardsPanel])panel.replaceChildren(el('p',message),button('重试',()=>load()));
       if(document.querySelector('#orderDialog').open){checkout.hidden=false;checkout.replaceChildren(el('p',message),button('重新加载优惠券',()=>load()));}
-    }finally{if(stamp===identity()&&ticket===request){refreshCoupons.disabled=false;for(const panel of [couponsPanel,rewardsPanel])panel.setAttribute('aria-busy','false');}}
+    }finally{if(stamp===identity()&&ticket===request){for(const panel of [couponsPanel,rewardsPanel])panel.setAttribute('aria-busy','false');}}
   }
   return {load,reset};
 };
