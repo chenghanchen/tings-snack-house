@@ -63,19 +63,21 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     const body=el('div',null,'customer-coupon-body'),details=el('div',null,'customer-coupon-details'),aside=el('div',null,'customer-coupon-action');
     body.append(el('strong',amount(c),'customer-coupon-benefit'));
     details.append(el('p',`满 $${Number(c.min_spend).toFixed(2)} 可用`,'customer-coupon-minimum'));
-    details.append(el('p',c.discount_kind==='free_shipping'?'仅配送订单 · 店铺当前配送区域':'全店商品','customer-coupon-scope'));
     if(c.discount_kind==='free_shipping'){
+      details.append(el('p','仅配送订单 · 店铺当前配送区域','customer-coupon-scope'));
       details.append(el('p','减免整笔配送费','customer-coupon-scope'));
       const deliveryInfo=el('p',window.TingsCouponContext?.().deliveryText||'配送范围以店铺配送说明为准','customer-coupon-delivery-info');
       details.append(deliveryInfo);
     }
     if(c.discount_kind==='percent')details.append(el('p',c.max_discount!=null?`最高减 ${money(c.max_discount)}`:'无固定金额封顶（旧券）','customer-coupon-cap'));
     if(c.customer_scope==='new'||c.kind==='new')details.append(el('p','仅限符合条件的新客','customer-coupon-scope'));
-    if(showSource)details.append(el('span',`【${({new:'新人券',regular:'店铺优惠券',referral:'推荐奖励'})[c.kind]||'店铺优惠券'}】`,'customer-coupon-source'));
-    details.append(el('h4',c.name),el('p',c.status==='claimable'&&c.claim_valid_days?`领取后 ${c.claim_valid_days} 天有效${c.ends_at?'，不超过 '+date(c.ends_at):''}`:c.ends_at?`有效期至 ${date(c.ends_at)}`:'无固定到期日'));
-    details.append(el('small',`${c.requires_claim?'每账户限领、限用一次 · ':''}每单一张 · ${c.allow_campaign_stack===false?'不可与活动叠加':'活动叠加以结算核算为准'}`));
+    const title=el('div',null,'customer-coupon-title');
+    if(showSource)title.append(el('span',`【${({new:'新人券',regular:'店铺优惠券',referral:'推荐奖励'})[c.kind]||'店铺优惠券'}】`,'customer-coupon-source'));
+    title.append(el('h4',c.name));
+    details.append(title,el('p',c.status==='claimable'&&c.claim_valid_days?`领取后 ${c.claim_valid_days} 天有效${c.ends_at?'，不超过 '+date(c.ends_at):''}`:c.ends_at?`有效期至 ${date(c.ends_at)}`:'无固定到期日'));
+    const usageLimit=!c.requires_claim&&Number(c.per_user_limit)>1?`限用 ${Number(c.per_user_limit)} 次`:'限用一次';
+    details.append(el('small',`${usageLimit}，不可与其他优惠券叠加使用${c.allow_campaign_stack===false?'；不可与活动叠加':''}`));
     if(c.starts_at&&new Date(c.starts_at)>new Date())details.append(el('p',`开始于 ${date(c.starts_at)}`));
-    details.append(el('code',c.code));
     for(const use of c.uses||[])details.append(el('p',use.order_number?`使用于订单 ${use.order_number}`:`已于 ${date(use.used_at)} 使用（历史订单）`));
     const reason=el('p',unavailable(c,inCheckout),'customer-coupon-reason');reason.hidden=!reason.textContent;reason.setAttribute('role','status');
     details.append(reason);body.append(details);node.append(body,aside);node.classList.toggle('is-unavailable',!!reason.textContent);

@@ -434,7 +434,11 @@ function mockSdk() {
     assert.equal(await page.textContent('#activityWelcomeOffer'),'满 $35 减 $5');
     assert.deepEqual(await page.locator('#customerCouponsPanel h3').allTextContents(),['可用优惠券']);
     assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card .customer-coupon-source').allTextContents(),['【推荐奖励】','【店铺优惠券】','【新人券】']);
-    assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card code').allTextContents(),['RWD-ALICE','TEN','NEW']);
+    assert.equal(await page.locator('#customerCouponsPanel .customer-coupon-card code').count(),0);
+    assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card').evaluateAll(cards=>cards.map(c=>c.dataset.code)),['RWD-ALICE','TEN','NEW']);
+    assert.doesNotMatch(await page.textContent('#customerCouponsPanel'),/全店商品/);
+    assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card .customer-coupon-title').allTextContents(),['【推荐奖励】推荐奖励券','【店铺优惠券】10% 优惠券','【新人券】首单专享']);
+    assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card small').allTextContents(),Array(3).fill('限用一次，不可与其他优惠券叠加使用'));
     assert.match(await page.textContent('#customerCouponsPanel'),/满 \$35\.00 可用/);
     assert.equal(await page.locator('#customerCouponsPanel>button').count(),0);
     for(const width of [320,390,780,781,1710]){
@@ -454,6 +458,7 @@ function mockSdk() {
     await page.click('#customerRefreshCoupons');
     const capCard=page.locator('#customerCouponsPanel [data-code="CLAIM-CAP"]');
     await capCard.waitFor();assert.match(await capCard.textContent(),/8.5折/);assert.match(await capCard.textContent(),/最高减 \$8/);
+    assert.equal(await capCard.locator('small').textContent(),'限用一次，不可与其他优惠券叠加使用');
     assert.equal(await capCard.locator('button').textContent(),'立即领取');
     await page.evaluate(()=>{__accountTest.claimError=true});
     await capCard.locator('button').click();await page.waitForFunction(()=>document.querySelector('[data-code="CLAIM-CAP"] .customer-coupon-reason').textContent.includes('领取失败'));
