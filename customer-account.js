@@ -3,7 +3,7 @@
   'use strict';
   async function guestOfferPreview(args) {
     // Public preview never borrows a logged-in shop-owner session.
-    const response=await fetch(`${window.TINGS_SUPABASE.url}/rest/v1/rpc/preview_account_offer`,{
+    const response=await fetch(`${window.TINGS_SUPABASE.url}/rest/v1/rpc/preview_account_offer_v2`,{
       method:'POST',headers:{apikey:window.TINGS_SUPABASE.anonKey,Authorization:`Bearer ${window.TINGS_SUPABASE.anonKey}`,'Content-Type':'application/json'},
       body:JSON.stringify(args),
     });
@@ -527,7 +527,7 @@
       await ready;
       if(!session)return guestOfferPreview(args);
       const stamp=epoch;
-      const result=await accountRpc('preview_account_offer',args);
+      const result=await accountRpc('preview_account_offer_v2',args);
       if(stamp!==epoch)throw new Error('Account changed');
       if(result.error)throw result.error;
       return result;

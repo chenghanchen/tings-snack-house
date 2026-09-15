@@ -57,7 +57,19 @@ function mockSdk() {
           if(state.delayWallet)await new Promise(resolve=>{state.resolveWallet=resolve});
           return state.walletError?{error:{message:'network'}}:{data};
         }
-        if(name==='preview_account_offer')return {data:{valid:args.p_subtotal>=30,discount:5,name:'推荐奖励券',is_referral:false,allow_campaign_stack:true}};
+        if(name==='claim_customer_coupon'){
+          if(state.delayClaim)await new Promise(resolve=>{state.resolveClaim=resolve});
+          if(state.claimError)return {error:{message:'领取失败，请重试'}};
+          const coupon=state.wallet.coupons.find(c=>c.id===args.p_coupon_id);
+          if(coupon)Object.assign(coupon,{status:'available',claimed:true,ends_at:'2099-12-31'});
+          return {data:{claimed:true}};
+        }
+        if(name==='preview_account_offer_v2'){
+          if(args.p_code==='TEST-SHIPPING')return {data:args.p_fulfillment==='delivery'
+            ?{valid:true,discount:0,name:'配送专享券',is_referral:false,free_shipping:true,shipping_discount:4,allow_campaign_stack:true}
+            :{valid:false,discount:0,reason:'仅配送订单可用'}};
+          return {data:{valid:args.p_subtotal>=30,discount:5,name:'推荐奖励券',is_referral:false,allow_campaign_stack:true}};
+        }
         if(name==='save_my_customer_details_v2'){
           if(state.delaySave)await new Promise(resolve=>{state.resolveSave=resolve});
           if(state.saveError)return {error:{message:'network'}};
@@ -421,8 +433,8 @@ function mockSdk() {
     await page.waitForSelector('#customerCouponsPanel .customer-coupon-card');
     assert.equal(await page.textContent('#activityWelcomeOffer'),'满 $35 减 $5');
     assert.deepEqual(await page.locator('#customerCouponsPanel h3').allTextContents(),['可用优惠券']);
-    assert.deepEqual(await page.locator('#customerCouponsPanel .customer-coupon-source').allTextContents(),['【推荐奖励】','【店铺优惠券】','【新人券】']);
-    assert.deepEqual(await page.locator('#customerCouponsPanel .customer-coupon-card code').allTextContents(),['RWD-ALICE','TEN','NEW']);
+    assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card .customer-coupon-source').allTextContents(),['【推荐奖励】','【店铺优惠券】','【新人券】']);
+    assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card code').allTextContents(),['RWD-ALICE','TEN','NEW']);
     assert.match(await page.textContent('#customerCouponsPanel'),/满 \$35\.00 可用/);
     assert.equal(await page.locator('#customerCouponsPanel>button').count(),0);
     for(const width of [320,390,780,781,1710]){
@@ -435,7 +447,34 @@ function mockSdk() {
       assert.deepEqual(layout,{padding:['20px','20px'],inHeading:true,clear:true,inline:true,overflow:false},`coupon heading at ${width}px`);
     }
     await page.setViewportSize({width:390,height:1000});
+    await page.evaluate(()=>{__accountTest.wallet.coupons.push(
+      {id:'claim-cap',code:'CLAIM-CAP',name:'精选折扣券',discount_kind:'percent',amount:15,max_discount:8,min_spend:35,requires_claim:true,claim_valid_days:7,kind:'regular',status:'claimable'},
+      {id:'claim-ship',code:'CLAIM-SHIP',name:'配送专享券',discount_kind:'free_shipping',amount:0,min_spend:25,requires_claim:true,claim_valid_days:14,kind:'regular',status:'claimable'}
+    )});
+    await page.click('#customerRefreshCoupons');
+    const capCard=page.locator('#customerCouponsPanel [data-code="CLAIM-CAP"]');
+    await capCard.waitFor();assert.match(await capCard.textContent(),/8.5折/);assert.match(await capCard.textContent(),/最高减 \$8/);
+    assert.equal(await capCard.locator('button').textContent(),'立即领取');
+    await page.evaluate(()=>{__accountTest.claimError=true});
+    await capCard.locator('button').click();await page.waitForFunction(()=>document.querySelector('[data-code="CLAIM-CAP"] .customer-coupon-reason').textContent.includes('领取失败'));
+    assert.equal(await capCard.locator('button').isEnabled(),true);
+    await page.evaluate(()=>{__accountTest.claimError=false;__accountTest.delayClaim=true});
+    await capCard.locator('button').click();await page.waitForFunction(()=>!!__accountTest.resolveClaim);
+    assert.equal(await capCard.locator('button').isDisabled(),true);
+    await page.evaluate(()=>{__accountTest.delayClaim=false;__accountTest.resolveClaim()});
+    await page.waitForFunction(()=>document.querySelector('[data-code="CLAIM-CAP"] button').textContent==='已领取');
+    assert.equal(await capCard.locator('button').evaluate(el=>el.classList.contains('is-claimed')),true);
+    await page.click('#customerRefreshCoupons');await capCard.waitFor();
+    assert.equal(await capCard.locator('button').textContent(),'已领取');
+    assert.equal(await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='claim_customer_coupon').length),2);
+    assert.match(await page.locator('#customerCouponsPanel [data-code="CLAIM-SHIP"]').textContent(),/店铺当前配送区域/);
+    for(const width of [320,390,780,1710]){
+      await page.setViewportSize({width,height:1000});
+      assert.ok(await page.locator('#customerCouponsPanel').evaluate(el=>[...el.querySelectorAll('.customer-coupon-card')].every(c=>c.scrollWidth<=c.clientWidth+1)));
+    }
+    await page.setViewportSize({width:390,height:1000});
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-coupons.png')});
+    await page.evaluate(()=>{__accountTest.wallet.coupons=__accountTest.wallet.coupons.filter(c=>!c.id.startsWith('claim-'))});
     await page.evaluate(()=>{__accountTest.walletError=true});await page.click('#customerRefreshCoupons');
     await page.waitForFunction(()=>document.querySelector('#customerCouponsPanel').textContent.includes('暂时无法加载'));
     assert.equal(await page.textContent('#activityWelcomeOffer'),'查看新人专属优惠');
@@ -443,7 +482,8 @@ function mockSdk() {
     assert.equal(await page.locator('#customerRefreshCoupons').isEnabled(),true);
     await page.evaluate(()=>{__accountTest.walletError=false;__accountTest.savedCoupons=__accountTest.wallet.coupons;__accountTest.wallet.coupons=__accountTest.savedCoupons.filter(c=>c.status!=='available')});
     await page.click('#customerRefreshCoupons');await page.waitForFunction(()=>document.querySelector('#customerCouponsPanel').textContent.includes('暂无可用优惠券'));
-    assert.equal(await page.locator('#customerCouponsPanel .customer-coupon-card').count(),0);
+    assert.equal(await page.locator('#customerCouponsPanel>.customer-coupon-card').count(),0);
+    assert.equal(await page.locator('#customerCouponsPanel .customer-coupon-history .customer-coupon-card').count(),3);
     await page.evaluate(()=>{__accountTest.wallet.coupons=__accountTest.savedCoupons});
     await page.click('#customerRefreshCoupons');await page.waitForSelector('#customerCouponsPanel .customer-coupon-card');
     await page.click('#customerAccountBack');
@@ -459,19 +499,40 @@ function mockSdk() {
     }
     await page.setViewportSize({width:390,height:844});
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-rewards.png')});
+    await page.evaluate(()=>{__accountTest.wallet.coupons.push({id:'test-shipping',code:'TEST-SHIPPING',name:'配送专享券',discount_kind:'free_shipping',amount:0,min_spend:25,requires_claim:true,claimed:true,kind:'regular',status:'available'})});
+    await page.locator('#customerRewardsPanel>button').first().click();
+    await page.waitForSelector('#customerWalletCheckout [data-code="TEST-SHIPPING"]',{state:'attached'});
     await closeCustomerAccount();
-    await page.click('#openCart');await page.click('#checkout');
+    await page.click('#openCart');
+    // Increase the real local basket; keep only delivery configuration mocked.
+    while(Number((await page.textContent('#cartSubtotal')).replace(/[^0-9.]/g,''))<50)await page.locator('#cartItems [data-change="1"]').first().click();
+    await page.evaluate(()=>{__accountTest.originalFee=settings.delivery_fee;settings.delivery_fee=4});
+    await page.click('#checkout');
     await page.waitForSelector('#customerWalletCheckout input[value="RWD-ALICE"]');
     await page.check('#customerWalletCheckout input[value="RWD-ALICE"]');
     assert.equal(await page.inputValue('#couponCodeInput'),'RWD-ALICE');
     await page.check('#customerWalletCheckout input[value="TEN"]');
     assert.equal(await page.locator('#customerWalletCheckout input:checked').count(),1);
     assert.equal(await page.inputValue('#couponCodeInput'),'TEN');
+    await page.waitForFunction(()=>document.querySelector('#couponCodeHint').classList.contains('valid'));
+    assert.equal(await page.locator('#customerWalletCheckout [data-code="TEN"]').evaluate(el=>el.classList.contains('is-selected')),true);
+    await page.selectOption('#fulfillment','pickup');
+    assert.equal(await page.locator('#customerWalletCheckout input[value="TEST-SHIPPING"]').isDisabled(),true);
+    assert.match(await page.textContent('#customerWalletCheckout [data-code="TEST-SHIPPING"] .customer-coupon-reason'),/仅配送/);
+    await page.selectOption('#fulfillment','delivery');
+    await page.check('#customerWalletCheckout input[value="TEST-SHIPPING"]');
+    await page.waitForFunction(()=>document.querySelector('#couponCodeHint').textContent.includes('减免整笔配送费'));
+    assert.equal(await page.textContent('#orderSummary .fee-value b'),'$0.00');
+    assert.equal(await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='preview_account_offer_v2').at(-1).args.p_fulfillment),'delivery');
+    if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-shipping.png')});
+    await page.selectOption('#fulfillment','pickup');
+    await page.waitForFunction(()=>document.querySelector('#couponCodeHint').textContent.includes('仅配送'));
     await page.fill('#couponCodeInput','MANUAL');
     assert.equal(await page.locator('#customerWalletCheckout input:checked').count(),0);
     assert.ok(await page.locator('#orderDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-wallet-checkout.png')});
     await page.click('#closeDialog');
+    await page.evaluate(()=>{settings.delivery_fee=__accountTest.originalFee});
     await page.evaluate(()=>{__accountTest.wallet=null;__accountTest.walletError=true});
     await openCustomerAccount();await page.click('[data-account-tab=rewards]');
     await page.waitForFunction(()=>document.querySelector('#customerRewardsPanel').textContent.includes('暂时无法加载'));

@@ -402,10 +402,10 @@ function totals() {
     delivery =
       $("#fulfillment")?.value === "pickup"
         ? 0
-        : subtotal >= Number(settings.free_delivery_threshold || 50)
+        : subtotal >= Number(settings.free_delivery_threshold ?? 50)
           ? 0
-          : Number(settings.delivery_fee || 5),
-    tax = +((subtotal * Number(settings.tax_rate || 10.5)) / 100).toFixed(2);
+          : Number(settings.delivery_fee ?? 5),
+    tax = +((subtotal * Number(settings.tax_rate ?? 10.5)) / 100).toFixed(2);
   return {
     count: cart.reduce((s, x) => s + x.qty, 0),
     rawSubtotal: +rawSubtotal.toFixed(2),
@@ -483,7 +483,7 @@ function renderCart() {
           `${escapeHtml(x.product.name)}${x.label ? ` · ${escapeHtml(x.label)}` : ""} × ${x.qty}　${dollars(x.price * x.qty)}`,
       )
       .join("<br>") +
-    `<hr><div class="order-amounts"><div><span>商品小计</span><span>${dollars(t.subtotal)}</span></div>${t.autoDiscount > 0 ? `<div><span>商品活动优惠（已计入小计）</span><span>−${dollars(t.autoDiscount)}</span></div>` : ""}${feeRow}<div><span>税（${Number(settings.tax_rate || 10.5)}%）</span><span>${dollars(t.tax)}</span></div><div><b>最终应付金额</b><b>${dollars(t.total)}</b></div></div>`;
+    `<hr><div class="order-amounts"><div><span>商品小计</span><span>${dollars(t.subtotal)}</span></div>${t.autoDiscount > 0 ? `<div><span>商品活动优惠（已计入小计）</span><span>−${dollars(t.autoDiscount)}</span></div>` : ""}${feeRow}<div><span>税（${Number(settings.tax_rate ?? 10.5)}%）</span><span>${dollars(t.tax)}</span></div><div><b>最终应付金额</b><b>${dollars(t.total)}</b></div></div>`;
 }
 function optimizedBundledImage(value) {
   const image = String(value || "");
@@ -1118,6 +1118,8 @@ let offerPreview = {
   },
   previewTimer, previewRequest=0;
 function drawOfferPreview() {
+  window.dispatchEvent(new CustomEvent('tings:coupon-context'));
+  window.dispatchEvent(new CustomEvent('tings:coupon-preview',{detail:{code:$('#couponCodeInput')?.value.trim().toUpperCase(),valid:offerPreview.pending?null:offerPreview.valid,reason:offerPreview.message}}));
   const t = totals(),
     pickup = $("#fulfillment")?.value === "pickup",
     campaign = Math.min(Number(offerPreview.campaignDiscount || 0), t.subtotal),
@@ -1128,7 +1130,7 @@ function drawOfferPreview() {
     discount = campaign + code,
     fee = pickup ? 0 : offerPreview.freeShipping ? 0 : t.delivery,
     tax = +(
-      (Math.max(0, t.subtotal - discount) * Number(settings.tax_rate || 10.5)) /
+      (Math.max(0, t.subtotal - discount) * Number(settings.tax_rate ?? 10.5)) /
       100
     ).toFixed(2),
     total = +(Math.max(0, t.subtotal - discount) + fee + tax).toFixed(2),
@@ -1141,7 +1143,7 @@ function drawOfferPreview() {
     codeHint.textContent = hasCode ? offerPreview.message : "";
     codeHint.classList.toggle("valid", hasCode && offerPreview.valid);
   }
-  rows.innerHTML = `<div><span>商品小计</span><span>${dollars(t.subtotal)}</span></div>${t.autoDiscount > 0 ? `<div><span>商品活动优惠（已计入小计）</span><span>−${dollars(t.autoDiscount)}</span></div>` : ""}${campaign ? `<div><span>${escapeHtml(offerPreview.campaignName || "活动优惠")}</span><span>−${dollars(campaign)}</span></div>` : ""}${code ? `<div><span>${escapeHtml(offerPreview.codeName || "优惠券／推荐码优惠")}</span><span>−${dollars(code)}</span></div>` : ""}${pickup ? "" : `<div><span>配送费</span><span class="fee-value">${fee === 0 ? "<small>（已减免）</small>" : ""}<b>${dollars(fee)}</b></span></div>`}<div><span>税（${Number(settings.tax_rate || 10.5)}%）</span><span>${dollars(tax)}</span></div><div><b>最终应付金额</b><b>${dollars(total)}</b></div>`;
+  rows.innerHTML = `<div><span>商品小计</span><span>${dollars(t.subtotal)}</span></div>${t.autoDiscount > 0 ? `<div><span>商品活动优惠（已计入小计）</span><span>−${dollars(t.autoDiscount)}</span></div>` : ""}${campaign ? `<div><span>${escapeHtml(offerPreview.campaignName || "活动优惠")}</span><span>−${dollars(campaign)}</span></div>` : ""}${code ? `<div><span>${escapeHtml(offerPreview.codeName || "优惠券／推荐码优惠")}</span><span>−${dollars(code)}</span></div>` : ""}${pickup ? "" : `<div><span>配送费</span><span class="fee-value">${fee === 0 ? "<small>（已减免）</small>" : ""}<b>${dollars(fee)}</b></span></div>`}<div><span>税（${Number(settings.tax_rate ?? 10.5)}%）</span><span>${dollars(tax)}</span></div><div><b>最终应付金额</b><b>${dollars(total)}</b></div>`;
 }
 
 /* Keep checkout preview aligned with the marketing wizard's publish, audience and stack rules. */
@@ -1258,6 +1260,7 @@ function previewOffer() {
       codeName: "",
       freeShipping: false,
       message: "正在核算活动优惠…",
+      pending: true,
       valid: false,
     };
     drawOfferPreview();
@@ -1333,6 +1336,7 @@ function previewOffer() {
         }
       }
       let codeDiscount = 0,
+        couponFreeShipping = false,
         codeName = "",
         selectedCoupon = null,
         isReferralCode = false,
@@ -1341,6 +1345,7 @@ function previewOffer() {
         const {data:offer,error:offerError}=await window.TingsAccount.previewAccountOffer({
           p_code:code,p_email:document.querySelector('#orderForm [name=email]').value.trim(),
           p_phone:null,p_subtotal:t.subtotal,p_campaign_discount:campaignDiscount,
+          p_fulfillment:$('#fulfillment').value,p_campaign_free_shipping:freeShipping,
         });
         if(request!==previewRequest)return;
         if(offerError)throw offerError;
@@ -1348,8 +1353,9 @@ function previewOffer() {
           codeDiscount=Math.min(Number(offer.discount||0),Math.max(0,t.subtotal-campaignDiscount));
           codeName=offer.name||'优惠券优惠';isReferralCode=offer.is_referral===true;
           selectedCoupon=offer;
+          couponFreeShipping=offer.free_shipping===true;
         }
-        const conflicts = codeDiscount
+        const conflicts = (codeDiscount || couponFreeShipping)
           ? nonStackableCampaigns(campaigns, t, selectedCoupon, isNew, now)
           : [];
         if (conflicts.length) {
@@ -1366,11 +1372,11 @@ function previewOffer() {
           showCampaignStackChoice(conflicts, code);
           return;
         }
-        message = codeDiscount
+        message = couponFreeShipping ? `${message} 已使用${codeName}，减免整笔配送费 ${dollars(offer.shipping_discount)}。` : codeDiscount
           ? isReferralCode
             ? "已享受推荐优惠；订单完成后向推荐人发放奖励券"
             : `${message}${message ? " " : " "}已使用${codeName}，立减 ${dollars(codeDiscount)}。`
-          : `${message}${message ? " " : " "}兑换码无效或暂不符合使用条件。`;
+          : `${message} ${offer?.reason || '兑换码无效或暂不符合使用条件。'}`;
       }
       if(request!==previewRequest)return;
       offerPreview = {
@@ -1378,9 +1384,9 @@ function previewOffer() {
         campaignName,
         codeDiscount,
         codeName,
-        freeShipping,
+        freeShipping: freeShipping || couponFreeShipping,
         message,
-        valid: !!codeDiscount,
+        valid: !!codeDiscount || couponFreeShipping,
       };
       drawOfferPreview();
     } catch {
@@ -1687,7 +1693,7 @@ function refreshCartLocally() {
           `${escapeHtml(item.product.name)}${item.label ? ` · ${escapeHtml(item.label)}` : ""} × ${item.qty}　${dollars(cartPriceInfo(item).unitPrice * item.qty)}`,
       )
       .join("<br>") +
-    `<hr><div class="order-amounts"><div><span>商品小计</span><span>${dollars(totalsNow.subtotal)}</span></div>${totalsNow.autoDiscount > 0 ? `<div><span>商品活动优惠（已计入小计）</span><span>−${dollars(totalsNow.autoDiscount)}</span></div>` : ""}${feeRow}<div><span>税（${Number(settings.tax_rate || 10.5)}%）</span><span>${dollars(totalsNow.tax)}</span></div><div><b>最终应付金额</b><b>${dollars(totalsNow.total)}</b></div></div>`;
+    `<hr><div class="order-amounts"><div><span>商品小计</span><span>${dollars(totalsNow.subtotal)}</span></div>${totalsNow.autoDiscount > 0 ? `<div><span>商品活动优惠（已计入小计）</span><span>−${dollars(totalsNow.autoDiscount)}</span></div>` : ""}${feeRow}<div><span>税（${Number(settings.tax_rate ?? 10.5)}%）</span><span>${dollars(totalsNow.tax)}</span></div><div><b>最终应付金额</b><b>${dollars(totalsNow.total)}</b></div></div>`;
   drawOfferPreview();
   previewOffer();
 }
@@ -1960,6 +1966,9 @@ loadShop = async function () {
 loadShop();
 
 /* Account reorder is a local cart operation, never a replay of an old order. */
+window.TingsCouponContext = () => ({...totals(),fulfillment:$('#fulfillment')?.value,
+  deliveryText:settings.delivery||'',
+  minimumDelivery:Math.max(Number(settings.content?.storeSettings?.order?.minOrder??20),Number(settings.content?.storeSettings?.delivery?.minDelivery??30))});
 window.TingsCart = {
   async prepareReorder(items) {
     const data = await loadStorefrontData();

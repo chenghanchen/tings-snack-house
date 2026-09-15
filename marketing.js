@@ -68,6 +68,9 @@
       discountMode: type === "coupon" ? "fixed" : "percent",
       fold: "20",
       quantity: 100,
+      requiresClaim: true,
+      maxDiscount: '',
+      claimValidDays: 7,
       customerScope: "all",
       targetMode: type === "product_special" ? "products" : "all",
       productIds: new Set(),
@@ -212,7 +215,7 @@
   }
   function offerText(item, coupon = false) {
     if (coupon)
-      return `${esc(item.code)} · ${item.discount_kind==="percent" ? Number(item.amount)+"% OFF" : "立减 "+money(item.amount)}，满 ${money(item.min_spend)} 可用`;
+      return `${esc(item.code)} · ${item.discount_kind==='free_shipping'?'免配送费':item.discount_kind==="percent" ? Number(item.amount)+"% OFF" : "立减 "+money(item.amount)}，满 ${money(item.min_spend)} 可用${item.discount_kind==='percent'?(item.max_discount!=null?'，最高减 '+money(item.max_discount):'，无固定金额封顶（旧券）'):''}`;
     if (item.kind === "free_shipping") return "配送费全免";
     if (item.kind === "full_reduction")
       return `满 ${money(item.threshold)} 立减 ${money(item.amount)}`;
@@ -350,9 +353,25 @@
   function input(id, value, opts = "") {
     return `<input id="${id}" value="${esc(value)}" ${opts}>`;
   }
+  function couponCore(w) {
+    const shipping=w.discountMode==='free_shipping',percent=w.discountMode==='percent';
+    return `<div class="wizard-form"><h3>${w.id?'编辑':'创建'}优惠券</h3><p class="muted">${w.requiresClaim?'仅登录用户可领取，每账户每种券限领、限用一次。已有领取后不可修改优惠与期限，请新建券。':'旧券保留原领取、有效期与使用规则；旧折扣券可不设置封顶。'}</p>
+      ${field('优惠方式',`<select id="wizDiscountMode">${[['fixed','减免金额 ($)'],['percent','折扣券 (% OFF)'],['free_shipping','免配送费券']].map(([value,title])=>`<option value="${value}" ${w.discountMode===value?'selected':''}>${title}</option>`).join('')}</select>`)}
+      ${field('优惠券名称',input('wizName',w.name,'required'))}${field('兑换码',input('wizCode',w.code,'required style="text-transform:uppercase"'))}
+      ${shipping?'<p>沿用店铺当前配送区域，减免整笔配送费；自取及已免配送费订单不可用。</p>':field(percent?'减免比例（15 表示 85折 / 15% OFF）':'立减金额（美元）',input('wizAmount',w.amount,`type="number" min="0.01" ${percent?'max="100"':''} step="0.01" required`))}
+      ${percent?field('最高减免金额（美元）',input('wizMaxDiscount',w.maxDiscount,`type="number" min="0.01" step="0.01" ${w.requiresClaim?'required':''}`),w.requiresClaim?'新折扣券必填。':'留空保留原规则：无固定金额封顶。'):''}
+      <div class="two">${field('最低消费（美元）',input('wizThreshold',w.threshold,'type="number" min="0" step="0.01" required'))}${field(w.requiresClaim?'可领取总数量':'总数量',input('wizQuantity',w.quantity,'type="number" min="1" step="1" required'))}</div>
+      ${w.requiresClaim?field('领取后有效天数',input('wizClaimValidDays',w.claimValidDays,'type="number" min="1" max="3650" step="1" required'),'领取时开始计时；若设置结束时间，不超过该截止时间。'):''}</div>`;
+  }
+  function validCoupon(w) {
+    return !!(w.name&&w.code&&w.threshold!==''&&Number(w.threshold)>=0&&Number.isInteger(Number(w.quantity))&&Number(w.quantity)>0&&
+      (w.discountMode==='free_shipping'||Number(w.amount)>0)&&
+      (w.discountMode!=='percent'||(Number(w.amount)<=100&&(!w.requiresClaim&&!w.maxDiscount||Number(w.maxDiscount)>0)))&&
+      (!w.requiresClaim||(Number.isInteger(Number(w.claimValidDays))&&Number(w.claimValidDays)>=1&&Number(w.claimValidDays)<=3650)));
+  }
   function wizardCore(w) {
     if (w.type === "coupon")
-      return `<div class="wizard-form"><h3>创建优惠券</h3><p class="muted">顾客在账户或结账页选券，也可输入兑换码。</p>${field("优惠方式", `<select id="wizDiscountMode"><option value="fixed" ${w.discountMode!=="percent"?"selected":""}>减免金额 ($)</option><option value="percent" ${w.discountMode==="percent"?"selected":""}>减免比例 (% OFF)</option></select>`)}${field("活动名称", input("wizName", w.name, 'required placeholder="例如：开学零食券"'))}<div class="two">${field("兑换码", input("wizCode", w.code, 'required placeholder="例如：WELCOME5" style="text-transform:uppercase"'))}${field(w.discountMode==="percent"?"减免比例（10 表示 10% OFF）":"立减金额（美元）", input("wizAmount", w.amount, 'type="number" min="0.01" step="0.01" required placeholder="5"'))}</div><div class="two">${field("最低消费（美元）", input("wizThreshold", w.threshold, 'type="number" min="0" step="0.01" placeholder="35"'))}${field("总数量", input("wizQuantity", w.quantity, 'type="number" min="1" step="1" required'))}</div></div>`;
+      return couponCore(w);
     if (w.type === "referral")
       return `<div class="wizard-form"><h3>设置推荐奖励券</h3><p class="muted">新顾客成功使用推荐码后，新顾客和推荐人各获得一张奖励券；每张奖励券固定只能使用一次。</p><div class="two">${field("奖励券满减金额（美元）", input("wizRewardAmount", w.rewardAmount, 'type="number" min="0.01" step="0.01" required'))}${field("奖励券最低消费（美元）", input("wizRewardMin", w.rewardMin, 'type="number" min="0" step="0.01" required'))}</div>${field("奖励券有效期（天）", input("wizRewardDays", w.rewardDays, 'type="number" min="0" step="1"'), "填写 0 代表长期有效；只用于之后生成的奖励券。")}</div>`;
     if (w.type === "referral_code")
@@ -405,7 +424,7 @@
   }
   function previewDescription(w) {
     if (w.type === "coupon")
-      return `兑换码 ${w.code || "—"}：${w.discountMode==="percent"?Number(w.amount||0)+"% OFF":"立减 "+money(w.amount||0)}，满 ${money(w.threshold || 0)} 可用`;
+      return `兑换码 ${esc(w.code || '—')}：${w.discountMode==='free_shipping'?'免配送费':w.discountMode==='percent'?Number(w.amount||0)+'% OFF':'立减 '+money(w.amount||0)}，满 ${money(w.threshold||0)} 可用${w.discountMode==='percent'?(w.maxDiscount?'，最高减 '+money(w.maxDiscount):'，无固定金额封顶（旧券）'):''}${w.requiresClaim?'，领取后 '+Number(w.claimValidDays)+' 天有效（不超过截止时间）':''}`;
     if (w.type === "referral")
       return `双方各获得 ${money(w.rewardAmount || 0)} 券，满 ${money(w.rewardMin || 0)} 可用`;
     if (w.type === "referral_code")
@@ -442,8 +461,10 @@
       wizard.code = get("wizCode").toUpperCase();
       wizard.amount = get("wizAmount");
       wizard.threshold = get("wizThreshold");
-      wizard.quantity = get("wizQuantity") || wizard.quantity;
+      if($('#wizQuantity'))wizard.quantity = get("wizQuantity");
       wizard.discountMode = $("#wizDiscountMode")?.value || wizard.discountMode;
+      wizard.maxDiscount = get('wizMaxDiscount');
+      if($('#wizClaimValidDays'))wizard.claimValidDays = get('wizClaimValidDays');
       wizard.fold = get("wizFold") || wizard.fold;
       wizard.rewardAmount = get("wizRewardAmount") || wizard.rewardAmount;
       wizard.rewardMin = get("wizRewardMin") || wizard.rewardMin;
@@ -466,7 +487,7 @@
     if (wizard.step === 1) return !!wizard.type;
     if (wizard.step === 2) {
       if (wizard.type === "coupon")
-        return wizard.name && wizard.code && Number(wizard.amount) > 0 && (wizard.discountMode!=="percent" || Number(wizard.amount)<=100);
+        return validCoupon(wizard);
       if (wizard.type === "referral") return Number(wizard.rewardAmount) > 0;
       if (wizard.type === "referral_code")
         return Number(wizard.referralAmount) > 0 && Number(wizard.referralUseLimit) >= 0;
@@ -534,15 +555,17 @@
       row = {
         code: w.code.trim().toUpperCase(),
         name: w.name.trim(),
-        amount: Number(w.amount),
-        discount_kind: w.discountMode === "percent" ? "percent" : "fixed",
+        amount: w.discountMode==='free_shipping'?0:Number(w.amount),
+        discount_kind: w.discountMode,
+        max_discount: w.discountMode==='percent'&&w.maxDiscount!==''?Number(w.maxDiscount):null,
+        claim_valid_days: w.requiresClaim?Number(w.claimValidDays):null,
         min_spend: Number(w.threshold || 0),
         total_quantity: Number(w.quantity || 1),
-        per_phone_limit: 1,
+        per_phone_limit: w.requiresClaim?1:(w.perPhoneLimit??1),
         customer_scope: w.customerScope,
         allow_campaign_stack: w.allowCampaignStack,
-        starts_at: w.startsAt || null,
-        ends_at: w.endsAt || null,
+        starts_at: w.id&&w.startsAt===localValue(w.originalStartsAt)?w.originalStartsAt||null:w.startsAt||null,
+        ends_at: w.id&&w.endsAt===localValue(w.originalEndsAt)?w.originalEndsAt||null:w.endsAt||null,
         status,
         active: status === "published",
         updated_at: new Date().toISOString(),
@@ -552,6 +575,7 @@
   }
   async function save(status) {
     collect(4);
+    if(wizard.type==='coupon'&&!validCoupon(wizard))return toast('请补全优惠金额、封顶金额、最低消费、数量及有效天数。');
     if (!validStep()) return toast("请先补全必填内容。");
     if (
       wizard.endsAt &&
@@ -718,6 +742,12 @@
         name: item.name,
         code: item.code,
         discountMode: item.discount_kind || "fixed",
+        requiresClaim: item.requires_claim === true,
+        perPhoneLimit: item.per_phone_limit,
+        originalStartsAt: item.starts_at,
+        originalEndsAt: item.ends_at,
+        maxDiscount: item.max_discount ?? '',
+        claimValidDays: item.claim_valid_days ?? 7,
         amount: item.amount,
         threshold: item.min_spend,
         quantity: item.total_quantity,
