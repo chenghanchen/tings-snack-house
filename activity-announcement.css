@@ -14,7 +14,7 @@
 .activity-card p{font-size:14px;line-height:1.45;margin:0 0 12px;max-width:100%;overflow-wrap:anywhere}
 #activityPromotionOffer{max-height:3em;overflow-y:auto;white-space:pre-line;scrollbar-width:thin}
 .activity-card button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:38px;padding:6px 14px;border:1px solid currentColor;border-radius:99px;background:#fffdf8bb;color:inherit;font:14px Arial, sans-serif;white-space:nowrap;cursor:pointer}
-.activity-card button span{font-size:20px;line-height:1}
+.activity-card button span[aria-hidden]{font-size:20px;line-height:1}
 .activity-card--welcome button{font-weight:500}
 .activity-card button:hover{background:var(--paper)}
 .activity-card button:disabled{opacity:.55;cursor:default}

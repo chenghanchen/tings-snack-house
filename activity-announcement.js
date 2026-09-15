@@ -4,6 +4,7 @@
   const section = document.querySelector('.activity-announcement');
   if (!section) return;
   const status = document.getElementById('activityAnnouncementStatus');
+  let signedIn=!!window.TingsAccount?.isSignedIn?.(),welcomeCoupon=null;
   section.addEventListener('click', async event => {
     const account = event.target.closest('[data-promotion-account]');
     const product = event.target.closest('[data-promotion-filter]');
@@ -25,13 +26,17 @@
     heading?.focus({preventScroll:true});
     catalog?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',block:'start'});
   });
-  window.addEventListener('tings:wallet-summary', event => {
-    const coupon = event.detail;
+  function renderWelcome() {
+    const coupon = signedIn ? welcomeCoupon : null;
     const amount = Number(coupon?.amount), minimum = Number(coupon?.min_spend);
     const valid = coupon && amount > 0 && Number.isFinite(amount) && minimum >= 0 && Number.isFinite(minimum);
     const money = number => `$${number.toFixed(2).replace(/\.00$/, '')}`;
     document.getElementById('activityWelcomeOffer').textContent = valid
       ? `满 ${money(minimum)} ${coupon.discount_kind === 'percent' ? `享 ${amount}% OFF` : `减 ${money(amount)}`}`
-      : '查看新人专属优惠';
-  });
+      : signedIn ? '查看新人专属优惠' : '登录领取新人专属优惠';
+    document.getElementById('activityWelcomeAction').textContent=signedIn?'查看优惠券':'立即领取';
+  }
+  window.addEventListener('tings:wallet-summary', event => {welcomeCoupon=event.detail;renderWelcome()});
+  window.addEventListener('tings:account-state', event => {signedIn=!!event.detail?.signedIn;if(!signedIn)welcomeCoupon=null;renderWelcome()});
+  renderWelcome();
 })();

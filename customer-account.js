@@ -213,6 +213,7 @@
         mobileAccountEntry.append(email);
       }
     }
+    window.dispatchEvent(new CustomEvent('tings:account-state',{detail:{signedIn:!!session}}));
     $('#customerSignedOut').hidden = !!session;
     $('#customerSignedIn').hidden = !session;
     $('#customerAccountTitle').textContent = session ? accountTitles[accountView] : '登录 / 注册';
@@ -522,6 +523,7 @@
   });
   window.TingsAccount = {
     open: openAccount,
+    isSignedIn: () => !!session,
     async previewAccountOffer(args) {
       await ready;
       if(!session)return guestOfferPreview(args);

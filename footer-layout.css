@@ -144,4 +144,17 @@
   #story #footerEmail{font-size:clamp(9px,2.75vw,13px)}
   #story #footerHours{font-size:inherit;white-space:nowrap}
 }
+/* Mobile-only service strip: four equal columns, with live wrapping copy. */
+@media(max-width:780px){
+  #story .ft-benefits{grid-template-columns:repeat(4,minmax(0,1fr));gap:0}
+  #story .ft-benefits>section{position:relative;min-width:0;padding:0 5px}
+  #story .ft-benefits>section+section::before{content:"";position:absolute;left:0;top:10px;bottom:4px;border-left:1px dashed #dfc9b1}
+  #story .ft-service-icon{width:clamp(44px,13vw,68px);height:clamp(44px,13vw,68px);margin:0 auto 8px;background-size:contain;background-position:center}
+  #story .ft-service-icon[data-icon=shield]{background-image:url("footer-benefit-shield.svg");background-position:center}
+  #story .ft-service-icon[data-icon=truck]{background-image:url("footer-benefit-truck.svg");background-position:center}
+  #story .ft-service-icon[data-icon=service]{background-image:url("footer-benefit-service.svg");background-position:center}
+  #story .ft-service-icon[data-icon=gift]{background-image:url("footer-benefit-gift.svg");background-position:center}
+  #story .ft-benefits h2{font-size:clamp(12px,3.4vw,17px);line-height:1.4;white-space:nowrap}
+  #story .ft-benefits p{font-size:clamp(10px,2.65vw,13px);line-height:1.6;margin-top:5px;white-space:normal;text-wrap:balance;overflow-wrap:anywhere}
+}
 @media(prefers-reduced-motion:reduce){#story .ft-social-toggle{transition:none}}

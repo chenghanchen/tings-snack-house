@@ -16,12 +16,12 @@
     />
     <link rel="stylesheet" href="styles.css?v=20260914b" />
     <link rel="stylesheet" href="checkout-layout.css?v=20260913c" />
-    <link rel="stylesheet" href="footer-layout.css?v=20260909o" />
+    <link rel="stylesheet" href="footer-layout.css?v=20260915a" />
     <link rel="stylesheet" href="customer-account.css?v=20260915c" />
     <link rel="stylesheet" href="customer-wallet.css?v=20260915h" />
-    <link rel="stylesheet" href="brand-header.css?v=20260914f" />
+    <link rel="stylesheet" href="brand-header.css?v=20260915a" />
     <link rel="stylesheet" href="header-entry-buttons.css?v=20260915a" />
-    <link rel="stylesheet" href="activity-announcement.css?v=20260914e" />
+    <link rel="stylesheet" href="activity-announcement.css?v=20260915a" />
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
@@ -29,10 +29,10 @@
     <script defer src="supabase-config.js?v=20260913b"></script>
     <script defer src="customer-order-tools.js?v=20260911a"></script>
     <script defer src="customer-wallet.js?v=20260915h"></script>
-    <script defer src="customer-account.js?v=20260915c"></script>
-    <script defer src="app.js?v=20260915e"></script>
+    <script defer src="customer-account.js?v=20260915d"></script>
+    <script defer src="app.js?v=20260915f"></script>
     <script defer src="mobile-header.js?v=20260914a"></script>
-    <script defer src="activity-announcement.js?v=20260914a"></script>
+    <script defer src="activity-announcement.js?v=20260915a"></script>
     <script defer src="activity-promotions.js?v=20260914a"></script>
     <script defer src="site-appearance.js?v=20260906b"></script>
     <script defer src="footer-contact-overlay.js?v=20260909g"></script>
@@ -254,8 +254,8 @@
         <div class="activity-announcement__cards" tabindex="0" role="region" aria-label="活动卡片，可左右滑动">
           <article class="activity-card activity-card--welcome">
             <img src="activity-welcome-v1.webp" alt="" width="1774" height="887" loading="lazy" decoding="async" />
-            <div class="activity-card__copy"><h2>新人专享礼</h2><p id="activityWelcomeOffer">查看新人专属优惠</p>
-              <button type="button" data-promotion-account="coupons">查看优惠券 <span aria-hidden="true">›</span></button></div>
+            <div class="activity-card__copy"><h2>新人专享礼</h2><p id="activityWelcomeOffer">登录领取新人专属优惠</p>
+              <button type="button" data-promotion-account="coupons"><span id="activityWelcomeAction">立即领取</span> <span aria-hidden="true">›</span></button></div>
           </article>
           <article class="activity-card activity-card--popular">
             <img src="activity-popular-v1.webp" alt="" width="1774" height="887" loading="lazy" decoding="async" />
@@ -331,7 +331,7 @@
 
     <footer id="story" class="snack-footer" aria-label="店铺服务与联系方式">
       <div class="ft-benefits">
-        <section><i class="ft-service-icon" data-icon="shield" aria-hidden="true"></i><h2>正品保证</h2><p>精选好味，安心选购</p></section>
+        <section><i class="ft-service-icon" data-icon="shield" aria-hidden="true"></i><h2>品质保证</h2><p>精选好味，安心选购</p></section>
         <section><i class="ft-service-icon" data-icon="truck" aria-hidden="true"></i><h2>快速配送</h2><p>本地配送，方便自取</p></section>
         <section><i class="ft-service-icon" data-icon="service" aria-hidden="true"></i><h2>贴心服务</h2><p>购物疑问，随时联系</p></section>
         <section><i class="ft-service-icon" data-icon="gift" aria-hidden="true"></i><h2>推荐奖励</h2><p>分享好物，领取优惠</p></section>

@@ -537,16 +537,18 @@ test("活动公告：四张常驻入口、账户券摘要和安全商品筛选",
   assert.match(css,/flex:0 0 350px/);
   assert.match(css,/height:160px/);
   assert.match(css,/scroll-snap-type:x mandatory/);
-  const events={},status={hidden:true,textContent:""},offer={textContent:""},search={value:"旧搜索"},actions=[];
+  const events={},status={hidden:true,textContent:""},offer={textContent:""},welcomeAction={textContent:""},search={value:"旧搜索"},actions=[];
   const section={addEventListener(name,callback){events[name]=callback}};
   const filter={dataset:{filter:"新品"},click(){actions.push("新品")}};
   const window={TingsAccount:{async open(view){actions.push(view)}},matchMedia(){return {matches:true}},addEventListener(name,callback){events[name]=callback}};
   const document={
     querySelector(){return section},querySelectorAll(){return [filter]},
-    getElementById(id){return {activityAnnouncementStatus:status,activityWelcomeOffer:offer,productSearch:search,
+    getElementById(id){return {activityAnnouncementStatus:status,activityWelcomeOffer:offer,activityWelcomeAction:welcomeAction,productSearch:search,
       snacks:{querySelector(){return {setAttribute(){},focus(){}}},scrollIntoView(){actions.push("scroll")}}}[id]}
   };
   vm.runInNewContext(source,{window,document,Number});
+  assert.equal(offer.textContent,"登录领取新人专属优惠");
+  assert.equal(welcomeAction.textContent,"立即领取");
   const click=async(selector,target)=>events.click({target:{closest(s){return s===selector?target:null}}});
   await click("[data-promotion-account]",{});
   assert.deepEqual(actions,["coupons"]);
@@ -554,6 +556,8 @@ test("活动公告：四张常驻入口、账户券摘要和安全商品筛选",
   assert.equal(search.value,"");assert.deepEqual(actions,["coupons","新品","scroll"]);
   await click("[data-promotion-filter]",{dataset:{promotionFilter:"missing"}});
   assert.equal(status.hidden,false);
+  events["tings:account-state"]({detail:{signedIn:true}});
+  assert.equal(welcomeAction.textContent,"查看优惠券");
   events["tings:wallet-summary"]({detail:{amount:5,min_spend:35,discount_kind:"fixed"}});
   assert.equal(offer.textContent,"满 $35 减 $5");
   events["tings:wallet-summary"]({detail:{amount:10,min_spend:50,discount_kind:"percent"}});
@@ -562,6 +566,10 @@ test("活动公告：四张常驻入口、账户券摘要和安全商品筛选",
   assert.equal(offer.textContent,"查看新人专属优惠");
   events["tings:wallet-summary"]({detail:null});
   assert.equal(offer.textContent,"查看新人专属优惠");
+  events["tings:account-state"]({detail:{signedIn:false}});
+  events["tings:wallet-summary"]({detail:{amount:5,min_spend:35,discount_kind:"fixed"}});
+  assert.equal(offer.textContent,"登录领取新人专属优惠");
+  assert.equal(welcomeAction.textContent,"立即领取");
 });
 
 test("字体与仓库：顾客页无需远程字体，三张旧 PNG 已移除", async () => {

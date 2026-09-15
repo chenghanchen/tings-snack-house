@@ -158,6 +158,31 @@ function mockSdk() {
     assert.equal(await page.locator('.activity-card').count(),4);
     assert.equal(await page.textContent('#openCustomerAccount'),'登录账户');
     assert.equal(await page.textContent('#mobileAccountEntry'),'登录账户');
+    assert.equal(await page.textContent('#activityWelcomeOffer'),'登录领取新人专属优惠');
+    assert.equal(await page.textContent('#activityWelcomeAction'),'立即领取');
+    assert.equal(await page.textContent('#story .ft-benefits section:first-child h2'),'品质保证');
+    assert.deepEqual(await page.locator('#story .ft-benefits h2').allTextContents(),['品质保证','快速配送','贴心服务','推荐奖励']);
+    assert.deepEqual(await page.locator('#story .ft-benefits p').allTextContents(),['精选好味，安心选购','本地配送，方便自取','购物疑问，随时联系','分享好物，领取优惠']);
+    for(const icon of ['shield','truck','service','gift']){
+      assert.equal(await page.evaluate(async name=>{const img=new Image();img.src=`footer-benefit-${name}.svg`;try{await img.decode();return img.naturalWidth>0}catch{return false}},icon),true,`${icon} footer icon decodes`);
+    }
+    for(const width of [320,360,390,430,600,780,781,1100,1710]){
+      await page.setViewportSize({width,height:1000});
+      const benefits=await page.locator('#story .ft-benefits').evaluate(root=>{
+        const sections=[...root.children],boxes=sections.map(el=>el.getBoundingClientRect());
+        return {sameRow:boxes.every(b=>Math.abs(b.top-boxes[0].top)<1),equalWidth:boxes.every(b=>Math.abs(b.width-boxes[0].width)<1),overflow:root.scrollWidth>root.clientWidth+1,
+          copyFits:sections.every(el=>[...el.querySelectorAll('h2,p')].every(text=>text.scrollWidth<=text.clientWidth+1)),
+          separators:sections.slice(1).every(el=>getComputedStyle(el,'::before').borderLeftStyle==='dashed'),
+          icon:getComputedStyle(root.querySelector('.ft-service-icon')).backgroundImage,
+          background:getComputedStyle(document.querySelector('#story')).backgroundColor};
+      });
+      assert.equal(benefits.sameRow,true,`footer same row at ${width}`);assert.equal(benefits.equalWidth,true,`footer equal width at ${width}`);assert.equal(benefits.overflow,false);assert.equal(benefits.copyFits,true);
+      assert.equal(benefits.background,'rgb(255, 245, 226)');
+      if(width<=780){assert.equal(benefits.separators,true);assert.match(benefits.icon,/footer-benefit-shield\.svg/)}
+      else {assert.equal(benefits.separators,false);assert.doesNotMatch(benefits.icon,/footer-benefit/)}
+      if(process.env.TINGS_ACCOUNT_SCREENSHOT&&[320,390,780].includes(width))await page.locator('#story .ft-benefits').screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-benefits-${width}.png`)});
+    }
+    await page.setViewportSize({width:390,height:844});await page.evaluate(()=>scrollTo(0,0));
     assert.equal(await page.textContent('.cart-button-label'),'购物车');
     for(const asset of ['header-account-icon.svg','header-cart-icon.svg']){
       assert.equal(await page.evaluate(async src=>{const image=new Image();image.src=src;try{await image.decode();return image.naturalWidth>0}catch{return false}},asset),true,`${asset} decodes`);
@@ -247,6 +272,19 @@ function mockSdk() {
     await page.click('[data-promotion-filter="新品"]');
     assert.equal(await page.getAttribute('#filters .active','data-filter'),'新品');
     assert.equal(await page.locator('#productGrid .no-products').count(),1);
+    await page.fill('#productSearch','测试零食');
+    assert.equal(await page.getAttribute('#filters .active','data-filter'),'全部');
+    assert.equal(await page.locator('#productGrid .product').count(),1);
+    await page.fill('#productSearch','热卖');
+    assert.equal(await page.locator('#productGrid .product').count(),1);
+    await page.click('#filters [data-filter="新品"]');
+    assert.equal(await page.inputValue('#productSearch'),'');
+    assert.equal(await page.locator('#productGrid .no-products').count(),1);
+    await page.fill('#productSearch','不存在的零食');
+    assert.equal(await page.getAttribute('#filters .active','data-filter'),'全部');
+    assert.equal(await page.locator('#productGrid .no-products').count(),1);
+    await page.fill('#productSearch','');
+    assert.equal(await page.locator('#productGrid .product').count(),1);
     await page.click('#filters [data-filter="全部"]');
     await page.evaluate(()=>scrollTo(0,0));
     for(const width of [320,360,375,390,430,580,581,600,780,781,1000,1100,1710]){
@@ -267,6 +305,7 @@ function mockSdk() {
       const headerHeight=await page.locator('.site-header').evaluate(el=>el.getBoundingClientRect().height);
       assert.ok(Math.abs(headerHeight-(width<=780?Math.max(56,expectedLogoWidth/3+9):82))<1,`header height at ${width}px: ${headerHeight}`);
       assert.equal(await page.locator('.brand').getAttribute('href'),'#top');
+      if(width>780)assert.equal(await page.locator('#openOrderLookup').evaluate(el=>getComputedStyle(el).fontSize),'17px');
       assert.equal(await page.locator('#openCart').evaluate(el=>el.getBoundingClientRect().height),width<=780?44:40);
       if(width>780){
         assert.equal(await page.locator('#openCustomerAccount').evaluate(el=>el.getBoundingClientRect().height),40);
@@ -381,6 +420,7 @@ function mockSdk() {
     await page.fill('#customerCodeForm input','123456');await page.click('#customerCodeForm [type=submit]');
     await page.waitForSelector('#customerSignedIn:not([hidden])');
     assert.equal(await page.textContent('#openCustomerAccount'),'我的账户');
+    assert.equal(await page.textContent('#activityWelcomeAction'),'查看优惠券');
     assert.equal(await page.textContent('#mobileAccountEntry .mobile-account-label'),'我的账户');
     assert.equal(await page.textContent('#mobileAccountEntry .mobile-account-email'),'alice@example.test');
     for(const selector of ['#openOrderLookup','#openOrderLookupMobile','#mobileLookupEntry']) {
@@ -765,6 +805,8 @@ function mockSdk() {
     assert.match(await page.evaluate(()=>TingsAccount.checkoutHeaders().catch(e=>e.message)),/登录已失效/);
     await page.evaluate(()=>{__accountTest.expired=false;__accountTest.change(null)});
     await page.waitForFunction(()=>document.querySelector('#openCustomerAccount').textContent==='登录账户');
+    assert.equal(await page.textContent('#activityWelcomeAction'),'立即领取');
+    assert.equal(await page.textContent('#activityWelcomeOffer'),'登录领取新人专属优惠');
     assert.equal(await page.inputValue('#orderForm [name=email]'),'');
     assert.match(await page.evaluate(()=>TingsAccount.checkoutHeaders().catch(e=>e.message)),/账户已改变/);
     await page.click('#closeDialog');

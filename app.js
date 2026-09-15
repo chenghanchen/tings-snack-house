@@ -569,6 +569,7 @@ function applySettings(s) {
 }
 $("#filters").onclick = (e) => {
   if (!e.target.dataset.filter) return;
+  if ($("#productSearch")) $("#productSearch").value = "";
   document
     .querySelectorAll("#filters button")
     .forEach((b) => b.classList.toggle("active", b === e.target));
@@ -1049,7 +1050,7 @@ $("#productGrid").addEventListener("keydown", (e) => {
 renderProducts = function (filter = "全部") {
   const query = $("#productSearch")?.value.trim().toLowerCase() || "",
     base =
-      filter === "全部"
+      query || filter === "全部"
         ? sortByPopularity(products)
         : filter === "促销"
           ? products.filter(isPromotedProduct)
@@ -1102,10 +1103,12 @@ renderProducts = function (filter = "全部") {
       })
       .join("") || '<p class="no-products">没有匹配的商品。</p>';
 };
-$("#productSearch").oninput = () =>
-  renderProducts(
-    document.querySelector("#filters .active")?.dataset.filter || "全部",
+$("#productSearch").oninput = () => {
+  document.querySelectorAll("#filters button").forEach(button =>
+    button.classList.toggle("active", button.dataset.filter === "全部"),
   );
+  renderProducts("全部");
+};
 const formatChicagoTime = (v) =>
   v
     ? new Intl.DateTimeFormat("zh-CN", {
