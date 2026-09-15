@@ -162,7 +162,7 @@ function mockSdk() {
     assert.equal(await page.textContent('#activityWelcomeAction'),'立即领取');
     assert.equal(await page.textContent('#story .ft-benefits section:first-child h2'),'品质保证');
     assert.deepEqual(await page.locator('#story .ft-benefits h2').allTextContents(),['品质保证','快速配送','贴心服务','推荐奖励']);
-    assert.deepEqual(await page.locator('#story .ft-benefits p').allTextContents(),['精选好味，安心选购','本地配送，方便自取','购物疑问，随时联系','分享好物，领取优惠']);
+    assert.deepEqual(await page.locator('#story .ft-benefits p').allTextContents(),['精选好味 安心选购','本地配送 方便自取','购物疑问 随时联系','分享好物 领取优惠']);
     for(const icon of ['shield','truck','service','gift']){
       assert.equal(await page.evaluate(async name=>{const img=new Image();img.src=`footer-benefit-${name}.svg`;try{await img.decode();return img.naturalWidth>0}catch{return false}},icon),true,`${icon} footer icon decodes`);
     }
@@ -321,6 +321,8 @@ function mockSdk() {
         await page.click('#mobileMenuToggle');
         assert.equal(await page.getAttribute('#mobileMenuToggle','aria-expanded'),'true');
         assert.equal(await page.locator('#mobileHeaderMenu').isVisible(),true);
+        assert.deepEqual(await page.locator('#mobileHeaderMenu').evaluate(el=>[...el.children].map(item=>item.id||item.textContent)),['mobileAccountEntry','mobileLookupEntry','逛零食','小店故事']);
+        assert.equal(await page.locator('#mobileAccountEntry').evaluate(el=>el===document.activeElement),true);
         assert.equal(await page.locator('#mobileAccountEntry').evaluate(el=>el.getBoundingClientRect().height),44);
         if(process.env.TINGS_ACCOUNT_SCREENSHOT&&width===390)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-menu-guest.png')});
         await page.keyboard.press('Escape');
@@ -329,6 +331,12 @@ function mockSdk() {
       }
       await openCustomerAccount();
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+      assert.equal(await page.textContent('#customerSignedOut>p.customer-muted'),'邮箱验证码登录，首次登录即创建账户。也可以游客身份继续下单。');
+      const loginLayout=await page.locator('#customerAccountDialog').evaluate(el=>({width:el.getBoundingClientRect().width,top:getComputedStyle(el).paddingTop,bottom:getComputedStyle(el).paddingBottom}));
+      assert.equal(loginLayout.top,'15px');assert.equal(loginLayout.bottom,'15px');
+      assert.ok(loginLayout.width<=Math.min(460,width-24));
+      if(width>=600)assert.equal(loginLayout.width,460);
+      if(process.env.TINGS_ACCOUNT_SCREENSHOT&&[390,1710].includes(width))await page.locator('#customerAccountDialog').screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-login-${width}.png`)});
       await closeCustomerAccount();
     }
     await page.setViewportSize({width:390,height:844});
@@ -422,6 +430,7 @@ function mockSdk() {
     assert.equal(await page.textContent('#openCustomerAccount'),'我的账户');
     assert.equal(await page.textContent('#activityWelcomeAction'),'查看优惠券');
     assert.equal(await page.textContent('#mobileAccountEntry .mobile-account-label'),'我的账户');
+    assert.equal(await page.locator('#mobileHeaderMenu').evaluate(el=>el.firstElementChild.id),'mobileAccountEntry');
     assert.equal(await page.textContent('#mobileAccountEntry .mobile-account-email'),'alice@example.test');
     for(const selector of ['#openOrderLookup','#openOrderLookupMobile','#mobileLookupEntry']) {
       assert.equal(await page.locator(selector).evaluate(el=>el.hidden),true);

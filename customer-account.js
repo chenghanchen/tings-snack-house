@@ -34,7 +34,7 @@
     <p id="customerAccountMessage" role="status" aria-live="polite"></p>
     <button type="button" id="customerReauthenticate" hidden>重新登录</button>
     <section id="customerSignedOut">
-      <p class="customer-muted">邮箱验证码登录，首次登录即创建账户。也可以不登录，直接下单。</p>
+      <p class="customer-muted">邮箱验证码登录，首次登录即创建账户。也可以游客身份继续下单。</p>
       <form id="customerEmailForm"><label>邮箱地址<input name="email" type="email" autocomplete="email" required maxlength="254"></label>
         <button type="submit" class="customer-primary" id="customerSendCode">获取验证码</button></form>
       <form id="customerCodeForm" hidden><p id="customerCodeDestination"></p>

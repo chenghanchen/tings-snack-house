@@ -6,7 +6,8 @@ const read = name => readFile(new URL(`../${name}`, import.meta.url), "utf8");
 
 test("页尾：指定社交图标、推荐奖励文案和动态营业时间", async () => {
   const html = await read("index.html"), css = await read("footer-layout.css"), app = await read("app.js");
-  assert.match(html, /<h2>推荐奖励<\/h2><p>分享好物，领取优惠<\/p>/);
+  assert.match(html, /<h2>推荐奖励<\/h2><p>分享好物 领取优惠<\/p>/);
+  for (const text of ['精选好味 安心选购','本地配送 方便自取','购物疑问 随时联系','分享好物 领取优惠']) assert.ok(html.includes(`<p>${text}</p>`));
   for (const platform of ["wechat", "xiaohongshu", "douyin"]) {
     const asset = `footer-${platform}-v1.webp`;
     assert.ok(css.includes(`background-image:url("${asset}")`));

@@ -16,7 +16,7 @@
     menu.hidden = false;
     toggle.setAttribute('aria-expanded', 'true');
     toggle.setAttribute('aria-label', '关闭导航菜单');
-    menu.querySelector('a').focus();
+    menu.querySelector('button:not([hidden]):not(:disabled),a[href]:not([hidden])')?.focus();
   });
   menu.addEventListener('click', event => {
     if (event.target.closest('a')) closeMenu(true);
