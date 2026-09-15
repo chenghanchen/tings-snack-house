@@ -147,7 +147,7 @@ function mockSdk() {
       if(['localhost','account-public.test'].includes(url.hostname)){
         const file=path.resolve(root,decodeURIComponent(url.pathname==='/'?'index.html':url.pathname.slice(1)));
         if(!file.startsWith(root+path.sep)||!fs.existsSync(file))return route.fulfill({status:404,body:''});
-        return route.fulfill({body:fs.readFileSync(file),contentType:{'.html':'text/html; charset=utf-8','.js':'application/javascript','.css':'text/css','.webp':'image/webp','.png':'image/png'}[path.extname(file)]||'text/plain'});
+        return route.fulfill({body:fs.readFileSync(file),contentType:{'.html':'text/html; charset=utf-8','.js':'application/javascript','.css':'text/css','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml'}[path.extname(file)]||'text/plain'});
       }
       if(url.hostname==='cdn.jsdelivr.net'&&url.pathname.includes('supabase-js'))
         return route.fulfill({contentType:'application/javascript',body:`(${mockSdk.toString()})()`});
@@ -158,6 +158,10 @@ function mockSdk() {
     assert.equal(await page.locator('.activity-card').count(),4);
     assert.equal(await page.textContent('#openCustomerAccount'),'登录账户');
     assert.equal(await page.textContent('#mobileAccountEntry'),'登录账户');
+    assert.equal(await page.textContent('.cart-button-label'),'购物车');
+    for(const asset of ['header-account-icon.svg','header-cart-icon.svg']){
+      assert.equal(await page.evaluate(async src=>{const image=new Image();image.src=src;try{await image.decode();return image.naturalWidth>0}catch{return false}},asset),true,`${asset} decodes`);
+    }
     assert.equal(await page.locator('#openOrderLookup').textContent(),'查询游客订单');
     assert.equal(await page.locator('#mobileLookupEntry').textContent(),'查询游客订单');
     assert.equal(await page.locator('#filters [data-filter="热销TOP榜"]').count(),0);
@@ -263,6 +267,13 @@ function mockSdk() {
       const headerHeight=await page.locator('.site-header').evaluate(el=>el.getBoundingClientRect().height);
       assert.ok(Math.abs(headerHeight-(width<=780?Math.max(56,expectedLogoWidth/3+9):82))<1,`header height at ${width}px: ${headerHeight}`);
       assert.equal(await page.locator('.brand').getAttribute('href'),'#top');
+      assert.equal(await page.locator('#openCart').evaluate(el=>el.getBoundingClientRect().height),width<=780?44:40);
+      if(width>780){
+        assert.equal(await page.locator('#openCustomerAccount').evaluate(el=>el.getBoundingClientRect().height),40);
+        for(const selector of ['#openCart','#openCustomerAccount'])assert.match(await page.locator(selector).evaluate(el=>getComputedStyle(el,'::before').backgroundImage),/header-(cart|account)-icon\.svg/);
+      }else{
+        assert.deepEqual(await page.locator('#openCart').evaluate(el=>({width:el.getBoundingClientRect().width,bg:getComputedStyle(el).backgroundColor,radius:getComputedStyle(el).borderRadius,icon:getComputedStyle(el,'::before').content})),{width:44,bg:'rgba(0, 0, 0, 0)',radius:'0px',icon:'none'});
+      }
       if(process.env.TINGS_ACCOUNT_SCREENSHOT && [390,1710].includes(width))await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-header-${width}.png`)});
       if(width<=780){
         const center=await page.locator('.brand').evaluate(el=>{const r=el.getBoundingClientRect();return r.left+r.width/2});
@@ -271,6 +282,8 @@ function mockSdk() {
         await page.click('#mobileMenuToggle');
         assert.equal(await page.getAttribute('#mobileMenuToggle','aria-expanded'),'true');
         assert.equal(await page.locator('#mobileHeaderMenu').isVisible(),true);
+        assert.equal(await page.locator('#mobileAccountEntry').evaluate(el=>el.getBoundingClientRect().height),44);
+        if(process.env.TINGS_ACCOUNT_SCREENSHOT&&width===390)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-menu-guest.png')});
         await page.keyboard.press('Escape');
         assert.equal(await page.locator('#mobileHeaderMenu').isVisible(),false);
         assert.equal(await page.locator('#mobileMenuToggle').evaluate(el=>el===document.activeElement),true);
@@ -380,6 +393,21 @@ function mockSdk() {
         const boxes=[...header.children].filter(el=>getComputedStyle(el).display!=='none').map(el=>el.getBoundingClientRect());
         return boxes.every((box,index)=>box.right<=innerWidth&&boxes.slice(index+1).every(next=>box.right<=next.left+1||next.right<=box.left+1));
       }),`longer signed-in header labels fit at ${width}px`);
+    }
+    if(process.env.TINGS_ACCOUNT_SCREENSHOT){
+      await page.locator('#customerAccountDialog').evaluate(el=>el.close());
+      const originalCount=await page.textContent('#cartCount');
+      for(const count of ['7','123']){
+        await page.locator('#cartCount').evaluate((el,value)=>{el.textContent=value},count);
+        assert.equal(await page.locator('#cartCount').evaluate(el=>el.scrollWidth<=el.clientWidth),true);
+      }
+      await page.locator('#cartCount').evaluate(el=>{el.textContent='7'});
+      await page.locator('.site-header').screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-signed-in-header.png')});
+      await page.locator('#cartCount').evaluate((el,value)=>{el.textContent=value},originalCount);
+      await page.setViewportSize({width:390,height:844});await page.click('#mobileMenuToggle');
+      await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-menu-account.png')});
+      await page.keyboard.press('Escape');
+      await page.locator('#customerAccountDialog').evaluate(el=>el.showModal());
     }
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.locator('#customerCouponsPanel').isVisible(),true);
@@ -525,7 +553,15 @@ function mockSdk() {
     while(Number((await page.textContent('#cartSubtotal')).replace(/[^0-9.]/g,''))<50)await page.locator('#cartItems [data-change="1"]').first().click();
     await page.evaluate(()=>{__accountTest.originalFee=settings.delivery_fee;settings.delivery_fee=4});
     await page.click('#checkout');
-    await page.waitForSelector('#customerWalletCheckout input[value="RWD-ALICE"]');
+    await page.waitForSelector('#customerWalletCheckout input[value="RWD-ALICE"]',{state:'attached'});
+    assert.equal(await page.locator('#customerWalletCheckout input[value="RWD-ALICE"]').isVisible(),false);
+    const availableToggle=page.locator('#customerWalletCheckout .customer-coupon-toggle');
+    assert.equal(await availableToggle.getAttribute('aria-expanded'),'false');
+    await availableToggle.click();
+    assert.equal(await page.locator('#customerWalletCheckout input[value="RWD-ALICE"]').isVisible(),true);
+    await page.click('#customerWalletCheckout input[value=""]');
+    assert.equal(await availableToggle.getAttribute('aria-expanded'),'false');
+    await availableToggle.click();
     assert.equal(await page.textContent('#customerWalletCheckout legend>span'),'优惠券');
     assert.equal(await page.textContent('#customerWalletCheckout legend>small'),'每单限用一张；推荐奖励与优惠券不能叠加。');
     assert.equal(await page.locator('#customerWalletCheckout>small').count(),0);
@@ -545,7 +581,7 @@ function mockSdk() {
         const root=document.querySelector('#customerWalletCheckout'),summary=root.querySelector('summary'),cards=[...root.querySelectorAll('details>.customer-coupon-card')],promo=document.querySelector('#promotionChoice>label');
         return {summaryBottom:getComputedStyle(summary).marginBottom,bodyBottom:getComputedStyle(cards[0].querySelector('.customer-coupon-body')).marginBottom,promoTop:getComputedStyle(promo).marginTop,summaryClear:summary.getBoundingClientRect().bottom<=cards[0].getBoundingClientRect().top,promoClear:promo.getBoundingClientRect().top>=cards.at(-1).getBoundingClientRect().bottom,reasonsInside:cards.every(c=>c.querySelector('.customer-coupon-reason').getBoundingClientRect().bottom<=c.getBoundingClientRect().bottom)};
       });
-      assert.deepEqual(expanded,{summaryBottom:width<=780?'0px':'-10px',bodyBottom:width<=780?'0px':'-10px',promoTop:width<=780?'-20px':'-35px',summaryClear:true,promoClear:true,reasonsInside:true},`expanded coupons at ${width}px`);
+      assert.deepEqual(expanded,{summaryBottom:width<=780?'0px':'-10px',bodyBottom:width<=780?'0px':'-10px',promoTop:width<=780?'-20px':'-25px',summaryClear:true,promoClear:true,reasonsInside:true},`expanded coupons at ${width}px`);
       if(process.env.TINGS_ACCOUNT_SCREENSHOT&&width===1710){await history.locator('summary').scrollIntoViewIfNeeded();await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-expanded.png')})}
       await history.locator('summary').click();
       if(process.env.TINGS_ACCOUNT_SCREENSHOT&&width===1710){await page.locator('#customerWalletCheckout legend').scrollIntoViewIfNeeded();await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-heading.png')})}
@@ -596,6 +632,26 @@ function mockSdk() {
     await page.check('#customerWalletCheckout input[value=""]');
     assert.equal(await page.locator('#promotionChoice').isVisible(),true);
     assert.equal(await page.inputValue('#couponCodeInput'),'');
+    assert.equal(await availableToggle.getAttribute('aria-expanded'),'false');
+    assert.equal(await page.locator('#customerWalletCheckout>fieldset>.customer-coupon-card:visible').count(),0);
+    await page.evaluate(()=>window.dispatchEvent(new Event('tings:coupon-context')));
+    assert.equal(await availableToggle.getAttribute('aria-expanded'),'false');
+    await availableToggle.click();
+    await page.check('#customerWalletCheckout input[value="RWD-ALICE"]');
+    assert.equal(await page.inputValue('#couponCodeInput'),'RWD-ALICE');
+    assert.equal(await availableToggle.isVisible(),false);
+    await page.check('#customerWalletCheckout input[value=""]');
+    assert.equal(await page.locator('#customerWalletCheckout>fieldset>.customer-coupon-card:visible').count(),0);
+    for(const width of [320,390,780,781,1710]){
+      await page.setViewportSize({width,height:1000});
+      const collapsedLayout=await page.evaluate(()=>{
+        const root=document.querySelector('#customerWalletCheckout'),toggle=root.querySelector('.customer-coupon-toggle'),summary=root.querySelector('summary'),promo=document.querySelector('#promotionChoice>label');
+        return {toggleClear:toggle.getBoundingClientRect().bottom<=summary.getBoundingClientRect().top,promoClear:summary.getBoundingClientRect().bottom<=promo.getBoundingClientRect().top,overflow:root.scrollWidth>root.clientWidth+1};
+      });
+      assert.deepEqual(collapsedLayout,{toggleClear:true,promoClear:true,overflow:false},`collapsed coupons at ${width}px`);
+      if(process.env.TINGS_ACCOUNT_SCREENSHOT&&width===1710){await availableToggle.scrollIntoViewIfNeeded();await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-collapsed-desktop.png')})}
+    }
+    await page.setViewportSize({width:390,height:844});
     await page.fill('#couponCodeInput','MANUAL');
     assert.equal(await page.locator('#customerWalletCheckout input:checked').count(),0);
     assert.ok(await page.locator('#orderDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));

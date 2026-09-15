@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <radialGradient id="cream" cx=".3" cy=".2" r=".9"><stop stop-color="#fffefa"/><stop offset=".74" stop-color="#fff1d7"/><stop offset="1" stop-color="#eed1a6"/></radialGradient>
+    <linearGradient id="gold" x1="15" y1="9" x2="47" y2="61" gradientUnits="userSpaceOnUse"><stop stop-color="#edb86e"/><stop offset=".42" stop-color="#be7938"/><stop offset="1" stop-color="#895022"/></linearGradient>
+    <linearGradient id="rim" x1="12" y1="2" x2="47" y2="62" gradientUnits="userSpaceOnUse"><stop stop-color="#fff7df"/><stop offset="1" stop-color="#e9c38e"/></linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30.5" fill="url(#cream)" stroke="url(#rim)"/>
+  <circle cx="32" cy="22" r="9.2" fill="url(#gold)" stroke="#b87935" stroke-width=".5"/>
+  <path d="M32 33c-9 0-16.5 8-16.5 14.6 0 3.6 7.4 5.1 16.5 5.1s16.5-1.5 16.5-5.1C48.5 41 41 33 32 33Z" fill="url(#gold)" stroke="#a76a30" stroke-width=".5"/>
+  <path d="M5 28C6.8 13.5 18 4 32 4" stroke="#fff" stroke-opacity=".8" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

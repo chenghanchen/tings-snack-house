@@ -1,0 +1,52 @@
+/* Reference-inspired cream and gold entry buttons. Keep the existing header and dialog layouts. */
+.site-header #openCustomerAccount,
+.site-header #mobileAccountEntry {
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  width:124px;height:40px;min-height:40px;flex:0 0 auto;
+  padding:0 13px;border:1px solid transparent;border-radius:999px;
+  background:linear-gradient(165deg,#fffefa 4%,#fffdf7 42%,#fbead2 100%) padding-box,
+    linear-gradient(175deg,#fff0c9 0%,#f1b970 26%,#ffc988 58%,#d6924f 100%) border-box;
+  box-shadow:inset 0 1px 1px #fff,inset 0 -1px 2px #dca56566,0 5px 9px -5px #b7723380;
+  color:#603419;font:700 14px/1 Arial, sans-serif;letter-spacing:.4px;
+  text-shadow:0 1px 0 #fff5df;white-space:nowrap;cursor:pointer;
+}
+.site-header #openCustomerAccount::before,
+.site-header #mobileAccountEntry::before {
+  content:"";display:block;width:26px;height:26px;flex:0 0 26px;
+  background:url("header-account-icon.svg") center/contain no-repeat;
+  filter:drop-shadow(0 2px 2px #c8954b30);
+}
+.site-header #openCustomerAccount:hover,.site-header #mobileAccountEntry:hover{filter:brightness(1.025)}
+.site-header #openCustomerAccount:active,.site-header #mobileAccountEntry:active{box-shadow:inset 0 1px 3px #be864733}
+.site-header #openCustomerAccount:focus-visible,.site-header #mobileAccountEntry:focus-visible{outline:2px solid #9a582a;outline-offset:3px}
+@media(min-width:781px){
+  .site-header #openCart {
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    height:40px;min-height:40px;flex:0 0 auto;padding:0 12px;
+    border:1px solid transparent;border-radius:999px;
+    background:linear-gradient(165deg,#fffefa 4%,#fffdf7 42%,#fbead2 100%) padding-box,
+      linear-gradient(175deg,#ffc78b 0%,#efb16c 38%,#ffc688 65%,#d78c49 100%) border-box;
+    box-shadow:inset 0 1px 1px #fff,inset 0 -1px 2px #dca56566,0 5px 9px -5px #b7723380;
+    color:#60311c;font:700 14px/1 Arial, sans-serif;letter-spacing:.4px;text-shadow:0 1px 0 #fff5df;
+  }
+  .site-header #openCart::before{content:"";width:28px;height:28px;flex:0 0 28px;background:url("header-cart-icon.svg") center/contain no-repeat;filter:drop-shadow(0 2px 1px #cc84332e)}
+  .site-header #openCart #cartCount{
+    display:inline-grid;place-items:center;min-width:22px;width:auto;height:22px;margin:0;padding:0 6px;
+    border:1px solid #fa7050;border-radius:999px;background:linear-gradient(145deg,#ff9270 0%,#ff6952 42%,#ee482c 100%);
+    box-shadow:inset 0 1px 2px #ffd1ad,0 3px 5px #df8b4738;
+    color:#fff;font:700 14px/1 Arial, sans-serif;letter-spacing:0;text-shadow:0 1px 1px #c2472233;
+  }
+  .site-header #openCart:hover{filter:brightness(1.025)}
+  .site-header #openCart:active{box-shadow:inset 0 1px 3px #be864733}
+  .site-header #openCart:focus-visible{outline:2px solid #9a582a;outline-offset:3px}
+}
+@media(max-width:780px){
+  .site-header>#openCustomerAccount{display:none}
+  .site-header #mobileAccountEntry{width:138px;height:44px;min-height:44px;margin:0;justify-self:start;flex-wrap:nowrap}
+  /* The reference has only an icon and label; identity remains visible inside My Account. */
+  .site-header #mobileAccountEntry .mobile-account-email{display:none}
+}
+@media(forced-colors:active){
+  .site-header #openCustomerAccount,.site-header #mobileAccountEntry{border-color:ButtonText}
+  .site-header #openCart #cartCount{border:1px solid ButtonText}
+}
