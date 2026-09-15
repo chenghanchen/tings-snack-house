@@ -522,7 +522,20 @@ function mockSdk() {
     await page.evaluate(()=>{__accountTest.originalFee=settings.delivery_fee;settings.delivery_fee=4});
     await page.click('#checkout');
     await page.waitForSelector('#customerWalletCheckout input[value="RWD-ALICE"]');
-    assert.equal(await page.textContent('#customerWalletCheckout legend'),'优惠券');
+    assert.equal(await page.textContent('#customerWalletCheckout legend>span'),'优惠券');
+    assert.equal(await page.textContent('#customerWalletCheckout legend>small'),'每单限用一张；推荐奖励与优惠券不能叠加。');
+    assert.equal(await page.locator('#customerWalletCheckout>small').count(),0);
+    for(const width of [320,390,780,1710]){
+      await page.setViewportSize({width,height:1000});
+      const layout=await page.evaluate(()=>{
+        const root=document.querySelector('#customerWalletCheckout'),field=root.querySelector('fieldset'),legend=root.querySelector('legend'),summary=root.querySelector('summary'),note=document.querySelector('#orderNoteCount'),cards=[...field.querySelectorAll(':scope>.customer-coupon-card')];
+        return {fieldMargin:getComputedStyle(field).marginTop,summaryMargin:getComputedStyle(summary).marginTop,noteClear:legend.getBoundingClientRect().top>=note.getBoundingClientRect().bottom,summaryClear:summary.getBoundingClientRect().top>=cards.at(-1).getBoundingClientRect().bottom,overflow:root.scrollWidth>root.clientWidth+1};
+      });
+      const expectedMargin=width<=780?'-8px':'-20px';
+      assert.deepEqual(layout,{fieldMargin:expectedMargin,summaryMargin:expectedMargin,noteClear:true,summaryClear:true,overflow:false},`checkout coupon spacing at ${width}px`);
+      if(process.env.TINGS_ACCOUNT_SCREENSHOT&&width===1710){await page.locator('#customerWalletCheckout legend').scrollIntoViewIfNeeded();await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-heading.png')})}
+    }
+    await page.setViewportSize({width:390,height:844});
     const foldedCoupons=page.locator('#customerWalletCheckout .customer-coupon-history');
     assert.equal(await foldedCoupons.getAttribute('open'),null);
     assert.equal(await page.locator('#promotionChoice').isVisible(),true);
@@ -545,6 +558,7 @@ function mockSdk() {
     assert.equal(await page.locator('#customerWalletCheckout input:checked').count(),1);
     assert.equal(await page.inputValue('#couponCodeInput'),'TEN');
     await page.waitForFunction(()=>document.querySelector('#couponCodeHint').classList.contains('valid'));
+    assert.match(await page.textContent('#orderSummary .order-amounts'),/优惠券：推荐奖励券/);
     assert.equal(await page.locator('#customerWalletCheckout [data-code="TEN"]').evaluate(el=>el.classList.contains('is-selected')),true);
     await page.selectOption('#fulfillment','pickup');
     assert.equal(await page.locator('#customerWalletCheckout input[value="TEST-SHIPPING"]').isDisabled(),true);

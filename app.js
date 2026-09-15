@@ -1153,7 +1153,7 @@ function drawOfferPreview() {
     codeHint.textContent = hasCode ? offerPreview.message : "";
     codeHint.classList.toggle("valid", hasCode && offerPreview.valid);
   }
-  rows.innerHTML = `<div><span>商品小计</span><span>${dollars(t.subtotal)}</span></div>${t.autoDiscount > 0 ? `<div><span>商品活动优惠（已计入小计）</span><span>−${dollars(t.autoDiscount)}</span></div>` : ""}${campaign ? `<div><span>${escapeHtml(offerPreview.campaignName || "活动优惠")}</span><span>−${dollars(campaign)}</span></div>` : ""}${code ? `<div><span>${escapeHtml(offerPreview.codeName || "优惠券／推荐码优惠")}</span><span>−${dollars(code)}</span></div>` : ""}${pickup ? "" : `<div><span>配送费</span><span class="fee-value">${fee === 0 ? "<small>（已减免）</small>" : ""}<b>${dollars(fee)}</b></span></div>`}<div><span>税（${Number(settings.tax_rate ?? 10.5)}%）</span><span>${dollars(tax)}</span></div><div><b>最终应付金额</b><b>${dollars(total)}</b></div>`;
+  rows.innerHTML = `<div><span>商品小计</span><span>${dollars(t.subtotal)}</span></div>${t.autoDiscount > 0 ? `<div><span>商品活动优惠（已计入小计）</span><span>−${dollars(t.autoDiscount)}</span></div>` : ""}${campaign ? `<div><span>${escapeHtml(offerPreview.campaignName || "活动优惠")}</span><span>−${dollars(campaign)}</span></div>` : ""}${code ? `<div><span>${escapeHtml(`${offerPreview.isReferralCode ? "推荐奖励" : "优惠券"}：${offerPreview.codeName || "优惠"}`)}</span><span>−${dollars(code)}</span></div>` : ""}${pickup ? "" : `<div><span>配送费</span><span class="fee-value">${fee === 0 ? "<small>（已减免）</small>" : ""}<b>${dollars(fee)}</b></span></div>`}<div><span>税（${Number(settings.tax_rate ?? 10.5)}%）</span><span>${dollars(tax)}</span></div><div><b>最终应付金额</b><b>${dollars(total)}</b></div>`;
 }
 
 /* Keep checkout preview aligned with the marketing wizard's publish, audience and stack rules. */
@@ -1394,6 +1394,7 @@ function previewOffer() {
         campaignName,
         codeDiscount,
         codeName,
+        isReferralCode,
         freeShipping: freeShipping || couponFreeShipping,
         message,
         valid: !!codeDiscount || couponFreeShipping,

@@ -33,14 +33,17 @@
 #customerCouponsPanel.customer-feature-note,#customerRewardsPanel.customer-feature-note{padding:0;border:0;background:transparent}
 .customer-coupon-card{container-type:inline-size}
 @container (min-width:360px){.customer-coupon-body{display:grid;grid-template-columns:minmax(80px,max-content) minmax(0,1fr);gap:12px;align-items:start}.customer-coupon-benefit{padding:0 14px;margin:20px 0;white-space:nowrap}.customer-coupon-card[data-shipping=true] .customer-coupon-benefit{font-size:24px;white-space:normal;max-width:108px}}
-.customer-wallet-checkout{margin:12px 0 24px;min-width:0}
+.customer-wallet-checkout{margin:24px 0;min-width:0}
 #orderForm #promotionChoice[hidden],#orderForm #customerWalletCheckout[hidden],#customerWalletCheckout [hidden]{display:none!important}
-.customer-wallet-checkout fieldset{border:0;padding:0;min-width:0;margin:0}
+.customer-wallet-checkout fieldset{border:0;padding:0;min-width:0;margin:-20px 0 0}
 .customer-wallet-checkout legend{font-size:14px;font-weight:700}
+.customer-wallet-checkout .customer-coupon-history>summary{margin-top:-20px}
+.customer-wallet-checkout .customer-coupon-history{margin-top:30px}
 #orderForm .customer-wallet-checkout label{display:flex;gap:8px;align-items:center;margin:10px 0;font-size:13px}
 #orderForm .customer-wallet-checkout input[type=radio]{width:16px;height:16px;flex:0 0 16px;margin:0;padding:0;accent-color:#b74735}
 #orderForm .customer-coupon-action .customer-coupon-select{display:flex;flex-direction:column;gap:5px;width:100%;margin:0;padding:8px 2px;border:1px solid #a8b49e;border-radius:9px;min-height:48px;justify-content:center;background:#e6eddf;color:#45573e;font-size:12px;cursor:pointer;white-space:nowrap}
 #orderForm .customer-coupon-select:has(:disabled){background:#e7e9e2;color:#747d70;border-color:#d6dbd0;cursor:default}
 #orderForm .is-selected .customer-coupon-select{background:#b74735;color:white;border-color:#b74735}
-.customer-wallet-checkout>small{display:block;font-size:11px;line-height:1.5;margin-top:8px}
+.customer-wallet-rules{margin-left:8px;font-size:11px;font-weight:400;line-height:1.5;color:#687166}
+@media(max-width:780px){.customer-wallet-checkout{margin-top:12px}.customer-wallet-checkout fieldset{margin-top:-8px}.customer-wallet-checkout .customer-coupon-history{margin-top:18px}.customer-wallet-checkout .customer-coupon-history>summary{margin-top:-8px}}
 @media(max-width:388px){.customer-coupon-card{grid-template-columns:minmax(0,1fr) 76px}.customer-coupon-body{padding:8px 12px}.customer-coupon-benefit{font-size:36px}.customer-coupon-card[data-shipping=true] .customer-coupon-benefit{font-size:24px}.customer-coupon-card .customer-coupon-minimum{font-size:15px}.customer-coupon-action{padding:8px 6px}}

@@ -110,7 +110,8 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     const rows=wallet.coupons.filter(c=>c.status!=='claimable');
     if(!rows.length){checkout.hidden=true;return;}
     checkoutCards.clear();
-    const fieldset=el('fieldset'),legend=el('legend','优惠券');
+    const fieldset=el('fieldset'),legend=el('legend');
+    legend.append(el('span','优惠券'),el('small','每单限用一张；推荐奖励与优惠券不能叠加。','customer-wallet-rules'));
     fieldset.append(legend);
     for(const c of [{code:'',name:'不使用账户优惠券'}]){
       const label=el('label'),radio=el('input');radio.type='radio';radio.name='wallet_coupon_choice';radio.value=c.code;radio.checked=c.code===couponInput.value.trim().toUpperCase();
@@ -120,7 +121,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     }
     const history=el('details',null,'customer-coupon-history');history.append(el('summary','查看不可用优惠券及原因'));fieldset.append(history);
     for(const c of rows){const node=card(c,true,true);if(unavailable(c,true))history.append(node);else fieldset.insertBefore(node,history);}
-    checkout.append(fieldset,el('small','每单选择一张优惠券；取消选择后可输入兑换码或推荐码，两者不会叠加。'));syncCheckout();
+    checkout.append(fieldset);syncCheckout();
   }
   function syncCheckout(){
     document.querySelector('#promotionChoice').hidden=!!identity()&&!!wallet&&!checkout.hidden&&checkoutCards.has(couponInput.value.trim().toUpperCase());
