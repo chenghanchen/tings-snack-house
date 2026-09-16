@@ -966,19 +966,43 @@ function mockSdk() {
     assert.equal(await page.textContent('#submittedFulfillmentLabel'),'配送');
     assert.equal(await page.textContent('#submittedFulfillmentNote'),'Temporary delivery address');
     assert.equal(await page.getAttribute('#submittedFulfillmentIcon','data-kind'),'delivery');
+    assert.equal(await page.locator('.success-progress-note').count(),0);
     assert.equal(await page.textContent('#viewSubmittedOrder'),'我的订单');
     assert.equal(await page.textContent('#copySubmittedOrderLabel'),'复制订单号');
     await page.setViewportSize({width:1710,height:1180});
     const successLayout=await page.evaluate(()=>{
       const style=selector=>getComputedStyle(document.querySelector(selector));
-      const dialog=style('#orderDialog'),hero=style('.order-success>.success-hero');
+      const dialogNode=document.querySelector('#orderDialog'),dialog=style('#orderDialog'),hero=style('.order-success>.success-hero'),
+        close=document.querySelector('#closeDialog').getBoundingClientRect(),fulfillment=document.querySelector('#submittedFulfillmentNote').parentElement,
+        label=fulfillment.querySelector('dt').getBoundingClientRect(),address=fulfillment.querySelector('dd').getBoundingClientRect();
       return {dialogPadding:[dialog.paddingTop,dialog.paddingBottom],heroPadding:[hero.paddingTop,hero.paddingBottom],
-        referralSize:style('#successReferralReward .success-referral-line').fontSize,codeSize:style('#submittedReferralCode').fontSize};
+        referralSize:style('#successReferralReward .success-referral-line').fontSize,codeSize:style('#submittedReferralCode').fontSize,
+        radius:dialog.borderRadius,close:[Math.round(close.width),Math.round(close.height)],labelWidth:Math.round(label.width),
+        addressWidth:Math.round(address.width),orderNumberSize:style('#submittedOrderNumber').fontSize,
+        overflow:dialogNode.scrollWidth>dialogNode.clientWidth+1};
     });
-    assert.deepEqual(successLayout,{dialogPadding:['20px','20px'],heroPadding:['0px','0px'],referralSize:'17px',codeSize:'15px'});
+    assert.deepEqual(successLayout,{dialogPadding:['20px','20px'],heroPadding:['0px','0px'],referralSize:'17px',codeSize:'15px',
+      radius:'15px',close:[50,50],labelWidth:90,addressWidth:320,orderNumberSize:'15px',overflow:false});
+    for(const width of [320,390,780]){
+      await page.setViewportSize({width,height:844});
+      const mobileSuccessLayout=await page.evaluate(()=>{
+        const dialog=document.querySelector('#orderDialog'),close=document.querySelector('#closeDialog').getBoundingClientRect(),
+          row=document.querySelector('#submittedFulfillmentNote').parentElement,label=row.querySelector('dt').getBoundingClientRect(),
+          address=row.querySelector('dd'),addressBox=address.getBoundingClientRect();
+        return {radius:getComputedStyle(dialog).borderRadius,close:[Math.round(close.width),Math.round(close.height)],
+          labelWidth:Math.round(label.width),orderNumberSize:getComputedStyle(document.querySelector('#submittedOrderNumber')).fontSize,
+          addressWrap:getComputedStyle(address).whiteSpace,addressFits:address.scrollWidth<=address.clientWidth+1,
+          rowFits:row.scrollWidth<=row.clientWidth+1,addressInside:addressBox.right<=row.getBoundingClientRect().right+1,
+          dialogFits:dialog.scrollWidth<=dialog.clientWidth+1};
+      });
+      assert.deepEqual(mobileSuccessLayout,{radius:'15px',close:[50,50],labelWidth:90,orderNumberSize:'15px',addressWrap:'normal',
+        addressFits:true,rowFits:true,addressInside:true,dialogFits:true},`mobile success ${width}px`);
+    }
+    await page.setViewportSize({width:1710,height:1180});
     await page.click('#contactShop');
     assert.equal(await page.textContent('#successContactDetails'),'电话：312-826-1822\n邮箱：shop@example.test');
     assert.equal(await page.locator('#successContactDetails').evaluate(el=>getComputedStyle(el).whiteSpace),'pre-line');
+    assert.equal(await page.locator('#successContactDetails').evaluate(el=>getComputedStyle(el).borderRadius),'10px');
     await page.click('#copySubmittedOrder');
     await page.waitForFunction(()=>document.querySelector('#copySubmittedOrderLabel').textContent==='已复制订单号');
     assert.equal(await page.textContent('#copySubmittedOrderLabel'),'已复制订单号');
