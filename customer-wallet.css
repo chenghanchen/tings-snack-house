@@ -14,7 +14,49 @@
 .customer-coupon-title h4{margin:0;min-width:0}
 .customer-coupon-source{max-width:100%;color:#55674f;font-size:10px;font-weight:600}
 .customer-coupon-card small{display:block;font-size:10px;line-height:1.5;color:#687166}
-#customerRewardsPanel>code{display:block;margin:8px 0;overflow-wrap:anywhere}
+/* Referral-only hierarchy; shared coupon, checkout and account-home layouts stay intact. */
+#customerRewardsPanel{display:grid;gap:18px}
+#customerRewardsPanel h3{margin:0;font-size:16px;line-height:1.4}
+#customerRewardsPanel .referral-hero{padding:20px;border:1px solid #d9e3d7;border-radius:18px;background:linear-gradient(135deg,#edf2e8,#f9f6ec);color:#293b33}
+#customerRewardsPanel .referral-eyebrow{margin:0 0 16px;font-size:15px;font-weight:700;letter-spacing:1px;text-align:center}
+.referral-benefits{display:grid;gap:14px}
+.referral-benefits>div+div{border-top:1px solid #d6dfd0;padding-top:14px}
+#customerRewardsPanel .referral-benefit-label{font-size:12px;color:#52644f;margin:0 0 3px}
+.referral-benefits strong{display:block;font-size:23px;line-height:1.4;letter-spacing:-.4px}
+#customerRewardsPanel .referral-benefit-note{margin:4px 0 0;color:#596953;font-size:12px;line-height:1.5}
+.referral-code-card{display:grid;gap:10px}
+.referral-code-row{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 14px;background:#fffefa;border:1px solid #cdd8c9;border-radius:12px;min-width:0}
+.referral-code-row code{flex:1;min-width:0;font:700 21px/1.4 Arial, sans-serif;letter-spacing:.7px;color:#263e31;user-select:all;overflow-wrap:anywhere}
+#customerAccountDialog #customerRewardsPanel .referral-copy{flex:none;width:64px;padding:8px 5px;font-size:13px;font-weight:700;border-color:#ced9c9;background:#eef3e9;color:#334f3b}
+#customerAccountDialog #customerRewardsPanel .referral-share{width:100%;border-radius:12px;background:#293f32;border-color:#293f32;color:#fffefa;font-size:15px;font-weight:700;min-height:46px}
+#customerRewardsPanel .referral-action-status{margin:0;font-size:12px;line-height:1.5;color:#52644f;overflow-wrap:anywhere}
+.referral-action-status:empty{display:none}
+.referral-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.referral-section-heading>span{font-size:12px;color:#667561}
+.referral-empty{display:grid;justify-items:center;gap:8px;padding:22px 24px;border:1px dashed #d9dfd1;border-radius:14px;background:#faf9f2;text-align:center}
+.referral-empty-icon{font-size:29px;line-height:1.2}
+.referral-empty strong{font-size:14px}
+#customerRewardsPanel .referral-empty p{max-width:240px;font-size:13px;line-height:1.7;color:#687462;margin:0}
+.referral-history-list{list-style:none;margin:0;padding:0;border:1px solid #e0e3d7;border-radius:12px;overflow:hidden;background:#fffefa}
+.referral-history-list li{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:8px;align-items:center;padding:13px 10px;font-size:12px;line-height:1.5}
+.referral-history-list li+li{border-top:1px solid #eceee5}
+.referral-history-list time{font-size:11px;color:#6e7968}
+.referral-history-label{min-width:0;overflow-wrap:anywhere}
+.referral-status{font-size:11px;padding:3px 6px;border-radius:6px;background:#f0f0e9;color:#646f60;white-space:nowrap}
+[data-status=rewarded]>.referral-status{background:#e4efdf;color:#34572f}
+[data-status=pending]>.referral-status{background:#f8eed7;color:#796024}
+.referral-earned{border:1px solid #e0e3d7;border-radius:12px;padding:0 12px;background:#fffefa;min-width:0}
+.referral-earned>summary{cursor:pointer;font-size:14px;font-weight:700;padding:12px 0;min-height:44px}
+.referral-earned>h3{padding-top:8px}
+.referral-rules{border-top:1px solid #e1e4d9;padding-top:16px}
+.referral-rules>ul{list-style:none;padding:0;margin:10px 0;font-size:12px;line-height:1.8;color:#596953}
+.referral-rules>ul li{position:relative;padding-left:20px;margin:4px 0}
+.referral-rules>ul li:before{content:'✓';position:absolute;left:0;color:#4a7040;font-weight:700}
+.referral-full-rules>summary{cursor:pointer;font-size:12px;color:#52644f;padding:10px 0;min-height:44px}
+.referral-full-rules>ul{padding:0 0 0 18px;margin:2px 0 0;font-size:12px;color:#65705e;line-height:1.8}
+.referral-full-rules li{margin-bottom:8px}
+#customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerRewardsPanel:not([hidden]))>.customer-preview-note{border:0;background:transparent;padding:0;margin:18px 0 0;font-size:11px;line-height:1.6;color:#737b70}
+@media(max-width:360px){.referral-code-row code{font-size:18px;letter-spacing:0}.referral-benefits strong{font-size:21px}.referral-history-list li{gap:5px;padding:12px 8px}}
 .customer-coupon-action{position:relative;display:flex;align-items:center;justify-content:center;padding:10px 8px;border-left:1px dashed #decbbb;min-width:0}
 .customer-coupon-action:before,.customer-coupon-action:after{content:"";position:absolute;width:12px;height:6px;background:var(--paper,#f8f4e9);left:-6px;border:1px solid #e2d6c4}
 .customer-coupon-action:before{top:-1px;border-top:0;border-radius:0 0 12px 12px}

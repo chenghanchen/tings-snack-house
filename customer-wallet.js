@@ -162,6 +162,82 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   document.querySelector('#orderForm').addEventListener('change',syncCheckout);
   window.addEventListener('tings:coupon-context',syncCheckout);
   window.addEventListener('tings:coupon-preview',event=>{previewResult=event.detail;syncCheckout()});
+  function renderRewards(){
+    rewardsPanel.replaceChildren();
+    const hero=el('section',null,'referral-hero');
+    hero.append(el('p','邀请好友 · 双方有礼','referral-eyebrow'));
+    const benefits=el('div',null,'referral-benefits');
+    for(const [label,value,note] of [['好友首单','满 $30 减 $5','符合新客条件即可享受'],['你的奖励','满 $30 减 $5 奖励券','好友订单完成后发放 · 有效期 90 天']]){
+      const benefit=el('div');benefit.append(el('p',label,'referral-benefit-label'),el('strong',value),el('p',note,'referral-benefit-note'));benefits.append(benefit);
+    }
+    hero.append(benefits);rewardsPanel.append(hero);
+    const codeCard=el('section',null,'referral-code-card');codeCard.append(el('h3','我的推荐码'));
+    if(!wallet.referral_codes.length)codeCard.append(el('p','推荐码暂未生成，请返回后重新打开推荐奖励。','customer-muted'));
+    for(const item of wallet.referral_codes){
+      const codeRow=el('div',null,'referral-code-row'),code=el('code',item.code),feedback=el('p','','referral-action-status');
+      feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
+      const stamp=identity(),current=()=>identity()===stamp&&codeCard.isConnected;
+      const copy=button('复制',async()=>{
+        if(!current())return;
+        try{await navigator.clipboard.writeText(item.code);if(current()){copy.textContent='已复制';feedback.textContent='推荐码已复制，分享给好友吧。';}}
+        catch{if(current())feedback.textContent='暂时无法复制，请长按或选中推荐码手动复制。';}
+      });
+      copy.className='referral-copy';copy.setAttribute('aria-label','复制推荐码');
+      codeRow.append(code,copy);codeCard.append(codeRow);
+      codeCard.append(el('p','把推荐码分享给新用户，好友首次符合条件的订单即可享受优惠。','customer-muted'));
+      const share=button('分享给好友',async()=>{
+        if(!current())return;
+        const text=`我在婷婷的零食屋买零食，符合条件的新客首次下单满 $30 可以减 $5。\n推荐码：${item.code}`;
+        const url='https://tings-snack-house.pages.dev/';
+        share.disabled=true;feedback.textContent='';
+        try{
+          if(typeof navigator.share==='function'){
+            await navigator.share({title:'婷婷的零食屋 · 邀请好友',text,url});
+            if(current())feedback.textContent='分享操作已完成。';
+          }else{
+            await navigator.clipboard.writeText(`${text}\n${url}`);
+            if(current())feedback.textContent='邀请文案和链接已复制，可以粘贴给好友。';
+          }
+        }catch(error){if(current())feedback.textContent=error?.name==='AbortError'?'已取消分享。':'暂时无法分享，请复制推荐码后发送给好友。';}
+        finally{if(current())share.disabled=false;}
+      });
+      share.className='customer-primary referral-share';codeCard.append(share,feedback);
+    }
+    rewardsPanel.append(codeCard);
+    const rewardCoupons=wallet.coupons.filter(c=>c.kind==='referral');
+    if(rewardCoupons.length){
+      const earned=el('details',null,'referral-earned');earned.append(el('summary',`我的奖励 · ${rewardCoupons.filter(c=>c.status==='available').length} 张可用`));
+      groups(earned,rewardCoupons);rewardsPanel.append(earned);
+    }
+    const history=el('section',null,'referral-history'),heading=el('div',null,'referral-section-heading');
+    heading.append(el('h3','推荐记录'),el('span',`${wallet.history.length} 条`));history.append(heading);
+    if(!wallet.history.length){
+      const empty=el('div',null,'referral-empty'),gift=el('span','🎁','referral-empty-icon');gift.setAttribute('aria-hidden','true');
+      empty.append(gift,el('strong','还没有推荐记录'),el('p','分享推荐码给好友，完成首单后奖励会显示在这里。'));history.append(empty);
+    }else{
+      const list=el('ul',null,'referral-history-list');
+      const states={pending:['等待订单完成','待确认','pending'],rewarded:['好友首单完成','已获得','rewarded'],cancelled:['好友首单取消','未获得奖励','cancelled'],revoked:['订单取消，奖励已撤销','奖励已撤销','revoked'],ineligible:['未满足奖励条件','未获得奖励','ineligible']};
+      const labels={'等待订单完成':'pending','奖励已发放':'rewarded','订单已取消，未发奖励':'cancelled','订单取消，奖励已撤销':'revoked','未满足奖励条件':'ineligible'};
+      for(const item of wallet.history){
+        const state=states[labels[item.status]||item.status]||['推荐记录更新','待核实','unknown'];
+        const row=el('li'),time=el('time'),copy=el('span',state[0],'referral-history-label');
+        const parsed=new Date(item.created_at);const valid=Number.isFinite(parsed.getTime());
+        time.textContent=valid?parsed.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit'}):'—';
+        if(valid){time.dateTime=parsed.toISOString();time.title=date(item.created_at);}
+        const status=el('span',state[2]==='rewarded'?`${state[1]} ${money(item.reward_amount)}`:state[1],'referral-status');
+        row.dataset.status=state[2];row.append(time,copy,status);list.append(row);
+      }
+      history.append(list);
+    }
+    rewardsPanel.append(history);
+    const rules=el('section',null,'referral-rules');rules.append(el('h3','推荐规则'));
+    const highlights=el('ul');
+    for(const line of ['新客首单满 $30 减 $5','订单完成后，你获得满 $30 减 $5 奖励券','奖励券有效期 90 天'])highlights.append(el('li',line));
+    const full=el('details',null,'referral-full-rules');full.append(el('summary','查看完整规则'));
+    const terms=el('ul');
+    for(const line of ['每位新客终身仅享一次推荐新客优惠，更换推荐码不重复享受；游客也可使用。','资格按登录账户、规范化邮箱、规范化手机号及历史订单/推荐记录核验。已有完成订单的顾客不属于新客。','进行中的订单暂占新客资格，尚不发放推荐奖励；未完成便取消可重试。','订单完成后确认并发放奖励；完成后取消或退款不恢复新客资格，订单取消可能导致已发奖励撤销。','推荐码与奖励只属于当前邮箱账户，奖励不可转让；推荐优惠不可与优惠券叠加使用。'])terms.append(el('li',line));
+    full.append(terms);rules.append(highlights,full);rewardsPanel.append(rules);
+  }
   function render(){
     const available=wallet.coupons.filter(c=>c.status==='available');
     const newcomer=available.find(c=>c.kind==='new');
@@ -172,19 +248,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     if(claimable.length)couponsPanel.append(el('h3','可领取优惠券'),...claimable.map(c=>card(c,true)));
     const unavailableRows=wallet.coupons.filter(c=>!['available','claimable'].includes(c.status));
     if(unavailableRows.length){const history=el('details',null,'customer-coupon-history');history.append(el('summary','不可用优惠券'),...unavailableRows.map(c=>card(c,true)));couponsPanel.append(history)}
-    rewardsPanel.replaceChildren();
-    rewardsPanel.append(el('p','推荐码与奖励只属于当前邮箱账户。'));
-    rewardsPanel.append(el('p','推荐新客使用你的推荐码下单可享满 $30 减 $5。订单完成后，您获得一张满 $30 减 $5 的奖励券，有效期 90 天。每位新客终身仅享一次推荐新客优惠，更换推荐码不重复享受；游客也可使用。进行中的订单暂占资格，未完成取消可重试，完成后取消或退款不恢复资格。奖励不可转让，不可与优惠券叠加使用。','customer-muted'));
-    rewardsPanel.append(el('h3','我的推荐码'));
-    if(!wallet.referral_codes.length)rewardsPanel.append(el('p','推荐码暂未生成，请返回后重新打开推荐奖励。'));
-    for(const item of wallet.referral_codes){
-      const copy=button('复制推荐码',async()=>{try{await navigator.clipboard.writeText(item.code);copy.textContent='已复制';}catch{copy.textContent='无法复制，请长按上方推荐码复制';}});
-      rewardsPanel.append(el('code',item.code),copy,el('p',`新客优惠：满 $${Number(item.min_spend).toFixed(2)} 减 $${Number(item.amount).toFixed(2)}；有效性以结算核算为准。`));
-    }
-    groups(rewardsPanel,wallet.coupons.filter(c=>c.kind==='referral'));
-    rewardsPanel.append(el('h3','推荐记录'));
-    if(!wallet.history.length)rewardsPanel.append(el('p','暂无推荐记录。'));
-    for(const item of wallet.history)rewardsPanel.append(el('p',`${date(item.created_at)} · ${item.status} · $${Number(item.reward_amount).toFixed(2)}`));
+    renderRewards();
     renderCheckout();
   }
   async function load(){
