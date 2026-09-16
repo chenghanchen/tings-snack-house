@@ -11,6 +11,12 @@
 
 GitHub Secrets 无法回读；本机变量不存在不代表 CI Secrets 未配置。在 CI 中运行 `Verify production release` 才能检验那里的授权。本地执行需要另行提供进程环境变量，不能从 CI 或浏览器中提取 Secret。
 
+## 只读生产源码证据采集
+
+在 Actions 手动运行 `Collect Supabase production evidence`（仅 main），使用同一 Environment 的 Supabase Secret。采集器只对两个固定函数执行元数据 GET → body GET → 元数据 GET；前后版本/指纹/关键配置必须一致。不会执行函数、部署、查询数据库或读取项目 Secrets。
+
+产物 `evidence.json` 仅含白名单元数据、响应及源码 SHA256、与目标 Git 函数文件按 LF 规范化后的内容比较。body 响应哈希不等于平台 bundle 指纹。生产源码只在内存中处理；不上传原始 API 响应、远端文件名或未知源码，发现疑似凭据则阻止该源码证据通过。未知格式、未匹配文件或缺失文件保持 PENDING；产物不直接生成基线，也不写 Release History。工作流绿色仅表示采集完成且关键配置正常，不代表 RELEASE SUCCESS。仍需审核依赖、配置、源码来源、生产验证和迁移证据。
+
 ## 核验与 baseline 建立流程
 
 1. Cloudflare 读取项目 canonical production deployment，核对成功部署、main、非 dirty、完整目标 SHA。归档提交与目标 release SHA 不同不能默默放宽为匹配；旧报告已封存，不覆盖旧结论。需针对当前目标版本生成新报告。

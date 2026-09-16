@@ -1,0 +1,39 @@
+name: Collect Supabase production evidence
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production-verification
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test collector without credentials
+        run: node --test tests/supabase-evidence.test.mjs
+      - name: Scan committed source
+        run: node scripts/release-security.mjs
+      - name: Read production metadata and source fingerprints
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/collect-supabase-evidence.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: supabase-evidence-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            .build/supabase-evidence/evidence.json
+            .build/supabase-evidence/summary.md
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
