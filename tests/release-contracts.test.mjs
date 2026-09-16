@@ -33,6 +33,21 @@ test("下单：前端锁定提交按钮并通过受限 Edge Function 发送完�
   assert.match(edge, /ORDER_RATE_PHONE_MAX/);
 });
 
+test("最低配送：真实 Supabase 检查调用服务端并回滚所有业务数据", async () => {
+  const [sql, releaseNotes] = await Promise.all([
+    read("minimum-delivery-live-check.sql"),
+    read("RELEASE-CHECKS.md"),
+  ]);
+  assert.match(sql, /begin;[\s\S]*rollback;/i);
+  assert.match(sql, /public\.submit_shop_order_account\(/);
+  assert.match(sql, /没有达到最低配送\$/);
+  assert.match(sql, /stock_after is distinct from stock_before/i);
+  assert.match(sql, /public\.order_submission_idempotency[\s\S]*idempotency_key = test_key/i);
+  assert.match(sql, /public\.orders[\s\S]*customer_note = test_note/i);
+  assert.match(sql, /raise notice 'PASS:/i);
+  assert.match(releaseNotes, /minimum-delivery-live-check\.sql/);
+});
+
 test("防重复提交：相同键原子串行并复用原订单，不同内容会拒绝", async () => {
   const sql = await read("order-submission-protection-migration.sql");
   assert.match(sql, /idempotency_key uuid primary key/i);

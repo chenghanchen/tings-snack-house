@@ -84,6 +84,28 @@
     clearTimeout(noticeTimer);
     noticeTimer = setTimeout(hideNotice, 5000);
   }
+  function hideCheckoutError() {
+    const error = $("#checkoutOrderError");
+    if (!error) return;
+    error.hidden = true;
+  }
+  function showCheckoutError(failure) {
+    const error = $("#checkoutOrderError"),
+      title = $("#checkoutOrderErrorTitle"),
+      detail = $("#checkoutOrderErrorDetail"),
+      pickup = $("#checkoutErrorPickup");
+    if (!error || !title || !detail || !pickup) {
+      showNotice(failure.toast);
+      return;
+    }
+    const delivery = failure.type === "delivery";
+    title.textContent = `${delivery ? "🚗" : "🛒"} 还差 ${cash(failure.remaining)} 即可${delivery ? "配送" : "下单"}`;
+    detail.textContent = `${delivery ? "配送订单" : "订单"}商品小计最低 ${cash(failure.minimum)}，当前商品小计 ${cash(failure.subtotal)}。`;
+    pickup.hidden = !delivery;
+    error.hidden = false;
+    error.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    error.focus({ preventScroll: true });
+  }
   function applyRules() {
     const config = merge(defaults, settings?.content?.storeSettings || {});
     rules = config;
@@ -121,26 +143,44 @@
     }
     $("#orderRuleNotice")?.remove();
   }
-  function validMinimum(delivery) {
+  function minimumFailure(delivery) {
     const subtotal = totals().subtotal,
       minOrder = Number(rules.order.minOrder || 0),
       minDelivery = Math.max(
         minOrder,
         Number(rules.delivery.minDelivery || 0),
       );
-    if (subtotal < minOrder) {
-      showNotice(`没有达到最低消费${cash(minOrder)}哦！请再挑一些吧！`);
+    if (subtotal < minOrder)
+      return {
+        type: "order",
+        subtotal,
+        minimum: minOrder,
+        remaining: minOrder - subtotal,
+        toast: `没有达到最低消费${cash(minOrder)}哦！请再挑一些吧！`,
+      };
+    if (delivery && subtotal < minDelivery)
+      return {
+        type: "delivery",
+        subtotal,
+        minimum: minDelivery,
+        remaining: minDelivery - subtotal,
+        toast: `没有达到最低配送${cash(minDelivery)}哦！请再挑一些吧！`,
+      };
+    return null;
+  }
+  function validMinimum(delivery, surface = "toast") {
+    const failure = minimumFailure(delivery);
+    if (failure) {
+      if (surface === "checkout") showCheckoutError(failure);
+      else showNotice(failure.toast);
       return false;
     }
-    if (delivery && subtotal < minDelivery) {
-      showNotice(`没有达到最低配送${cash(minDelivery)}哦！请再挑一些吧！`);
-      return false;
-    }
+    if (surface === "checkout") hideCheckoutError();
     return true;
   }
   function validOrder() {
     const delivery = $("#fulfillment")?.value === "delivery";
-    if (!validMinimum(delivery)) return false;
+    if (!validMinimum(delivery, "checkout")) return false;
     const scheduled = $("#scheduledFor")?.value;
     if (scheduled) {
       const date = new Date(scheduled),
@@ -197,9 +237,23 @@
     }
     applyRules();
     wrapSubmit();
-    $("#fulfillment")?.addEventListener("change", () =>
-      setTimeout(applyRules, 0),
-    );
+    $("#fulfillment")?.addEventListener("change", () => {
+      hideCheckoutError();
+      setTimeout(applyRules, 0);
+    });
+    $("#checkoutErrorContinue")?.addEventListener("click", () => {
+      hideCheckoutError();
+      $("#closeDialog")?.click();
+      $("#snacks")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    $("#checkoutErrorPickup")?.addEventListener("click", () => {
+      const fulfillment = $("#fulfillment");
+      if (!fulfillment) return;
+      fulfillment.value = "pickup";
+      fulfillment.dispatchEvent(new Event("change", { bubbles: true }));
+      fulfillment.focus();
+    });
+    $("#orderDialog")?.addEventListener("close", hideCheckoutError);
   }
   window.addEventListener("load", () => setTimeout(hook, 180));
 })();

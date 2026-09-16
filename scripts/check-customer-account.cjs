@@ -402,9 +402,43 @@ function mockSdk() {
     await page.fill('#orderForm [name=name]','Guest');
     await page.fill('#orderForm [name=phone]','3125550100');
     await page.fill('#orderForm [name=address]','Guest address');
+    await page.evaluate(()=>{
+      settings.content.storeSettings.delivery.minDelivery=30;
+      document.querySelector('#fulfillment').dispatchEvent(new Event('change',{bubbles:true}));
+    });
+    await page.waitForTimeout(0);
+    const submissionsBeforeMinimumCheck=await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='submit-order').length);
+    await page.evaluate(()=>document.querySelector('#orderForm').requestSubmit());
+    await page.waitForSelector('#checkoutOrderError:not([hidden])');
+    assert.equal(await page.textContent('#checkoutOrderErrorTitle'),'🚗 还差 $25.00 即可配送');
+    assert.equal(await page.textContent('#checkoutOrderErrorDetail'),'配送订单商品小计最低 $30.00，当前商品小计 $5.00。');
+    assert.equal(await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='submit-order').length),submissionsBeforeMinimumCheck);
+    for(const width of [320,390,780,1100,1710]){
+      await page.setViewportSize({width,height:1180});
+      const errorLayout=await page.locator('#checkoutOrderError').evaluate(error=>{
+        const dialog=error.closest('dialog'),buttons=[...error.querySelectorAll('button')],bounds=error.getBoundingClientRect();
+        return {overflow:error.scrollWidth>error.clientWidth+1||dialog.scrollWidth>dialog.clientWidth+1,
+          buttonsFit:buttons.every(button=>button.scrollWidth<=button.clientWidth+1),
+          insideDialog:bounds.left>=dialog.getBoundingClientRect().left&&bounds.right<=dialog.getBoundingClientRect().right};
+      });
+      assert.deepEqual(errorLayout,{overflow:false,buttonsFit:true,insideDialog:true},`checkout minimum error ${width}px`);
+    }
+    await page.setViewportSize({width:390,height:844});
+    await page.click('#checkoutErrorContinue');
+    assert.equal(await page.locator('#orderDialog').evaluate(el=>el.open),false);
+    await page.click('#openCart');await page.click('#checkout');
+    await page.fill('#orderForm [name=name]','Guest');
+    await page.fill('#orderForm [name=phone]','3125550100');
+    await page.fill('#orderForm [name=address]','Guest address');
+    await page.evaluate(()=>document.querySelector('#orderForm').requestSubmit());
+    await page.waitForSelector('#checkoutOrderError:not([hidden])');
+    await page.click('#checkoutErrorPickup');
+    assert.equal(await page.inputValue('#fulfillment'),'pickup');
+    assert.equal(await page.locator('#checkoutOrderError').isHidden(),true);
     await page.evaluate(()=>document.querySelector('#orderForm').requestSubmit());
     await page.waitForFunction(()=>__accountTest.calls.some(c=>c.name==='submit-order'));
     assert.equal((await page.evaluate(()=>__accountTest.calls.find(c=>c.name==='submit-order'))).headers.Authorization,guestHeader.Authorization);
+    await page.evaluate(()=>{settings.content.storeSettings.delivery.minDelivery=0});
     await page.click('#done');await page.click('#productGrid .add');
 
     await page.click('[data-promotion-account="coupons"]');

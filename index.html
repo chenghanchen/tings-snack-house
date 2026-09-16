@@ -15,7 +15,7 @@
       fetchpriority="high"
     />
     <link rel="stylesheet" href="styles.css?v=20260914b" />
-    <link rel="stylesheet" href="checkout-layout.css?v=20260915a" />
+    <link rel="stylesheet" href="checkout-layout.css?v=20260916a" />
     <link rel="stylesheet" href="footer-layout.css?v=20260915a" />
     <link rel="stylesheet" href="customer-account.css?v=20260915e" />
     <link rel="stylesheet" href="customer-wallet.css?v=20260915p" />
@@ -36,7 +36,7 @@
     <script defer src="activity-promotions.js?v=20260914a"></script>
     <script defer src="site-appearance.js?v=20260906b"></script>
     <script defer src="footer-contact-overlay.js?v=20260909g"></script>
-    <script defer src="store-order-rules.js?v=20260909k"></script>
+    <script defer src="store-order-rules.js?v=20260916a"></script>
     <style>
       .order-amounts .fee-value b {
         grid-column: 2;
@@ -448,6 +448,21 @@
               placeholder="请输入街道、门牌号和邮编"
               autocomplete="street-address"
           /></label>
+          <section
+            class="checkout-order-error"
+            id="checkoutOrderError"
+            role="alert"
+            aria-live="assertive"
+            tabindex="-1"
+            hidden
+          >
+            <strong id="checkoutOrderErrorTitle"></strong>
+            <p id="checkoutOrderErrorDetail"></p>
+            <div class="checkout-order-error-actions">
+              <button type="button" id="checkoutErrorContinue">继续选购</button>
+              <button type="button" id="checkoutErrorPickup">改为到店自取</button>
+            </div>
+          </section>
           <div class="order-summary" id="orderSummary"></div>
           <button class="primary-button submit" id="submitOrder" type="submit">
             确认提交订单 <span>→</span>
