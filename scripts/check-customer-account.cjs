@@ -604,22 +604,54 @@ function mockSdk() {
     assert.equal(await page.evaluate(()=>__accountTest.copiedCode),'我在婷婷的零食屋买零食，符合条件的新客首次下单满 $30 可以减 $5。\n推荐码：TSHREF-K7M4X9\nhttps://tings-snack-house.pages.dev/');
     assert.equal(await page.evaluate(()=>__accountTest.sharePayload),undefined,'copy invitation must not open native share');
     assert.match(await page.textContent('.referral-action-status'),/已复制.*选择好友后粘贴发送/);
-    await page.getByRole('button',{name:'系统分享',exact:true}).click();
+    await page.getByRole('button',{name:'分享给好友',exact:true}).click();
     assert.equal(await page.textContent('.referral-action-status'),'','native hand-off must not claim delivery');
-    assert.equal(await page.getByRole('button',{name:'系统分享',exact:true}).isEnabled(),true);
+    assert.equal(await page.getByRole('button',{name:'分享给好友',exact:true}).isEnabled(),true);
     assert.equal(await page.getByRole('button',{name:'复制邀请文案',exact:true}).isEnabled(),true);
     assert.equal(await page.evaluate(()=>__accountTest.sharePayload.url),'https://tings-snack-house.pages.dev/');
     assert.match(await page.evaluate(()=>__accountTest.sharePayload.text),/TSHREF-K7M4X9/);
     assert.match(await page.evaluate(()=>__accountTest.sharePayload.text),/符合条件的新客/);
+    // WeChat must guide the user to its own menu, even when navigator.share exists.
+    await page.evaluate(()=>{
+      __accountTest.sharePayload=null;__accountTest.copiedCode='unchanged';
+      Object.defineProperty(navigator,'userAgent',{configurable:true,value:'Mozilla/5.0 (iPhone) MicroMessenger/8.0'});
+    });
+    await page.getByRole('button',{name:'分享给好友',exact:true}).click();
+    const wechatGuide=page.getByRole('dialog',{name:'微信分享引导',exact:true});
+    assert.equal(await wechatGuide.isVisible(),true);
+    assert.equal(await page.textContent('#referralWechatInstruction'),'点击右上角 ···，选择『发送给朋友』。');
+    assert.equal(await page.evaluate(()=>__accountTest.sharePayload),null,'WeChat must not call native share');
+    assert.equal(await page.evaluate(()=>__accountTest.copiedCode),'unchanged','guide must not copy without permission');
+    assert.equal(await page.evaluate(()=>document.activeElement.textContent),'我知道了');
+    for(const width of [320,390,780]){
+      await page.setViewportSize({width,height:844});
+      assert.ok(await wechatGuide.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+      assert.ok(await page.locator('.referral-guide-arrow').evaluate(el=>{const b=el.getBoundingClientRect();return b.top<60&&b.right>innerWidth-50&&b.bottom<150;}));
+      if(process.env.TINGS_ACCOUNT_SCREENSHOT&&width===390)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-wechat-guide.png')});
+    }
+    await page.getByRole('button',{name:'我知道了',exact:true}).click();
+    await page.waitForSelector('.referral-wechat-guide',{state:'detached'});
+    assert.equal(await page.evaluate(()=>document.activeElement.textContent),'分享给好友');
+    await page.getByRole('button',{name:'分享给好友',exact:true}).click();await page.keyboard.press('Escape');
+    await page.waitForSelector('.referral-wechat-guide',{state:'detached'});
+    await page.getByRole('button',{name:'分享给好友',exact:true}).click();await page.mouse.click(10,700);
+    await page.waitForSelector('.referral-wechat-guide',{state:'detached'});
+    await page.evaluate(()=>Object.defineProperty(navigator,'share',{configurable:true,value:undefined}));
+    await page.getByRole('button',{name:'分享给好友',exact:true}).click();
+    assert.equal(await wechatGuide.isVisible(),true,'WeChat guide also works without Web Share API');
+    await page.evaluate(()=>document.querySelector('#customerAccountDialog').close());
+    await page.waitForSelector('.referral-wechat-guide',{state:'detached'});
+    await page.evaluate(()=>{delete navigator.userAgent;document.querySelector('#customerAccountDialog').showModal();});
+    await page.setViewportSize({width:390,height:1000});
     await page.evaluate(()=>{__accountTest.copiedCode='unchanged';Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{throw new DOMException('Cancelled','AbortError')}})});
-    await page.getByRole('button',{name:'系统分享',exact:true}).click();
+    await page.getByRole('button',{name:'分享给好友',exact:true}).click();
     assert.equal(await page.textContent('.referral-action-status'),'已取消分享。');
     assert.equal(await page.evaluate(()=>__accountTest.copiedCode),'unchanged','cancelling native share must not copy unexpectedly');
     await page.evaluate(()=>Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{throw new Error('share failed')}}));
-    await page.getByRole('button',{name:'系统分享',exact:true}).click();
+    await page.getByRole('button',{name:'分享给好友',exact:true}).click();
     assert.match(await page.textContent('.referral-action-status'),/暂时无法分享.*复制邀请文案/);
     await page.evaluate(()=>Object.defineProperty(navigator,'share',{configurable:true,value:undefined}));
-    await page.getByRole('button',{name:'系统分享',exact:true}).click();
+    await page.getByRole('button',{name:'分享给好友',exact:true}).click();
     assert.equal(await page.evaluate(()=>__accountTest.copiedCode),'unchanged','unavailable native share must not copy without a copy action');
     assert.match(await page.textContent('.referral-action-status'),/不支持系统分享.*复制邀请文案/);
     await page.getByRole('button',{name:'复制邀请文案',exact:true}).click();
@@ -628,7 +660,7 @@ function mockSdk() {
     await page.getByRole('button',{name:'复制邀请文案',exact:true}).click();
     assert.match(await page.textContent('.referral-action-status'),/暂时无法复制邀请文案.*手动复制/);
     assert.equal(await page.getByRole('button',{name:'复制邀请文案',exact:true}).isEnabled(),true);
-    assert.equal(await page.getByRole('button',{name:'系统分享',exact:true}).isEnabled(),true);
+    assert.equal(await page.getByRole('button',{name:'分享给好友',exact:true}).isEnabled(),true);
     await page.getByRole('button',{name:'复制推荐码',exact:true}).click();
     assert.match(await page.textContent('.referral-action-status'),/手动复制/);
     await page.click('.referral-earned>summary');

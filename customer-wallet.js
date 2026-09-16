@@ -7,6 +7,28 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   const date=value=>value ? new Date(value).toLocaleDateString('en-US') : '无固定期限';
   const couponsPanel=dialog.querySelector('#customerCouponsPanel'),rewardsPanel=dialog.querySelector('#customerRewardsPanel');
   let request=0, wallet=null, selectedCode='',previewResult=null,availableExpanded=false;
+  let shareGuide=null;
+  function closeShareGuide(){if(shareGuide){shareGuide.close();shareGuide.remove();shareGuide=null;}}
+  dialog.addEventListener('close',closeShareGuide);
+  function showWechatShareGuide(){
+    closeShareGuide();
+    const guide=el('dialog',null,'referral-wechat-guide');shareGuide=guide;
+    guide.setAttribute('aria-label','微信分享引导');
+    const arrow=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    arrow.setAttribute('viewBox','0 0 100 100');arrow.setAttribute('aria-hidden','true');arrow.classList.add('referral-guide-arrow');
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d','M 12 88 Q 76 85 80 12 M 56 32 L 80 12 L 94 40');arrow.append(path);
+    const content=el('section',null,'referral-guide-content');
+    const instruction=el('p');instruction.id='referralWechatInstruction';
+    instruction.append(el('span','点击右上角 ···，'),el('span','选择『发送给朋友』。'));
+    guide.setAttribute('aria-describedby',instruction.id);
+    const dismiss=button('我知道了',()=>guide.close());dismiss.autofocus=true;
+    content.append(instruction,el('p','如需一起发送推荐码，可返回复制邀请文案。','referral-guide-note'),dismiss);
+    guide.append(arrow,content);
+    guide.addEventListener('click',event=>{if(event.target===guide)guide.close();});
+    guide.addEventListener('close',()=>{guide.remove();if(shareGuide===guide)shareGuide=null;},{once:true});
+    document.body.append(guide);guide.showModal();
+  }
   const claiming=new Set(),justClaimed=new Set(),checkoutCards=new Map();
   const checkout=el('section',null,'customer-wallet-checkout'); checkout.id='customerWalletCheckout'; checkout.hidden=true;
   document.querySelector('#promotionChoice').before(checkout);
@@ -16,6 +38,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     previewResult=null;syncCheckout();
   });
   function reset(){
+    closeShareGuide();
     request++;wallet=null;previewResult=null;availableExpanded=false;claiming.clear();justClaimed.clear();checkoutCards.clear();checkout.hidden=true;checkout.replaceChildren();
     window.dispatchEvent(new CustomEvent('tings:wallet-summary',{detail:null}));
     couponsPanel.replaceChildren();rewardsPanel.replaceChildren();
@@ -163,6 +186,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   window.addEventListener('tings:coupon-context',syncCheckout);
   window.addEventListener('tings:coupon-preview',event=>{previewResult=event.detail;syncCheckout()});
   function renderRewards(){
+    closeShareGuide();
     rewardsPanel.replaceChildren();
     const hero=el('section',null,'referral-hero');
     hero.append(el('p','邀请好友 · 双方有礼','referral-eyebrow'));
@@ -197,8 +221,9 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
         }catch{if(current())feedback.textContent='暂时无法复制邀请文案，请长按或选中上方推荐码手动复制。';}
         finally{if(current()){copyInvitation.disabled=false;share.disabled=false;}}
       });
-      const share=button('系统分享',async()=>{
+      const share=button('分享给好友',async()=>{
         if(!current())return;
+        if(/MicroMessenger/i.test(navigator.userAgent)){feedback.textContent='';showWechatShareGuide();return;}
         share.disabled=true;copyInvitation.disabled=true;feedback.textContent='';
         try{
           if(typeof navigator.share==='function'){
