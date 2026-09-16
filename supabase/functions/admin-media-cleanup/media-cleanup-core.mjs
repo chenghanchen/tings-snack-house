@@ -72,6 +72,7 @@ export function collectStorageReferences(
   return references;
 }
 
+/** @param {unknown} value @param {string[]} [extraPaths] */
 export function isDefaultProtectedPath(
   value,
   extraPaths = [],
@@ -88,6 +89,11 @@ export function isDefaultProtectedPath(
   return protectedPaths.has(path);
 }
 
+/**
+ * @param {{path?: string, updatedAt?: string | null, createdAt?: string | null}} file
+ * @param {Set<string>} references
+ * @param {{now?: number, graceMs?: number, extraProtectedPaths?: string[]}} [options]
+ */
 export function classifyStorageFile(
   file,
   references,
@@ -116,12 +122,12 @@ export async function deleteOrphanFilesSafely({
   selectedPaths,
   readReferences,
   listFiles,
+  reserveFiles,
   deleteFiles,
   classificationOptions = {},
 }) {
-  // Bracket the Storage listing with two complete reference scans. Taking the
-  // union means a URL saved while this request is running becomes protected
-  // before the destructive call is reached.
+  // Scans filter candidates, but only the database reservation below authorizes
+  // deletion. Its durable fence also rejects references saved after the scans.
   const referencesBefore = await readReferences();
   const files = await listFiles();
   const referencesAfter = await readReferences();
@@ -149,6 +155,14 @@ export async function deleteOrphanFilesSafely({
     }
     deletable.push(path);
   }
-  if (deletable.length) await deleteFiles(deletable);
-  return { deleted: deletable, skipped };
+  if (!deletable.length) return { deleted: [], skipped };
+  if (typeof reserveFiles !== 'function') throw new Error('Media deletion reservation required');
+  const reserved = await reserveFiles(deletable);
+  if (!Array.isArray(reserved) || new Set(reserved).size !== reserved.length || reserved.some(p => !deletable.includes(p)))
+    throw new Error('Invalid media deletion reservation');
+  for (const path of deletable) if (!reserved.includes(path)) skipped.push({ path, reason: 'referenced_or_reserved' });
+  // Never release the fence on failure: a timed-out Storage request may still
+  // finish. Deleted paths stay retired and must not be reused by future writes.
+  if (reserved.length) await deleteFiles(reserved);
+  return { deleted: reserved, skipped };
 }

@@ -1,5 +1,6 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { normalizeCustomerPhone, resolveCustomerIdentity } from "./customer-identity.mjs";
+import { readJsonObject, RequestBodyError } from "../_shared/request-body.mjs";
 
 const encoder = new TextEncoder();
 const productionOrigin = "https://tings-snack-house.pages.dev";
@@ -63,20 +64,12 @@ Deno.serve(async (request) => {
   if (origin && !allowedOrigins.has(origin))
     return json({ error: "Origin not allowed" }, 403, origin);
 
-  const contentLength = Number(request.headers.get("content-length") || 0);
-  if (contentLength > 32_768)
-    return json({ error: "订单内容过大" }, 413, origin);
-
   let body: Record<string, unknown>;
   try {
-    const raw = await request.text();
-    if (raw.length > 32_768)
-      return json({ error: "订单内容过大" }, 413, origin);
-    body = JSON.parse(raw);
-    if (!body || typeof body !== "object" || Array.isArray(body))
-      return json({ error: "订单格式无效" }, 400, origin);
-  } catch {
-    return json({ error: "订单格式无效" }, 400, origin);
+    body = await readJsonObject(request);
+  } catch (error) {
+    return json({ error: error instanceof RequestBodyError ? error.message : "订单格式无效" },
+      error instanceof RequestBodyError ? error.status : 400, origin);
   }
 
   const phone = normalizeCustomerPhone(body.p_phone);

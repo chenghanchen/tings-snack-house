@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.116.0";
+import { readJsonObject, RequestBodyError } from "../_shared/request-body.mjs";
 import {
   STOREFRONT_IMAGE_BUCKET,
   classifyStorageFile,
@@ -127,7 +128,10 @@ async function readAllRows(
         503,
         `无法核对 ${table} 图片引用；为防止误删，本次操作已停止`,
       );
-    const page = (data ?? []) as Record<string, unknown>[];
+    const value: unknown = data;
+    if (!Array.isArray(value) || value.some(row => !row || typeof row !== "object" || Array.isArray(row)))
+      throw new HttpError(503, `无法识别 ${table} 引用数据；为防止误删，本次操作已停止`);
+    const page: Record<string, unknown>[] = value;
     rows.push(...page);
     if (page.length < listPageSize) return rows;
     const nextId = page.at(-1)?.id;
@@ -295,6 +299,12 @@ async function removeSelected(
     readReferences: () => collectDatabaseReferences(admin),
     listFiles: () => listStorageFiles(admin),
     classificationOptions: { graceMs, extraProtectedPaths },
+    reserveFiles: async (paths: string[]) => {
+      const { data, error } = await admin.rpc("reserve_orphan_media", { p_paths: paths });
+      if (error || !Array.isArray(data))
+        throw new HttpError(503, "媒体删除并发保护不可用；未删除文件，请确认已应用保护迁移");
+      return data;
+    },
     deleteFiles: async (paths: string[]) => {
       const { error } = await admin.storage
         .from(STOREFRONT_IMAGE_BUCKET)
@@ -317,15 +327,7 @@ Deno.serve(async (request) => {
     return json({ error: "Origin not allowed" }, 403, origin);
   try {
     await requireOwner(request);
-    const contentLength = Number(request.headers.get("content-length") || 0);
-    if (contentLength > 32_768)
-      throw new HttpError(413, "请求内容过大");
-    let body: Record<string, unknown> = {};
-    try {
-      body = (await request.json()) as Record<string, unknown>;
-    } catch {
-      throw new HttpError(400, "请求格式无效");
-    }
+    const body = await readJsonObject(request);
     const admin = createAdminClient();
     if (body.action === "scan") return json(await scan(admin), 200, origin);
     if (body.action === "delete")
@@ -336,7 +338,7 @@ Deno.serve(async (request) => {
       );
     throw new HttpError(400, "未知的媒体清理操作");
   } catch (error) {
-    const status = error instanceof HttpError ? error.status : 500;
+    const status = error instanceof HttpError || error instanceof RequestBodyError ? error.status : 500;
     if (status >= 500) console.error("Admin media cleanup failed", error);
     return json(
       { error: error instanceof Error ? error.message : "媒体清理失败" },
