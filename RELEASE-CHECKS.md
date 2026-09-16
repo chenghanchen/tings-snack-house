@@ -8,7 +8,9 @@
 - [ ] Git working tree：发布源码已提交，工作区干净，报告 SHA 等于 HEAD。
 - [ ] Security：源码 Secret 扫描通过，并人工检查 diff，不含服务器密钥、访问令牌或客户资料。
 - [ ] Tests：自动测试、资源和语法检查全部通过；缺依赖、超时或部分通过不能记 PASS。
-- [ ] Database：单独运行全部 PGlite `*-db.test.mjs`，必须包含账户与钱包数据库测试；缺依赖、跳过或超时记 FAIL。
+- [ ] Edge dependencies（纳入 Tests）：用固定 Deno 对两个函数执行冻结依赖完整性与类型检查；配置/锁文件与源码一起审核，禁止解锁绕过。操作与生产兼容性要求见 `EDGE-DEPENDENCIES.md`。
+- [ ] Edge bundler：CI 对同一目标 SHA 使用固定摘要的 Supabase Docker 镜像重跑两函数正常/篡改/恢复六项测试；不复用旧提交结果，不将 Docker 证据冒充远端 API 打包器证据。
+- [ ] Database：单独运行全部 PGlite `*-db.test.mjs`，必须包含账户、钱包与媒体删除保护数据库测试；缺依赖、跳过或超时记 FAIL。
 - [ ] GitHub：远程 `chenghanchen/tings-snack-house` 的 `main` 精确等于发布 SHA。
 - [ ] Cloudflare：生产部署成功并对应同一 SHA，记录 deployment ID / URL；仅 push 或 HTTP 200 不算。
 - [ ] Supabase：核对本次函数 / 迁移的实际状态、配置、源码版本。未变更也要记录沿用版本与检查结果，不必无意义重部署。
@@ -162,10 +164,10 @@ node --test tests/*.test.mjs
 以下为历史专项的兼容性准备步骤，不覆盖上方正式发布顺序。遇到同类依赖时先暂停正式发布，完成经确认的前置准备，再从正式流程开始。
 
 1. 在 Supabase SQL Editor 执行 `storefront-snapshot-migration.sql`。
-2. 按 `MEDIA-CLEANUP-DEPLOY.md` 部署 `admin-media-cleanup` Edge Function。
+2. 按 `MEDIA-CLEANUP-DEPLOY.md` 验证并应用媒体删除保护迁移，再部署 `admin-media-cleanup` Edge Function；共享正文模块变更同时发布 `submit-order`。迁移权限或托管 Storage 验证缺失时暂停，不沿用旧审核基线。
 3. 再次运行 `node scripts/release-check.mjs`。
 4. 最后发布前端静态文件。
 
 快照 RPC 尚未部署时，顾客端会自动退回原有公开请求，不会阻止页面加载；媒体清理入口则应在对应 Edge Function 部署后再交付店主使用。
 
-仓库中的 `.github/workflows/release-check.yml` 会在 `main` 推送和 Pull Request 时自动运行同一套检查。
+仓库中的 `.github/workflows/release-check.yml` 会在 `main`、本批正式修复分支 `fix/media-guard-body-limits-locks` 推送和 Pull Request 时自动运行同一套检查，也支持手动触发。修复分支使用 `[CF-Pages-Skip]` 提交前缀，不触发前端部署；CI 预检通过不等于生产发布成功。

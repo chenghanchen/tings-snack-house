@@ -1,8 +1,10 @@
 # Supabase lockfile Docker proof — verification only
 
-This test branch is NOT a deployable release. It includes the current function work
-solely as bundler inputs. No migration or function is deployed. Workflow restricted
-to `audit/edge-lockfile-bundling-*`; no production environment or secret references.
+The original audit branch is NOT a deployable release. It includes function work
+solely as bundler inputs. No migration or function is deployed by this proof.
+The standalone workflow is restricted to `audit/edge-lockfile-bundling-*`; formal
+Release Checks also run the same proof for their target SHA. Neither proof job
+uses a production environment or production secrets.
 Commits use `[CF-Pages-Skip]` to suppress Cloudflare deployments.
 
 ## Explicit transport
@@ -16,7 +18,8 @@ prove remote consumption. No real management API was called.
 
 For local Docker bundling, the CLI passes static paths as `bundle --static <path>`.
 This workflow reproduces this command with each lock/config beside its entrypoint;
-it does not alter production config. The image is the CLI 2.117.0-associated
+the formal candidate config now explicitly includes these static lockfile paths,
+but verification does not change any deployed function. The image is the CLI 2.117.0-associated
 `supabase/edge-runtime:v1.74.3`, pinned to its Docker Hub Linux amd64 manifest:
 `sha256:cc355c3d0e9c063a351cad56d1c4c52a3c4d85aff4e1fad9d91688e75f9aad09`.
 

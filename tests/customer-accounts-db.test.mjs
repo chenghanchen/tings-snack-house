@@ -62,6 +62,12 @@ test('account migration: real PostgreSQL RLS, ownership, guest isolation, cancel
   await db.exec(await source('customer-accounts-migration.sql'));
   // Additive migration is safe to rerun; no guest data is claimed or rewritten.
   await db.exec(await source('customer-accounts-migration.sql'));
+  // Run the existing account/order regressions with media write guards enabled.
+  await db.exec(`alter table products add column image text;
+    create table product_variants(id integer primary key,image text);
+    create table shop_settings(id integer primary key,content jsonb);
+    create schema storage; create table storage.objects(id integer primary key,bucket_id text,name text);`);
+  await db.exec(await source('media-deletion-guard-migration.sql'));
   const role=async(name,id=null,email='')=>{
     await db.exec('reset role');
     await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify(id?{sub:id,email}:{})]);

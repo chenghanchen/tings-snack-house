@@ -2,6 +2,8 @@ project_id = "ragqunnuxsfwhrfqpylg"
 
 [functions.submit-order]
 verify_jwt = true
+static_files = ["./functions/submit-order/deno.lock"]
 
 [functions.admin-media-cleanup]
 verify_jwt = true
+static_files = ["./functions/admin-media-cleanup/deno.lock"]

@@ -5,6 +5,7 @@ import { stripTypeScriptTypes } from 'node:module';
 import vm from 'node:vm';
 import { webcrypto } from 'node:crypto';
 import { normalizeCustomerPhone, resolveCustomerIdentity } from '../supabase/functions/submit-order/customer-identity.mjs';
+import { readJsonObject, RequestBodyError } from '../supabase/functions/_shared/request-body.mjs';
 
 const source = stripTypeScriptTypes((await readFile(
   new URL('../supabase/functions/submit-order/index.ts', import.meta.url), 'utf8',
@@ -35,10 +36,10 @@ function harness(overrides = {}) {
   };
   vm.runInNewContext(source, {
     Deno: { env: { get: key => env[key] }, serve: fn => { handler = fn; } },
-    createClient: () => admin, normalizeCustomerPhone, resolveCustomerIdentity,
+    createClient: () => admin, normalizeCustomerPhone, resolveCustomerIdentity, readJsonObject, RequestBodyError,
     TextEncoder, Response, Request, Error, crypto: webcrypto, console,
   });
-  return { calls, invoke: (token, items = []) => handler(new Request('https://example.test', {
+  return { calls, handler, invoke: (token, items = []) => handler(new Request('https://example.test', {
     method: 'POST', headers: { authorization: `Bearer ${token}`, apikey: 'storefront-public-key' },
     body: JSON.stringify({
       p_phone: '3125550199', p_idempotency_key: 'c24a46cc-180c-4b96-b48f-9f16f33339d1',
@@ -53,6 +54,16 @@ test('configured storefront guest key works when platform default differs, witho
   const response = await h.invoke('storefront-public-key');
   assert.equal(response.status, 400);
   assert.deepEqual(await response.json(), { error: '购物车为空，请先选择商品' });
+  assert.deepEqual(h.calls, []);
+});
+
+test('oversized guest order is rejected before rate-limit or order RPC writes', async () => {
+  const h = harness();
+  const response = await h.handler(new Request('https://example.test', {
+    method: 'POST', headers: { authorization: 'Bearer storefront-public-key', apikey: 'storefront-public-key' },
+    body: JSON.stringify({ note: '零'.repeat(12000) }),
+  }));
+  assert.equal(response.status, 413);
   assert.deepEqual(h.calls, []);
 });
 

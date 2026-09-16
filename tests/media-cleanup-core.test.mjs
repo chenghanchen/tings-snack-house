@@ -180,3 +180,35 @@ test("媒体删除：第二次引用扫描失败时保持失败关闭且绝不�
   assert.equal(referenceReads, 2);
   assert.equal(deleteCalled, false);
 });
+
+test('媒体删除：缺少或失败的数据库保护一律阻止 Storage 删除', async () => {
+  let removed = false;
+  const args = { selectedPaths: ['products/old.webp'], readReferences: async () => new Set(),
+    listFiles: async () => [{ path: 'products/old.webp', updatedAt: '2020-01-01' }], deleteFiles: async () => { removed = true; } };
+  await assert.rejects(deleteOrphanFilesSafely(args), /reservation required/);
+  await assert.rejects(deleteOrphanFilesSafely({ ...args, reserveFiles: async () => { throw new Error('migration missing'); } }), /migration missing/);
+  await assert.rejects(deleteOrphanFilesSafely({ ...args, reserveFiles: async () => ['unexpected.webp'] }), /Invalid/);
+  assert.equal(removed,false);
+});
+
+test('媒体删除：最终扫描后新增的引用由数据库登记再次保护', async () => {
+  const live = new Set(); let reads=0, removed=false;
+  const result = await deleteOrphanFilesSafely({ selectedPaths: ['products/old.webp'],
+    readReferences: async () => { const snapshot=new Set(live); if (++reads===2) live.add('products/old.webp'); return snapshot; },
+    listFiles: async () => [{ path:'products/old.webp', updatedAt:'2020-01-01' }],
+    reserveFiles: async paths => paths.filter(p => !live.has(p)), deleteFiles: async () => { removed=true; } });
+  assert.equal(removed,false);
+  assert.deepEqual(result.deleted,[]);
+  assert.equal(result.skipped[0].reason,'referenced_or_reserved');
+});
+
+test('媒体删除：只删除已登记路径，Storage 失败不释放保护', async () => {
+  const retired = new Set(); const calls=[];
+  const args = { selectedPaths:['products/old.webp'],readReferences:async()=>new Set(),
+    listFiles:async()=>[{path:'products/old.webp',updatedAt:'2020-01-01'}],
+    reserveFiles:async paths=>{calls.push('reserve'); for(const p of paths) retired.add(p); return paths;},
+    deleteFiles:async paths=>{calls.push('delete'); assert.ok(paths.every(p=>retired.has(p)));throw new Error('Storage timeout');} };
+  await assert.rejects(deleteOrphanFilesSafely(args),/Storage timeout/);
+  assert.deepEqual(calls,['reserve','delete']);
+  assert.ok(retired.has('products/old.webp'));
+});

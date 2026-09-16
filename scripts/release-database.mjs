@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const suites = readdirSync(path.join(root, 'tests')).filter(name => name.endsWith('-db.test.mjs')).sort();
-for (const required of ['customer-accounts-db.test.mjs', 'customer-wallet-db.test.mjs']) {
+for (const required of ['customer-accounts-db.test.mjs', 'customer-wallet-db.test.mjs', 'media-deletion-guard-db.test.mjs']) {
   if (!suites.includes(required)) throw new Error(`Required PGlite suite missing: ${required}`);
 }
 const run = spawnSync(process.execPath, ['--test', ...suites.map(name => path.join(root, 'tests', name))], {

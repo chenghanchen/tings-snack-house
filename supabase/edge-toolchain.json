@@ -1,0 +1,5 @@
+{
+  "denoVersion": "2.9.6",
+  "supabaseJsVersion": "2.116.0",
+  "functions": ["submit-order", "admin-media-cleanup"]
+}

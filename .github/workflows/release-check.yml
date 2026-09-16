@@ -3,7 +3,8 @@ name: Release checks
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, fix/media-guard-body-limits-locks]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,9 +15,14 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.6
       - name: Initialize version-bound report
         run: node scripts/release-report.mjs init --version HEAD
       - name: Check release checkout
@@ -42,6 +48,48 @@ jobs:
         with:
           name: release-preflight-${{ github.sha }}
           path: .build/releases/${{ github.sha }}/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+  edge-bundler:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tests/edge-bundle-proof.test.mjs
+      - run: node scripts/release-security.mjs
+      - run: node scripts/edge-bundle-proof.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: edge-lockfile-proof-${{ github.sha }}
+          path: .build/edge-bundle-proof/evidence/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+  media-concurrency:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/check-media-concurrency.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: media-concurrency-${{ github.sha }}
+          path: .build/media-concurrency/
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30

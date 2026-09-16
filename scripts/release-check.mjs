@@ -73,6 +73,11 @@ if (failures.length) {
   process.exit(1);
 }
 
+const edge = spawnSync(process.execPath, [path.join(root, 'scripts/check-edge-dependencies.mjs')], {
+  cwd: root, stdio: 'inherit', timeout: 260000,
+});
+if (edge.error || edge.status !== 0) process.exit(edge.status || 1);
+
 const tests = walk(path.join(root, "tests")).filter((name) =>
   name.endsWith(".test.mjs") && !(process.argv.includes('--unit-only') && name.endsWith('-db.test.mjs')),
 );
