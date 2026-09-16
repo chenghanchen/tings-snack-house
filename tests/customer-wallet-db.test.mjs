@@ -242,4 +242,66 @@ test('account referrals: completion rewards, guest eligibility, ownership and at
     assert.equal(Number(feeTax.delivery_fee),0);assert.equal(Number(feeTax.tax_amount),4);
     assert.equal(Number(feeTax.discount_amount),0);assert.equal(Number(feeTax.total_amount),44,'shipping waiver does not reduce the taxable merchandise amount');
   });
+  let shortA,shortB;
+  await t.test('short-code migration is idempotent and preserves canonical codes, orders and rewards',async()=>{
+    await db.exec('reset role');
+    const historyBefore=await scalar('select jsonb_agg(to_jsonb(e) order by id) from referral_events e');
+    const ordersBefore=await scalar('select jsonb_agg(to_jsonb(o) order by id) from orders o');
+    await db.exec(await source('account-referral-short-codes-migration.sql'));
+    shortA=await scalar('select short_code from customer_referrals where referrer_user_id=$1',[a]);
+    shortB=await scalar('select short_code from customer_referrals where referrer_user_id=$1',[b]);
+    assert.match(shortA,/^[A-HJ-NP-Z2-9]{8}$/);assert.match(shortB,/^[A-HJ-NP-Z2-9]{8}$/);assert.notEqual(shortA,shortB);
+    await db.exec(await source('account-referral-short-codes-migration.sql'));
+    assert.equal(await scalar('select short_code from customer_referrals where referrer_user_id=$1',[a]),shortA);
+    assert.equal(await scalar('select referral_code from customer_referrals where referrer_user_id=$1',[a]),codeA);
+    assert.equal(await scalar("select short_code from customer_referrals where referral_code='TSHREF-1234ABCD'"),null);
+    assert.deepEqual(await scalar('select jsonb_agg(to_jsonb(e) order by id) from referral_events e'),historyBefore);
+    assert.deepEqual(await scalar('select jsonb_agg(to_jsonb(o) order by id) from orders o'),ordersBefore);
+    await role('authenticated',a);assert.equal((await wallet()).referral_codes[0].code,shortA);
+    await role('authenticated',b);assert.equal((await wallet()).referral_codes[0].code,shortB);
+  });
+  await t.test('old and short codes share preview, checkout, once-only eligibility and reward ownership',async()=>{
+    await role('anon');
+    const preview=code=>scalar('select preview_account_offer_v2($1,$2,$3,40,0)',[code,'short-new@example.test','7736660100']);
+    assert.deepEqual(await preview(' '+shortA.toLowerCase()+' '),await preview(codeA));
+    assert.equal((await preview(shortA)).valid,true);
+    assert.equal((await preview('XXXXXXXX')).valid,false);
+    await role('service_role');
+    const key=randomUUID();
+    const shortOrder=await submit(' '+shortA.toLowerCase()+' ',null,'short-new@example.test','7736660100',key);
+    assert.equal(Number(shortOrder.discount_amount),5);
+    assert.equal((await submit(' '+shortA.toLowerCase()+' ',null,'short-new@example.test','7736660100',key)).idempotent_replay,true);
+    await assert.rejects(submit(codeA,null,'short-new@example.test','7736660101'),/重复使用/);
+    await assert.rejects(submit(shortA,a),/不能自荐/);
+    const oldOrder=await submit(codeA,null,'old-still-valid@example.test','7736660102');
+    assert.equal(Number(oldOrder.discount_amount),5);
+    const before=await countRewards();
+    await complete(shortOrder.id);await complete(oldOrder.id);
+    assert.equal(await countRewards(),before+2);
+    assert.equal(await scalar('select referrer_user_id from referral_events where referred_order_id=$1',[shortOrder.id]),a);
+    assert.equal(await scalar('select referrer_user_id from referral_events where referred_order_id=$1',[oldOrder.id]),a);
+    await role('service_role');
+    const ownOrder=await submit(null,b,'ignored','7736660103');
+    assert.equal(ownOrder.referral_reward.referral_code,shortB);
+  });
+  await t.test('short codes are private, immutable, unique and cannot shadow coupon codes',async()=>{
+    await db.exec('reset role');
+    await assert.rejects(db.query('update customer_referrals set short_code=$1 where referrer_user_id=$2',[shortB,a]),/不可转让/);
+    await assert.rejects(db.query('update customer_referrals set short_code=null where referrer_user_id=$1',[a]),/不可转让/);
+    await assert.rejects(db.query('insert into marketing_coupons(code,name,amount,claim_valid_days) values($1,$2,5,7)',[shortA.toLowerCase(),'Collision']),/重复/);
+    await assert.rejects(db.query('insert into customer_referrals(phone,referral_code) values($1,$2)',['7730000001',shortA]),/重复/);
+    const newId=randomUUID();await db.query('insert into auth.users values($1,$2,now())',[newId,'short-fresh@example.test']);
+    assert.match(await scalar('select short_code from customer_referrals where referrer_user_id=$1',[newId]),/^[A-HJ-NP-Z2-9]{8}$/);
+    await db.exec("insert into auth.users select gen_random_uuid(),'bulk-'||n||'@example.test',now() from generate_series(1,100) n");
+    assert.equal(await scalar('select count(short_code)=count(distinct short_code) from customer_referrals'),true);
+    for(const actor of ['anon','authenticated','service_role']){
+      await role(actor,a);
+      assert.equal(await scalar("select has_function_privilege(current_user,'public.ensure_account_referral(uuid)','EXECUTE')"),false);
+    }
+    await role('authenticated',a);
+    assert.equal((await wallet()).referral_codes.length,1);
+    assert.equal((await db.query('update customer_referrals set short_code=$1 where referrer_user_id=$2 returning id',[shortB,a])).rows.length,0);
+    assert.equal((await wallet()).referral_codes[0].code,shortA);
+    await role('anon');await assert.rejects(wallet(),/permission denied/);
+  });
 });

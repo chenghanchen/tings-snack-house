@@ -79,3 +79,5 @@
 #customerDetailsStatus{margin-top:0;margin-bottom:0}
 /* Coupon view only: preserve horizontal padding and the other account views. */
 #customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerCouponsPanel:not([hidden])){padding-top:20px;padding-bottom:20px}
+/* Rewards view only: match the compact feature panels without changing their width. */
+#customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerRewardsPanel:not([hidden])){padding-top:20px;padding-bottom:20px}

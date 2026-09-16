@@ -172,11 +172,11 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     if(claimable.length)couponsPanel.append(el('h3','可领取优惠券'),...claimable.map(c=>card(c,true)));
     const unavailableRows=wallet.coupons.filter(c=>!['available','claimable'].includes(c.status));
     if(unavailableRows.length){const history=el('details',null,'customer-coupon-history');history.append(el('summary','不可用优惠券'),...unavailableRows.map(c=>card(c,true)));couponsPanel.append(history)}
-    rewardsPanel.replaceChildren(button('刷新推荐奖励',()=>load()));
-    rewardsPanel.append(el('p','推荐码与奖励只属于当前邮箱账户，手机号仅用于收货联系。'));
-    rewardsPanel.append(el('p','新客首个有效订单满 $30 减 $5。订单完成后，您获得一张满 $30 减 $5 的奖励券，有效期 90 天。每位新客仅一次，奖励不可转让。','customer-muted'));
+    rewardsPanel.replaceChildren();
+    rewardsPanel.append(el('p','推荐码与奖励只属于当前邮箱账户。'));
+    rewardsPanel.append(el('p','推荐新客首次使用你的推荐码下单会获得满 $30 减 $5的优惠。订单完成后，您获得一张满 $30 减 $5 的奖励券，有效期 90 天。每位新客仅一次，奖励不可转让，不可与优惠券叠加使用。','customer-muted'));
     rewardsPanel.append(el('h3','我的推荐码'));
-    if(!wallet.referral_codes.length)rewardsPanel.append(el('p','推荐码暂未生成，请刷新重试。'));
+    if(!wallet.referral_codes.length)rewardsPanel.append(el('p','推荐码暂未生成，请返回后重新打开推荐奖励。'));
     for(const item of wallet.referral_codes){
       const copy=button('复制推荐码',async()=>{try{await navigator.clipboard.writeText(item.code);copy.textContent='已复制';}catch{copy.textContent='无法复制，请长按上方推荐码复制';}});
       rewardsPanel.append(el('code',item.code),copy,el('p',`新客优惠：满 $${Number(item.min_spend).toFixed(2)} 减 $${Number(item.amount).toFixed(2)}；有效性以结算核算为准。`));

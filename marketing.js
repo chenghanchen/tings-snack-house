@@ -661,7 +661,7 @@
           .map(
             (row) => {
               const uses = orders.filter(
-                  (order) => order.coupon_code === row.referral_code,
+                  (order) => order.coupon_code === row.referral_code || (row.short_code && order.coupon_code === row.short_code),
                 ).length,
                 rowAmount = Number(row.referral_amount ?? rewards?.referral_amount ?? rewards?.amount ?? 0),
                 rowMin = Number(row.referral_min_spend ?? rewards?.referral_min_spend ?? rewards?.min_spend ?? 0),
@@ -683,7 +683,7 @@
                     : expiresAt
                       ? `有效期：剩余 ${remainingDays} 天`
                       : "长期有效";
-              return `<div class="referral-code-row"><div class="referral-code-main"><div class="referral-code-heading"><b>${esc(row.referral_code || "—")}</b><span class="referral-code-validity">${validityLabel}</span></div><small>所属账户：${esc(row.referrer_user_id || "—")}</small><div class="referral-code-meta"><span>已用 ${uses}${rowMaxUses > 0 ? ` / ${rowMaxUses}` : " 次（不限）"}</span><span>满 ${money(rowMin)} 减 ${money(rowAmount)}</span><span>生成：${esc(chicagoTime(row.created_at) || "—")}</span></div></div><button class="text-btn" type="button" data-referral-copy="${esc(row.referral_code || "")}">复制</button></div>`;
+              return `<div class="referral-code-row"><div class="referral-code-main"><div class="referral-code-heading"><b>${esc(row.short_code || row.referral_code || "—")}</b><span class="referral-code-validity">${validityLabel}</span></div><small>所属账户：${esc(row.referrer_user_id || "—")}</small><div class="referral-code-meta"><span>已用 ${uses}${rowMaxUses > 0 ? ` / ${rowMaxUses}` : " 次（不限）"}</span><span>满 ${money(rowMin)} 减 ${money(rowAmount)}</span><span>生成：${esc(chicagoTime(row.created_at) || "—")}</span></div></div><button class="text-btn" type="button" data-referral-copy="${esc(row.short_code || row.referral_code || "")}">复制</button></div>`;
             },
           )
           .join("")

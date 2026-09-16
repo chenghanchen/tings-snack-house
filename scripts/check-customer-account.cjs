@@ -53,7 +53,7 @@ function mockSdk() {
           return {data:state.profile[uid]||{full_name:'',phone:'',address:''}};
         }
         if(name==='get_my_customer_wallet'){
-          const data=structuredClone(state.wallet||{coupons:[],referral_codes:[{code:'TSHREF-ACCOUNT-'+uid,amount:5,min_spend:30}],history:[]});
+          const data=structuredClone(state.wallet||{coupons:[],referral_codes:[{code:uid==='bob@example.test'?'B7M4X9P2':'K7M4X9P2',amount:5,min_spend:30}],history:[]});
           if(state.delayWallet)await new Promise(resolve=>{state.resolveWallet=resolve});
           return state.walletError?{error:{message:'network'}}:{data};
         }
@@ -504,7 +504,7 @@ function mockSdk() {
         {id:'expired',code:'EXPIRED',name:'过期券',amount:5,min_spend:30,kind:'regular',status:'expired',uses:[]},
         {id:'unavailable',code:'UNAVAILABLE',name:'不可用券',amount:5,min_spend:30,kind:'new',status:'unavailable',uses:[]},
         {id:'used',code:'RWD-USED',name:'<img src=x onerror=window.walletXss=1>',amount:5,min_spend:30,kind:'referral',status:'used',uses:[{order_number:'TSH-OWN',used_at:'2026-09-12'}]}
-      ],referral_codes:[{code:'TSHREF-ACCOUNT-ALICE',amount:5,min_spend:30}],history:[{created_at:'2026-09-12',status:'等待订单完成',reward_amount:5}]
+      ],referral_codes:[{code:'K7M4X9P2',amount:5,min_spend:30}],history:[{created_at:'2026-09-12',status:'等待订单完成',reward_amount:5}]
     }});
     await page.click('[data-account-tab=coupons]');
     await page.waitForSelector('#customerCouponsPanel .customer-coupon-card');
@@ -587,14 +587,23 @@ function mockSdk() {
     assert.equal(await page.locator('#customerRewardsPanel input').count(),0);
     assert.equal(await page.locator('#customerRewardsPanel img').count(),0);
     assert.match(await page.textContent('#customerRewardsPanel'),/使用于订单 TSH-OWN/);
+    assert.equal(await page.getByRole('button',{name:'刷新推荐奖励',exact:true}).count(),0);
+    assert.equal(await page.textContent('#customerRewardsPanel>code'),'K7M4X9P2');
+    await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{__accountTest.copiedCode=text}}}));
+    await page.getByRole('button',{name:'复制推荐码',exact:true}).click();
+    assert.equal(await page.evaluate(()=>__accountTest.copiedCode),'K7M4X9P2');
+    assert.equal(await page.textContent('#customerRewardsPanel>p:first-child'),'推荐码与奖励只属于当前邮箱账户。');
+    assert.equal(await page.textContent('#customerRewardsPanel>p.customer-muted:nth-of-type(2)'),'推荐新客首次使用你的推荐码下单会获得满 $30 减 $5的优惠。订单完成后，您获得一张满 $30 减 $5 的奖励券，有效期 90 天。每位新客仅一次，奖励不可转让，不可与优惠券叠加使用。');
     for(const width of [320,390,780,1710]){
       await page.setViewportSize({width,height:844});
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+      assert.deepEqual(await page.locator('#customerAccountDialog').evaluate(el=>({top:getComputedStyle(el).paddingTop,bottom:getComputedStyle(el).paddingBottom})),{top:'20px',bottom:'20px'});
+      if(process.env.TINGS_ACCOUNT_SCREENSHOT&&[390,1710].includes(width))await page.locator('#customerAccountDialog').screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-rewards-${width}.png`)});
     }
     await page.setViewportSize({width:390,height:844});
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-rewards.png')});
     await page.evaluate(()=>{__accountTest.wallet.coupons.push({id:'test-shipping',code:'TEST-SHIPPING',name:'配送专享券',discount_kind:'free_shipping',amount:0,min_spend:25,requires_claim:true,claimed:true,kind:'regular',status:'available'})});
-    await page.locator('#customerRewardsPanel>button').first().click();
+    await page.click('#customerAccountBack');await page.click('[data-account-tab=rewards]');
     await page.waitForSelector('#customerWalletCheckout [data-code="TEST-SHIPPING"]',{state:'attached'});
     await closeCustomerAccount();
     await page.click('#openCart');
@@ -715,7 +724,7 @@ function mockSdk() {
     await page.click('#customerRewardsPanel button');
     await page.waitForFunction(()=>document.querySelector('#customerRewardsPanel').textContent.includes('我的推荐码'));
     await page.evaluate(()=>{__accountTest.delayWallet=true});
-    await page.click('#customerRewardsPanel button');
+    await page.click('#customerAccountBack');await page.click('[data-account-tab=rewards]');
     await page.waitForFunction(()=>!!__accountTest.resolveWallet);
     await page.evaluate(()=>{
       const finish=__accountTest.resolveWallet;__accountTest.delayWallet=false;
