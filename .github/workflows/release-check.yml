@@ -11,13 +11,37 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Initialize version-bound report
+        run: node scripts/release-report.mjs init --version HEAD
+      - name: Check release checkout
+        run: node scripts/release-report.mjs check --version HEAD --gate workingTree
       - name: Install test dependencies
-        run: npm install --ignore-scripts --no-audit --no-fund
+        if: always()
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Run release checks
-        run: node scripts/release-check.mjs
+        if: always()
+        run: node scripts/release-report.mjs check --version HEAD --gate tests
+      - name: Run mandatory PGlite database tests
+        if: always()
+        run: node scripts/release-report.mjs check --version HEAD --gate database
+      - name: Scan source for secrets
+        if: always()
+        run: node scripts/release-report.mjs check --version HEAD --gate security
+      - name: Generate preflight report (not production success)
+        if: always()
+        run: node scripts/release-report.mjs render --version HEAD
+      - name: Upload report and check logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-preflight-${{ github.sha }}
+          path: .build/releases/${{ github.sha }}/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

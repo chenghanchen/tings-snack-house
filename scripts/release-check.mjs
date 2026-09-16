@@ -74,7 +74,7 @@ if (failures.length) {
 }
 
 const tests = walk(path.join(root, "tests")).filter((name) =>
-  name.endsWith(".test.mjs"),
+  name.endsWith(".test.mjs") && !(process.argv.includes('--unit-only') && name.endsWith('-db.test.mjs')),
 );
 const result = spawnSync(process.execPath, ["--test", ...tests], {
   cwd: root,
