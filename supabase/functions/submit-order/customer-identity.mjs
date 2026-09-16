@@ -10,10 +10,14 @@ export function normalizeCustomerPhone(value) {
 }
 
 export async function resolveCustomerIdentity(authorization, anonKey, verifyUser) {
-  if (!anonKey) throw new Error('AUTH_NOT_CONFIGURED');
+  // The explicitly configured storefront key may differ from the platform's
+  // default legacy key after key changes. Only compare trusted server config;
+  // never accept the request's apikey or unverified JWT role as proof of a guest.
+  const guestKey = typeof anonKey === 'string' ? anonKey.trim() : '';
+  if (!guestKey) throw new Error('AUTH_NOT_CONFIGURED');
   const token = /^Bearer\s+(\S+)$/i.exec(authorization || '')?.[1];
   if (!token) throw new Error('AUTH_REQUIRED');
-  if (token === anonKey) return null;
+  if (token === guestKey) return null;
   const { data, error } = await verifyUser(token);
   if (error || !data?.user?.id || !data.user.email_confirmed_at || data.user.is_anonymous)
     throw new Error('AUTH_REQUIRED');

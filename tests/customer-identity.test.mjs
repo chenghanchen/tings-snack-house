@@ -11,9 +11,11 @@ test('phone identity normalizes US formatting without accepting other countries 
 
 test('guest identity requires the exact configured public key', async () => {
   assert.equal(await resolveCustomerIdentity('Bearer public-key','public-key',()=>assert.fail('guest should not use user lookup')),null);
+  assert.equal(await resolveCustomerIdentity('Bearer storefront-key','  storefront-key\n',()=>assert.fail('configured guest must not use user lookup')),null);
   for (const header of [null,'','Basic public-key','Bearer'])
     await assert.rejects(resolveCustomerIdentity(header,'public-key',()=>assert.fail()), /AUTH_REQUIRED/);
   await assert.rejects(resolveCustomerIdentity('Bearer anything',null,()=>assert.fail()), /AUTH_NOT_CONFIGURED/);
+  await assert.rejects(resolveCustomerIdentity('Bearer anything',' \n ',()=>assert.fail()), /AUTH_NOT_CONFIGURED/);
 });
 test('customer identity comes only from verified confirmed Supabase user', async () => {
   let seen;

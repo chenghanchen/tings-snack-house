@@ -29,6 +29,16 @@ node --test tests/*.test.mjs
 
 成功时 SQL Editor 会显示以 `PASS:` 开头的 notice；任何服务端校验缺失、错误类型变化或数据残留都会使脚本失败。
 
+## 真实 Supabase 游客身份检查
+
+发布含空购物车前置保护的 `submit-order` 后，运行
+`node scripts/check-guest-checkout-live.mjs`。脚本使用前端公开配置发送空购物车：
+真实游客公钥须进入购物车校验并返回 400，篡改签名的令牌须返回 401。
+两种请求都在限流及订单 RPC 前结束，不创建订单、扣库存或消耗限流计数。
+
+2026-09-16 游客身份修复发布后，以上生产检查通过；JWT 验证保持开启。
+本地 59 项测试通过；两个数据库测试文件因缺少 `@electric-sql/pglite` 未能运行。
+
 ## 此批性能优化的上线顺序
 
 1. 在 Supabase SQL Editor 执行 `storefront-snapshot-migration.sql`。

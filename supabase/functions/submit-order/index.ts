@@ -107,7 +107,7 @@ Deno.serve(async (request) => {
   try {
     customerId = await resolveCustomerIdentity(
       request.headers.get("authorization"),
-      Deno.env.get("SUPABASE_ANON_KEY"),
+      Deno.env.get("ORDER_GUEST_ANON_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY"),
       (token: string) => admin.auth.getUser(token),
     );
   } catch (error) {
@@ -115,6 +115,11 @@ Deno.serve(async (request) => {
     return json({ error: notConfigured ? "账户服务尚未完成配置" : "登录已失效，请重新登录后提交订单" },
       notConfigured ? 503 : 401, origin);
   }
+
+  // Reject an empty cart before rate-limit counters or order RPCs are touched.
+  // This also gives deployment checks a side-effect-free way to exercise auth.
+  if (!Array.isArray(body.p_items) || body.p_items.length === 0)
+    return json({ error: "购物车为空，请先选择商品" }, 400, origin);
 
   const windowSeconds = positiveInteger(
     Deno.env.get("ORDER_RATE_WINDOW_SECONDS"),
