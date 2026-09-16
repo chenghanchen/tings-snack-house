@@ -675,6 +675,8 @@ function resetOrderDialog() {
   $("#successContactDetails").hidden = true;
   $("#successReferralReward").hidden = true;
   $("#successReferralInfoDialog").hidden = true;
+  $("#viewSubmittedOrder").textContent = "查看订单";
+  $("#copySubmittedOrderLabel").textContent = "复制订单号";
   $("#contactShop").setAttribute("aria-expanded", "false");
 }
 let preserveOrderSuccessOnClose = false;
@@ -747,12 +749,13 @@ function showOrderSuccess(order, form) {
   $("#submittedOrderTotal").textContent = dollars(order.total_amount || 0);
   $("#submittedFulfillmentLabel").textContent = pickup ? "自取" : "配送";
   $("#submittedFulfillmentNote").textContent = pickup
-    ? "订单准备完成后会与你联系"
-    : "稍后会与你联系及确认配送时间";
-  $("#submittedAddressLabel").textContent = pickup ? "自取地址" : "配送地址";
-  $("#submittedAddress").textContent = pickup
     ? settings.pickup_address || "天河城二楼，Archer Ave"
     : form.get("address") || "配送地址待确认";
+  const fulfillmentIcon = $("#submittedFulfillmentIcon");
+  fulfillmentIcon.dataset.kind = pickup ? "pickup" : "delivery";
+  fulfillmentIcon.innerHTML = pickup
+    ? '<svg viewBox="0 0 24 24"><path d="M4 10h16v10H4zM3 10l2-6h14l2 6M8 10v10M16 10v10M3 10h18"/><path d="M7 7h10"/></svg>'
+    : '<svg viewBox="0 0 24 24"><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>';
   $("#submittedItemCount").textContent = String(
     cart.reduce((count, item) => count + Number(item.qty || 0), 0),
   );
@@ -772,10 +775,14 @@ function showOrderSuccess(order, form) {
   if (profile.phone) contactLines.push(`电话：${profile.phone}`);
   if (profile.email) contactLines.push(`邮箱：${profile.email}`);
   $("#successContactDetails").textContent = contactLines.length
-    ? contactLines.join("　")
+    ? contactLines.join("\n")
     : "店铺暂未设置联系电话或邮箱。";
   $("#successContactDetails").hidden = true;
   $("#contactShop").setAttribute("aria-expanded", "false");
+  $("#viewSubmittedOrder").textContent = window.TingsAccount?.isSignedIn?.()
+    ? "我的订单"
+    : "查看订单";
+  $("#copySubmittedOrderLabel").textContent = "复制订单号";
   showSuccessReferralReward(order);
   $("#successMessage").dataset.orderNumber = order.order_number || "";
   $("#orderFormWrap").hidden = true;
@@ -915,12 +922,14 @@ $("#copySubmittedOrder").onclick = async (event) => {
     document.execCommand("copy");
     input.remove();
   }
-  const button = event.currentTarget,
-    previous = button.textContent;
-  button.textContent = "✓ 已复制订单号";
-  setTimeout(() => (button.textContent = previous), 1600);
+  $("#copySubmittedOrderLabel").textContent = "已复制订单号";
 };
 $("#viewSubmittedOrder").onclick = async () => {
+  if (window.TingsAccount?.isSignedIn?.()) {
+    closeOrderDialog();
+    await window.TingsAccount.open("orders", $("#openCustomerAccount"));
+    return;
+  }
   const orderNumber = $("#successMessage").dataset.orderNumber;
   if (!orderNumber) return;
   orderLookupReturnToSuccess = true;

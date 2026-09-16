@@ -225,7 +225,7 @@
     if (changed && session && pendingAccountView && dialog.open) {
       const destination = pendingAccountView; pendingAccountView = null;
       showAccountView(destination); $('#customerAccountTitle').focus();
-      if (destination === 'coupons') void wallet?.load();
+      loadAccountView(destination);
     }
   }
   const ready = client.auth.getSession().then(({data, error}) => {
@@ -245,14 +245,14 @@
   });
 
   async function openAccount(view = 'home', opener = button) {
-    const destination = view === 'coupons' ? 'coupons' : 'home';
-    accountOpener = opener; pendingAccountView = destination === 'coupons' ? destination : null;
+    const destination = Object.prototype.hasOwnProperty.call(accountTitles, view) ? view : 'home';
+    accountOpener = opener; pendingAccountView = destination === 'home' ? null : destination;
     if (!dialog.open) dialog.showModal();
     await ready;
     if (!dialog.open) return;
     if (session) {
       pendingAccountView = null; showAccountView(destination); $('#customerAccountTitle').focus();
-      if (destination === 'coupons') void wallet.load();
+      loadAccountView(destination);
     }
     else emailForm.elements.email.focus();
   }
@@ -267,13 +267,16 @@
     $('#customerAccountTitle').textContent = session ? accountTitles[view] : '登录 / 注册';
     dialog.scrollTop = 0;
   }
+  function loadAccountView(view) {
+    if (view === 'orders') void loadOrders();
+    if (view === 'details') void loadDetails();
+    if (view === 'coupons' || view === 'rewards') void wallet?.load();
+  }
   for (const tab of dialog.querySelectorAll('[data-account-tab]')) tab.onclick = () => {
     showAccountView(tab.dataset.accountTab);
     message('');
     $('#customerAccountTitle').focus();
-    if (accountView === 'orders') void loadOrders();
-    if (accountView === 'details') void loadDetails();
-    if (accountView === 'coupons' || accountView === 'rewards') void wallet.load();
+    loadAccountView(accountView);
   };
   $('#customerAccountBack').onclick = () => {
     if (!session || accountView === 'home') { if (mayDiscard()) dialog.close(); return; }

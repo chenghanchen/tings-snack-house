@@ -439,6 +439,14 @@ function mockSdk() {
     await page.waitForFunction(()=>__accountTest.calls.some(c=>c.name==='submit-order'));
     assert.equal((await page.evaluate(()=>__accountTest.calls.find(c=>c.name==='submit-order'))).headers.Authorization,guestHeader.Authorization);
     await page.evaluate(()=>{settings.content.storeSettings.delivery.minDelivery=0});
+    assert.equal(await page.textContent('#submittedFulfillmentLabel'),'自取');
+    assert.equal(await page.textContent('#submittedFulfillmentNote'),'天河城二楼，Archer Ave');
+    assert.equal(await page.getAttribute('#submittedFulfillmentIcon','data-kind'),'pickup');
+    assert.equal(await page.locator('.success-address-row').count(),0);
+    assert.equal(await page.textContent('#viewSubmittedOrder'),'查看订单');
+    await page.click('#copySubmittedOrder');
+    await page.waitForFunction(()=>document.querySelector('#copySubmittedOrderLabel').textContent==='已复制订单号');
+    assert.equal(await page.textContent('#copySubmittedOrderLabel'),'已复制订单号');
     await page.click('#done');await page.click('#productGrid .add');
 
     await page.click('[data-promotion-account="coupons"]');
@@ -947,12 +955,38 @@ function mockSdk() {
     assert.equal(await page.evaluate(()=>__accountTest.profile['alice@example.test'].address),'Saved address');
     assert.equal(await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='save_my_customer_details_v2').length),profileSaves);
     assert.equal(await page.evaluate(()=>Object.keys(__accountTest.calls.find(c=>c.name==='save_my_customer_details_v2').args).some(key=>/email|user_id/.test(key))),false);
-    await page.evaluate(()=>document.querySelector('#orderForm').requestSubmit());
+    await page.evaluate(()=>{
+      settings.content.storeSettings.profile={phone:'312-826-1822',email:'shop@example.test'};
+      document.querySelector('#orderForm').requestSubmit();
+    });
     await page.waitForFunction(()=>__accountTest.calls.filter(c=>c.name==='submit-order').length===2);
     const submission=await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='submit-order').at(-1));
     assert.equal(submission.headers.Authorization,'Bearer customer-token-alice@example.test');
     assert.equal('p_user_id' in submission.body,false);
-    await page.click('#done');
+    assert.equal(await page.textContent('#submittedFulfillmentLabel'),'配送');
+    assert.equal(await page.textContent('#submittedFulfillmentNote'),'Temporary delivery address');
+    assert.equal(await page.getAttribute('#submittedFulfillmentIcon','data-kind'),'delivery');
+    assert.equal(await page.textContent('#viewSubmittedOrder'),'我的订单');
+    assert.equal(await page.textContent('#copySubmittedOrderLabel'),'复制订单号');
+    await page.setViewportSize({width:1710,height:1180});
+    const successLayout=await page.evaluate(()=>{
+      const style=selector=>getComputedStyle(document.querySelector(selector));
+      const dialog=style('#orderDialog'),hero=style('.order-success>.success-hero');
+      return {dialogPadding:[dialog.paddingTop,dialog.paddingBottom],heroPadding:[hero.paddingTop,hero.paddingBottom],
+        referralSize:style('#successReferralReward .success-referral-line').fontSize,codeSize:style('#submittedReferralCode').fontSize};
+    });
+    assert.deepEqual(successLayout,{dialogPadding:['20px','20px'],heroPadding:['0px','0px'],referralSize:'17px',codeSize:'15px'});
+    await page.click('#contactShop');
+    assert.equal(await page.textContent('#successContactDetails'),'电话：312-826-1822\n邮箱：shop@example.test');
+    assert.equal(await page.locator('#successContactDetails').evaluate(el=>getComputedStyle(el).whiteSpace),'pre-line');
+    await page.click('#copySubmittedOrder');
+    await page.waitForFunction(()=>document.querySelector('#copySubmittedOrderLabel').textContent==='已复制订单号');
+    assert.equal(await page.textContent('#copySubmittedOrderLabel'),'已复制订单号');
+    await page.click('#viewSubmittedOrder');
+    await page.waitForSelector('#customerOrdersPanel:not([hidden])');
+    assert.equal(await page.textContent('#customerAccountTitle'),'我的订单');
+    assert.equal(await page.locator('#orderDialog').evaluate(el=>el.open),false);
+    await closeCustomerAccount();
     await page.click('#productGrid .add');await page.click('#openCart');await page.click('#checkout');
     await page.evaluate(()=>{__accountTest.expired=true});
     assert.match(await page.evaluate(()=>TingsAccount.checkoutHeaders().catch(e=>e.message)),/登录已失效/);
