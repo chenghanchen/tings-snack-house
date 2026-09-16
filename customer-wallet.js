@@ -147,6 +147,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
       radio.onchange=optOut;radio.onclick=optOut;
     }
     const availableToggle=button('',()=>{availableExpanded=!availableExpanded;syncCheckout();});
+    availableToggle.append(el('span',''));
     availableToggle.className='customer-coupon-toggle';fieldset.append(availableToggle);
     const history=el('details',null,'customer-coupon-history');history.append(el('summary','查看不可用优惠券及原因'));fieldset.append(history);
     for(const c of rows){const node=card(c,true,true);if(unavailable(c,true))history.append(node);else fieldset.insertBefore(node,history);}
@@ -178,7 +179,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
       if(why)unavailableCount++;else availableCount++;
     }
     const availableToggle=checkout.querySelector('.customer-coupon-toggle');
-    if(availableToggle){availableToggle.hidden=hasSelected||!availableCount;availableToggle.textContent=`${availableExpanded?'收起':'展开'}可用优惠券（${availableCount}）`;availableToggle.setAttribute('aria-expanded',String(availableExpanded||hasSelected));}
+    if(availableToggle){availableToggle.hidden=hasSelected||!availableCount;availableToggle.querySelector('span').textContent=`${availableExpanded?'收起':'展开'}可用优惠券（${availableCount}）`;availableToggle.setAttribute('aria-expanded',String(availableExpanded||hasSelected));}
     if(history){history.hidden=!unavailableCount;history.querySelector('summary').textContent=`查看不可用优惠券及原因（${unavailableCount}）`;if(!unavailableCount)history.open=false;}
   }
   document.querySelector('#orderForm').addEventListener('input',event=>{if(event.target.name!=='wallet_coupon_choice')syncCheckout()});

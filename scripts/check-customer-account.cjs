@@ -711,10 +711,11 @@ function mockSdk() {
     assert.equal(await page.locator('#customerWalletCheckout input[value="RWD-ALICE"]').isVisible(),false);
     const availableToggle=page.locator('#customerWalletCheckout .customer-coupon-toggle');
     assert.equal(await availableToggle.getAttribute('aria-expanded'),'false');
-    assert.equal(await availableToggle.evaluate(el=>getComputedStyle(el,'::before').transform),'none','collapsed triangle points right');
+    assert.equal(await availableToggle.locator('span').evaluate(el=>getComputedStyle(el).listStyleType),'disclosure-closed','collapsed triangle matches native details marker');
+    assert.equal(await availableToggle.locator('span').evaluate(el=>getComputedStyle(el).listStyleType),await page.locator('#customerWalletCheckout .customer-coupon-history>summary').evaluate(el=>getComputedStyle(el).listStyleType));
     await availableToggle.click();
     assert.equal(await availableToggle.getAttribute('aria-expanded'),'true');
-    assert.equal(await availableToggle.evaluate(el=>getComputedStyle(el,'::before').transform),'matrix(0, 1, -1, 0, 0, 0)','expanded triangle points down');
+    assert.equal(await availableToggle.locator('span').evaluate(el=>getComputedStyle(el).listStyleType),'disclosure-open','expanded triangle matches native details marker');
     assert.equal(await page.locator('#customerWalletCheckout input[value="RWD-ALICE"]').isVisible(),true);
     await page.click('#customerWalletCheckout input[value=""]');
     assert.equal(await availableToggle.getAttribute('aria-expanded'),'false');

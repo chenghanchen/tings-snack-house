@@ -104,8 +104,8 @@ dialog.referral-wechat-guide button:focus-visible{outline:3px solid #f5d59b;outl
 #orderForm .is-selected .customer-coupon-select{background:#b74735;color:white;border-color:#b74735}
 .customer-wallet-rules{margin-left:8px;font-size:11px;font-weight:400;line-height:1.5;color:#687166}
 #orderForm .customer-coupon-toggle{display:block;min-height:0;height:35px;padding:0;margin:-10px 0 -15px;border:0;background:transparent;color:#65705e;font:inherit;font-size:13px;text-align:left;cursor:pointer}
-#orderForm .customer-coupon-toggle:before{content:'';display:inline-block;width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;border-left:6px solid currentColor;margin-right:6px;vertical-align:1px}
-#orderForm .customer-coupon-toggle[aria-expanded=true]:before{transform:rotate(90deg)}
+#orderForm .customer-coupon-toggle>span{display:list-item;list-style-position:inside;list-style-type:disclosure-closed;counter-increment:list-item 0}
+#orderForm .customer-coupon-toggle[aria-expanded=true]>span{list-style-type:disclosure-open}
 @media(min-width:781px){
   .customer-wallet-checkout[data-available-collapsed=true]{padding-bottom:12px}
   .customer-wallet-checkout .customer-coupon-history .customer-coupon-body{margin-bottom:-10px}
