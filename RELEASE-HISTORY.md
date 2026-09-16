@@ -29,3 +29,34 @@ Release: **UNVERIFIED（历史记录）**
 
 Git 历史确认存在 `bf15c26 Polish responsive order success layout` 提交。
 没有足够逐项部署和生产验证记录，不补写 Tests / Security / Cloudflare / Mobile 等 PASS，也不推断 Production HEALTHY。
+
+<!-- release:ed882eae21b07b247dd86284e5be02da838b8c0d -->
+## 2026-09-16 · ed882ea · First governed release: evidence-based release system
+
+**INCOMPLETE**
+
+Version: `ed882eae21b07b247dd86284e5be02da838b8c0d`
+
+Branch: `main`
+
+Updated: 2026-09-16T11:30:42.294Z
+
+| Check | Result | Evidence | Checked at |
+| --- | --- | --- | --- |
+| Git | PASS | Clean release checkout confirmed immediately before history append | 2026-09-16T11:30:42.284Z |
+| Tests | PASS | node scripts/release-check.mjs; exit=0; log=tests-1789558073379.log | 2026-09-16T11:27:53.419Z |
+| Database | PASS | node scripts/release-database.mjs; exit=0; log=database-1789558078268.log | 2026-09-16T11:27:58.308Z |
+| Security | PASS | node scripts/release-security.mjs; exit=0; log=security-1789558078616.log | 2026-09-16T11:27:58.652Z |
+| GitHub | PASS | Read-only ls-remote verified origin/main equals the full release SHA | 2026-09-16T11:28:01.609Z |
+| Cloudflare | PENDING | Missing CLOUDFLARE_API_TOKEN (Pages Read); no deployment claim made | 2026-09-16T11:29:04.746Z |
+| Supabase | PENDING | Missing SUPABASE_ACCESS_TOKEN; deployed function/config/source not verified | 2026-09-16T11:29:04.964Z |
+| Desktop | PASS | https://tings-snack-house.pages.dev; 1710x1180; isolated Chromium; products/cart/checkout/pickup/delivery/layout; no order submitted; desktop.json; desktop-checkout.png | 2026-09-16T11:29:09.670Z |
+| Mobile | PASS | https://tings-snack-house.pages.dev; 390x844; isolated Chromium mobile emulation (not physical device); products/cart/checkout/pickup/delivery/layout; no order submitted; mobile.json; mobile-checkout.png | 2026-09-16T11:29:13.446Z |
+| Guest checkout | PASS | node scripts/check-guest-checkout-live.mjs; exit=0; log=guestCheckout-1789558154912.log | 2026-09-16T11:29:14.949Z |
+| Production smoke test | PENDING | Production HTML/JS/CSS (index.html, app.js, styles.css, customer-account.js, supabase-config.js) SHA256 matches committed source (CRLF normalized); required checks not PASS: cloudflare | 2026-09-16T11:29:17.171Z |
+| Release Report | PASS | report.json and report.md generated and verified by read-back | 2026-09-16T11:27:43.412Z |
+| Release History | PASS | RELEASE-HISTORY.md archived with version marker and exact report; read-back verified | 2026-09-16T11:30:42.294Z |
+
+Production: **NOT VERIFIED HEALTHY**
+
+发布未标记为成功；失败或缺失的检查必须处理，不能推断生产健康。
