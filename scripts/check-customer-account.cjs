@@ -119,13 +119,13 @@ function mockSdk() {
             const overlaps=rows.slice(1).filter((el,i)=>el.getBoundingClientRect().top<rows[i].getBoundingClientRect().bottom-0.5).map(el=>el.textContent.trim());
             return {labels:labels.map(margin),controls:[...form.querySelectorAll('input,select,textarea')].filter(el=>el.checkVisibility()).map(el=>[style(el).borderRadius,style(el).marginTop]),
               promo:margin(promo),summary:[style(summary).borderRadius,style(summary).paddingTop,style(summary).paddingBottom,...margin(summary)],
-              dialog:[style(root).borderRadius,style(root).paddingTop,style(root).paddingBottom],heading:margin(heading),note:margin(note),
+              dialog:[style(root).borderRadius,style(root).paddingTop,style(root).paddingBottom],heading:margin(heading),note:note!==null,
               submit:[style(button).fontSize,style(button).borderRadius,style(button).paddingTop,style(button).paddingBottom,style(button).justifyContent],
-              overflow:root.scrollWidth>root.clientWidth+1,headingClear:labels[0].getBoundingClientRect().top>=note.getBoundingClientRect().bottom,overlaps};
+              overflow:root.scrollWidth>root.clientWidth+1,headingClear:labels[0].getBoundingClientRect().top>=heading.getBoundingClientRect().bottom,overlaps};
           });
           // The fixture also enables the existing optional scheduled-time field.
           assert.deepEqual(result,{labels:[['0px','0px'],...Array(fulfillment==='delivery'?6:5).fill(['8px','8px'])],controls:Array(fulfillment==='delivery'?8:7).fill(['8px','5px']),
-            promo:['-20px','-10px'],summary:['15px','10px','10px','10px','10px'],dialog:['10px','30px','25px'],heading:['-10px','10px'],note:['-5px','-5px'],
+            promo:['-20px','-10px'],summary:['15px','10px','10px','10px','10px'],dialog:['10px','30px','25px'],heading:['-10px','10px'],note:false,
             submit:['15px','8px','10px','10px','center'],overflow:false,headingClear:true,overlaps:[]},`checkout ${phase} ${width}px ${fulfillment}: ${JSON.stringify(result)}`);
           const hintClear=await page.evaluate(()=>{
             const hint=document.querySelector('#couponCodeHint'),input=document.querySelector('#couponCodeInput');
@@ -590,6 +590,9 @@ function mockSdk() {
     assert.match(await page.textContent('#customerRewardsPanel'),/使用于订单 TSH-OWN/);
     assert.equal(await page.getByRole('button',{name:'刷新推荐奖励',exact:true}).count(),0);
     assert.equal(await page.textContent('.referral-code-row>code'),'TSHREF-K7M4X9');
+    assert.equal(await page.textContent('.referral-code-card>.customer-muted'),'分享推荐码给好友，好友首次符合条件的订单即可享受优惠。');
+    assert.doesNotMatch(await page.textContent('#customerRewardsPanel'),/请以微信中的实际发送结果为准/);
+    assert.equal(await page.locator('#customerAccountDialog>.customer-preview-note').isVisible(),false,'test notice is removed from rewards only');
     await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{__accountTest.copiedCode=text}}}));
     await page.getByRole('button',{name:'复制推荐码',exact:true}).click();
     assert.equal(await page.evaluate(()=>__accountTest.copiedCode),'TSHREF-K7M4X9');
@@ -669,13 +672,20 @@ function mockSdk() {
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
       assert.ok(await page.locator('.referral-code-row').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
       assert.ok(await page.locator('.referral-share-actions').evaluate(el=>el.scrollWidth<=el.clientWidth+1&&[...el.children].every(b=>b.scrollWidth<=b.clientWidth+1)));
+      assert.deepEqual(await page.locator('#customerRewardsPanel').evaluate(el=>{
+        const style=s=>getComputedStyle(el.querySelector(s));
+        const hero=style('.referral-hero'),first=style('.referral-benefits>div:first-child>.referral-benefit-label'),second=style('.referral-benefits>div:nth-child(2)>.referral-benefit-label'),note=style('.referral-benefits>div:first-child>.referral-benefit-note');
+        return [hero.paddingTop,hero.paddingBottom,hero.paddingLeft,first.marginTop,second.marginTop,note.marginTop,note.marginBottom,style('.referral-full-rules>summary').marginTop];
+      }),['10px','10px','20px','-10px','-5px','3px','-5px','-15px'],`annotated rewards spacing at ${width}px`);
       assert.deepEqual(await page.locator('#customerAccountDialog').evaluate(el=>({top:getComputedStyle(el).paddingTop,bottom:getComputedStyle(el).paddingBottom})),{top:'20px',bottom:'20px'});
       if(process.env.TINGS_ACCOUNT_SCREENSHOT&&[390,1710].includes(width))await page.locator('#customerAccountDialog').screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-rewards-${width}.png`)});
     }
     await page.setViewportSize({width:390,height:844});
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-rewards.png')});
     await page.evaluate(()=>{__accountTest.referralSavedWallet=structuredClone(__accountTest.wallet);__accountTest.wallet.history=[];__accountTest.wallet.coupons=[]});
-    await page.click('#customerAccountBack');await page.click('[data-account-tab=rewards]');
+    await page.click('#customerAccountBack');
+    assert.equal(await page.locator('#customerAccountDialog>.customer-preview-note').isVisible(),true,'other account views retain their test notice');
+    await page.click('[data-account-tab=rewards]');
     await page.waitForSelector('.referral-empty');
     assert.equal(await page.textContent('.referral-section-heading>span'),'0 条');
     assert.equal(await page.locator('.referral-earned').count(),0);
@@ -701,7 +711,10 @@ function mockSdk() {
     assert.equal(await page.locator('#customerWalletCheckout input[value="RWD-ALICE"]').isVisible(),false);
     const availableToggle=page.locator('#customerWalletCheckout .customer-coupon-toggle');
     assert.equal(await availableToggle.getAttribute('aria-expanded'),'false');
+    assert.equal(await availableToggle.evaluate(el=>getComputedStyle(el,'::before').transform),'none','collapsed triangle points right');
     await availableToggle.click();
+    assert.equal(await availableToggle.getAttribute('aria-expanded'),'true');
+    assert.equal(await availableToggle.evaluate(el=>getComputedStyle(el,'::before').transform),'matrix(0, 1, -1, 0, 0, 0)','expanded triangle points down');
     assert.equal(await page.locator('#customerWalletCheckout input[value="RWD-ALICE"]').isVisible(),true);
     await page.click('#customerWalletCheckout input[value=""]');
     assert.equal(await availableToggle.getAttribute('aria-expanded'),'false');
@@ -719,6 +732,7 @@ function mockSdk() {
       });
       const expectedMargin=width<=780?'-8px':'-30px';
       assert.deepEqual(layout,{fieldMargin:expectedMargin,summaryMargin:expectedMargin,noteClear:true,summaryClear:true,overflow:false},`checkout coupon spacing at ${width}px`);
+      assert.deepEqual(await availableToggle.evaluate(el=>{const s=getComputedStyle(el);return [s.paddingTop,s.paddingBottom,s.marginTop,s.marginBottom,s.height];}),['0px','0px','-10px','-15px','35px'],`coupon toggle spacing at ${width}px`);
       const history=page.locator('#customerWalletCheckout .customer-coupon-history');
       await history.locator('summary').click();
       const expanded=await page.evaluate(()=>{

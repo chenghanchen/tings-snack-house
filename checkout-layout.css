@@ -5,7 +5,6 @@
 #checkout{justify-content:center}
 #orderDialog:has(#orderFormWrap:not([hidden])){padding-top:30px;padding-bottom:25px;border-radius:10px}
 #orderFormWrap>h2{margin-top:-10px;margin-bottom:10px}
-#orderFormWrap>p.dialog-note{margin-top:-5px;margin-bottom:-5px}
 #orderForm>label{margin-top:8px;margin-bottom:8px}
 #orderForm>label:has(input[name="name"]){margin-top:0;margin-bottom:0}
 #orderForm input,#orderForm select,#orderForm textarea{border-radius:8px;margin-top:5px}

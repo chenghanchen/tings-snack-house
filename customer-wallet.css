@@ -17,13 +17,16 @@
 /* Referral-only hierarchy; shared coupon, checkout and account-home layouts stay intact. */
 #customerRewardsPanel{display:grid;gap:18px}
 #customerRewardsPanel h3{margin:0;font-size:16px;line-height:1.4}
-#customerRewardsPanel .referral-hero{padding:20px;border:1px solid #d9e3d7;border-radius:18px;background:linear-gradient(135deg,#edf2e8,#f9f6ec);color:#293b33}
+#customerRewardsPanel .referral-hero{padding:10px 20px;border:1px solid #d9e3d7;border-radius:18px;background:linear-gradient(135deg,#edf2e8,#f9f6ec);color:#293b33}
 #customerRewardsPanel .referral-eyebrow{margin:0 0 16px;font-size:15px;font-weight:700;letter-spacing:1px;text-align:center}
 .referral-benefits{display:grid;gap:14px}
 .referral-benefits>div+div{border-top:1px solid #d6dfd0;padding-top:14px}
 #customerRewardsPanel .referral-benefit-label{font-size:12px;color:#52644f;margin:0 0 3px}
+#customerRewardsPanel .referral-benefits>div:first-child>.referral-benefit-label{margin-top:-10px}
+#customerRewardsPanel .referral-benefits>div:nth-child(2)>.referral-benefit-label{margin-top:-5px}
 .referral-benefits strong{display:block;font-size:23px;line-height:1.4;letter-spacing:-.4px}
 #customerRewardsPanel .referral-benefit-note{margin:4px 0 0;color:#596953;font-size:12px;line-height:1.5}
+#customerRewardsPanel .referral-benefits>div:first-child>.referral-benefit-note{margin-top:3px;margin-bottom:-5px}
 .referral-code-card{display:grid;gap:10px}
 .referral-code-row{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 14px;background:#fffefa;border:1px solid #cdd8c9;border-radius:12px;min-width:0}
 .referral-code-row code{flex:1;min-width:0;font:700 21px/1.4 Arial, sans-serif;letter-spacing:.7px;color:#263e31;user-select:all;overflow-wrap:anywhere}
@@ -64,10 +67,10 @@ dialog.referral-wechat-guide button:focus-visible{outline:3px solid #f5d59b;outl
 .referral-rules>ul{list-style:none;padding:0;margin:10px 0;font-size:12px;line-height:1.8;color:#596953}
 .referral-rules>ul li{position:relative;padding-left:20px;margin:4px 0}
 .referral-rules>ul li:before{content:'✓';position:absolute;left:0;color:#4a7040;font-weight:700}
-.referral-full-rules>summary{cursor:pointer;font-size:12px;color:#52644f;padding:10px 0;min-height:44px}
+.referral-full-rules>summary{cursor:pointer;font-size:12px;color:#52644f;padding:10px 0;min-height:44px;margin-top:-15px}
 .referral-full-rules>ul{padding:0 0 0 18px;margin:2px 0 0;font-size:12px;color:#65705e;line-height:1.8}
 .referral-full-rules li{margin-bottom:8px}
-#customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerRewardsPanel:not([hidden]))>.customer-preview-note{border:0;background:transparent;padding:0;margin:18px 0 0;font-size:11px;line-height:1.6;color:#737b70}
+#customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerRewardsPanel:not([hidden]))>.customer-preview-note{display:none}
 @media(max-width:360px){.referral-code-row code{font-size:18px;letter-spacing:0}.referral-benefits strong{font-size:21px}.referral-history-list li{gap:5px;padding:12px 8px}}
 .customer-coupon-action{position:relative;display:flex;align-items:center;justify-content:center;padding:10px 8px;border-left:1px dashed #decbbb;min-width:0}
 .customer-coupon-action:before,.customer-coupon-action:after{content:"";position:absolute;width:12px;height:6px;background:var(--paper,#f8f4e9);left:-6px;border:1px solid #e2d6c4}
@@ -100,7 +103,9 @@ dialog.referral-wechat-guide button:focus-visible{outline:3px solid #f5d59b;outl
 #orderForm .customer-coupon-select:has(:disabled){background:#e7e9e2;color:#747d70;border-color:#d6dbd0;cursor:default}
 #orderForm .is-selected .customer-coupon-select{background:#b74735;color:white;border-color:#b74735}
 .customer-wallet-rules{margin-left:8px;font-size:11px;font-weight:400;line-height:1.5;color:#687166}
-#orderForm .customer-coupon-toggle{display:block;min-height:44px;padding:8px 0;border:0;background:transparent;color:#65705e;font:inherit;font-size:13px;text-align:left;cursor:pointer}
+#orderForm .customer-coupon-toggle{display:block;min-height:0;height:35px;padding:0;margin:-10px 0 -15px;border:0;background:transparent;color:#65705e;font:inherit;font-size:13px;text-align:left;cursor:pointer}
+#orderForm .customer-coupon-toggle:before{content:'';display:inline-block;width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;border-left:6px solid currentColor;margin-right:6px;vertical-align:1px}
+#orderForm .customer-coupon-toggle[aria-expanded=true]:before{transform:rotate(90deg)}
 @media(min-width:781px){
   .customer-wallet-checkout[data-available-collapsed=true]{padding-bottom:12px}
   .customer-wallet-checkout .customer-coupon-history .customer-coupon-body{margin-bottom:-10px}

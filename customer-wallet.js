@@ -208,7 +208,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
       });
       copy.className='referral-copy';copy.setAttribute('aria-label','复制推荐码');
       codeRow.append(code,copy);codeCard.append(codeRow);
-      codeCard.append(el('p','把推荐码分享给新用户，好友首次符合条件的订单即可享受优惠。','customer-muted'));
+      codeCard.append(el('p','分享推荐码给好友，好友首次符合条件的订单即可享受优惠。','customer-muted'));
       const text=`我在婷婷的零食屋买零食，符合条件的新客首次下单满 $30 可以减 $5。\n推荐码：${item.code}`;
       const url='https://tings-snack-house.pages.dev/';
       const invitation=`${text}\n${url}`;
@@ -237,7 +237,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
       });
       share.className='customer-primary referral-share';copyInvitation.className='referral-copy-invitation';
       const actions=el('div',null,'referral-share-actions');actions.append(share,copyInvitation);
-      codeCard.append(actions,el('p','请以微信中的实际发送结果为准；也可复制邀请文案，粘贴给好友。','customer-muted'),feedback);
+      codeCard.append(actions,feedback);
     }
     rewardsPanel.append(codeCard);
     const rewardCoupons=wallet.coupons.filter(c=>c.kind==='referral');
