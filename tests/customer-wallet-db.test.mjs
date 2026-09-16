@@ -304,4 +304,171 @@ test('account referrals: completion rewards, guest eligibility, ownership and at
     assert.equal((await wallet()).referral_codes[0].code,shortA);
     await role('anon');await assert.rejects(wallet(),/permission denied/);
   });
+  let sixA,sixB;
+  await t.test('six-character cutover fails closed for an unknown engine without removing aliases',async()=>{
+    await db.exec('reset role');
+    const original=await scalar("select pg_get_functiondef('public.preview_account_offer_legacy(text,text,text,numeric,numeric)'::regprocedure)");
+    await db.exec("create or replace function public.preview_account_offer_legacy(p_code text,p_email text,p_phone text,p_subtotal numeric,p_campaign_discount numeric default 0) returns jsonb language sql stable security definer set search_path='' as $$ select '{}'::jsonb $$");
+    await assert.rejects(db.exec(await source('account-referral-six-digit-migration.sql')),/Unknown referral engine/);
+    await db.exec('rollback');
+    assert.equal(await scalar('select short_code from customer_referrals where referrer_user_id=$1',[a]),shortA);
+    assert.equal(await scalar('select referral_code from customer_referrals where referrer_user_id=$1',[a]),codeA);
+    assert.equal(await scalar("select to_regprocedure('public.allocate_account_referral_code()')"),null);
+    await db.exec(original);
+  });
+  await t.test('six-character cutover rotates all account codes, deletes aliases and preserves history',async()=>{
+    await db.exec('reset role');
+    const snapshot=()=>scalar("select jsonb_build_object('referrals',(select jsonb_agg(to_jsonb(r)-'referral_code'-'short_code' order by id) from customer_referrals r),'orders',(select jsonb_agg(to_jsonb(o) order by id) from orders o),'events',(select jsonb_agg(to_jsonb(e) order by id) from referral_events e),'coupons',(select jsonb_agg(to_jsonb(c) order by id) from marketing_coupons c))");
+    const before=await snapshot();
+    const codesBefore=(await db.query('select referral_code from customer_referrals where referrer_user_id is not null')).rows.map(r=>r.referral_code);
+    await db.exec(await source('account-referral-six-digit-migration.sql'));
+    sixA=await scalar('select referral_code from customer_referrals where referrer_user_id=$1',[a]);
+    sixB=await scalar('select referral_code from customer_referrals where referrer_user_id=$1',[b]);
+    const codesAfter=(await db.query('select referral_code from customer_referrals where referrer_user_id is not null order by id')).rows.map(r=>r.referral_code);
+    assert.equal(codesAfter.length,codesBefore.length);
+    for(const code of codesAfter){assert.match(code,/^TSHREF-[A-HJ-NP-Z2-9]{6}$/);assert.equal(codesBefore.includes(code),false)}
+    assert.equal(new Set(codesAfter).size,codesAfter.length);
+    assert.deepEqual(await snapshot(),before);
+    assert.equal(await scalar("select count(*) from information_schema.columns where table_schema='public' and table_name='customer_referrals' and column_name='short_code'"),0);
+    assert.equal(await scalar("select to_regprocedure('public.guard_referral_short_code()')"),null);
+    assert.equal(await scalar("select to_regclass('public.customer_referral_short_code')"),null);
+    await db.exec(await source('account-referral-six-digit-migration.sql'));
+    assert.deepEqual((await db.query('select referral_code from customer_referrals where referrer_user_id is not null order by id')).rows.map(r=>r.referral_code),codesAfter);
+    await role('authenticated',a);assert.equal((await wallet()).referral_codes[0].code,sixA);
+    await role('authenticated',b);assert.equal((await wallet()).referral_codes[0].code,sixB);
+  });
+  await t.test('old long and eight-character codes fail preview and new orders; only new code works',async()=>{
+    const preview=code=>scalar('select preview_account_offer_v2($1,$2,$3,40,0)',[code,'six-new@example.test','7736660200']);
+    await role('anon');
+    for(const invalid of [codeA,codeB,shortA,shortB,'TSHREF-1234ABCD'])assert.equal((await preview(invalid)).valid,false,invalid);
+    assert.equal((await preview(' '+sixA.toLowerCase()+' ')).valid,true);
+    await db.exec('reset role');
+    const countBefore=await scalar('select count(*) from orders');
+    const stockBefore=await scalar('select stock from products where id=1');
+    await role('service_role');
+    for(const invalid of [codeA,shortA])await assert.rejects(submit(invalid,null,'six-new@example.test','7736660200'),/无效/);
+    await db.exec('reset role');
+    assert.equal(await scalar('select count(*) from orders'),countBefore);
+    assert.equal(await scalar('select stock from products where id=1'),stockBefore);
+    await role('service_role');
+    await assert.rejects(submit(sixA,a),/不能自荐/);
+    await assert.rejects(submit(sixA,null,'short-new@example.test','7736660100'),/重复使用/);
+    const key=randomUUID(),order=await submit(sixA,null,'six-new@example.test','7736660200',key);
+    assert.equal(Number(order.discount_amount),5);
+    assert.equal((await submit(sixA,null,'six-new@example.test','7736660200',key)).idempotent_replay,true);
+    await assert.rejects(submit(sixA,null,'six-new@example.test','7736660201'),/重复使用/);
+    const rewardsBefore=await countRewards();await complete(order.id);
+    assert.equal(await countRewards(),rewardsBefore+1);
+    assert.equal(await scalar('select referrer_user_id from referral_events where referred_order_id=$1',[order.id]),a);
+    await role('service_role');
+    assert.equal((await submit(null,b,'ignored','7736660202')).referral_reward.referral_code,sixB);
+  });
+  await t.test('new accounts get a single immutable prefixed code with collision and permission guards',async()=>{
+    await db.exec('reset role');
+    const newcomer=randomUUID();await db.query('insert into auth.users values($1,$2,null)',[newcomer,'six-fresh@example.test']);
+    assert.equal(await scalar('select count(*) from customer_referrals where referrer_user_id=$1',[newcomer]),0);
+    await db.query('update auth.users set email_confirmed_at=now() where id=$1',[newcomer]);
+    const code=await scalar('select referral_code from customer_referrals where referrer_user_id=$1',[newcomer]);
+    assert.match(code,/^TSHREF-[A-HJ-NP-Z2-9]{6}$/);
+    await assert.rejects(db.query('update customer_referrals set referral_code=$1 where referrer_user_id=$2',[sixB,a]),/不可转让/);
+    await assert.rejects(db.query('insert into marketing_coupons(code,name,amount,claim_valid_days) values($1,$2,5,7)',[sixA.toLowerCase(),'Collision']),/重复/);
+    await assert.rejects(db.query('insert into customer_referrals(referrer_user_id,referral_code) values($1,$2)',[randomUUID(),codeA]),/check constraint|foreign key/);
+    for(const actor of ['anon','authenticated','service_role']){
+      await role(actor,a);
+      for(const signature of ['public.ensure_account_referral(uuid)','public.allocate_account_referral_code()'])assert.equal(await scalar('select has_function_privilege(current_user,$1,\'EXECUTE\')',[signature]),false);
+    }
+    await role('authenticated',newcomer);
+    assert.equal((await wallet()).referral_codes[0].code,code);
+    assert.equal((await wallet()).referral_codes[0].code,code);
+    assert.equal((await db.query('update customer_referrals set referral_code=$1 where referrer_user_id=$2 returning id',[sixA,newcomer])).rows.length,0);
+  });
+  await t.test('lifetime migration backfills normalized history without rewriting orders and is idempotent/private',async()=>{
+    await db.exec('reset role');
+    await db.query("insert into orders(email,phone,status) values($1,$2,'已完成')",['  Historical@Example.Test  ','+1 (773) 777-0300']);
+    const snapshot=()=>scalar("select jsonb_build_object('orders',(select jsonb_agg(to_jsonb(o) order by id) from orders o),'events',(select jsonb_agg(to_jsonb(e) order by id) from referral_events e),'coupons',(select jsonb_agg(to_jsonb(c) order by id) from marketing_coupons c))");
+    const before=await snapshot();
+    await db.exec(await source('account-referral-lifetime-migration.sql'));
+    const identities=await scalar('select count(*) from customer_completed_identities');
+    await db.exec(await source('account-referral-lifetime-migration.sql'));
+    assert.equal(await scalar('select count(*) from customer_completed_identities'),identities);
+    assert.deepEqual(await snapshot(),before);
+    for(const phone of ['7737770300','+1 (773) 777-0300','17737770300','773.777.0300'])
+      assert.equal(await scalar('select referral_normalize_phone($1)',[phone]),'7737770300');
+    for(const phone of ['123','++17737770300','1+7737770300','+7737770300','7737770300 ext 2','+44 2071234567'])
+      assert.equal(await scalar('select referral_normalize_phone($1)',[phone]),null);
+    assert.equal(await scalar('select referral_normalize_email($1)',[' \tMixed+Tag@Example.Test\n']),'mixed+tag@example.test');
+    await role('service_role');
+    await assert.rejects(submit(sixA,null,'other-history@example.test','7737770300'),/重复使用/);
+    await assert.rejects(submit(sixB,null,'HISTORICAL@example.test','7737770301'),/重复使用/);
+    for(const actor of ['anon','authenticated','service_role']){
+      await role(actor,a);
+      await assert.rejects(scalar('select count(*) from customer_completed_identities'),/permission denied/);
+      assert.equal(await scalar("select has_function_privilege(current_user,'public.remember_completed_customer(uuid,uuid,text,text)','EXECUTE')"),false);
+    }
+  });
+  await t.test('guest identity is cross-code, normalized and reserved while pending; cancelled-before-completion can retry',async()=>{
+    await role('anon');
+    const preview=(code,email,phone)=>scalar('select preview_account_offer_v2($1,$2,$3,40,0)',[code,email,phone]);
+    assert.equal((await preview(sixA,' Guest-Lifetime@Example.Test ','+1 (773) 777-0400')).valid,true);
+    await role('service_role');
+    const key=randomUUID();
+    const first=await submit(sixA,null,' \tGuest-Lifetime@Example.Test\n','+1 (773) 777-0400',key);
+    assert.equal((await submit(sixA,null,'guest-lifetime@example.test','7737770400',key)).idempotent_replay,true);
+    await assert.rejects(submit(sixB,null,'GUEST-LIFETIME@example.test','7737770401'),/重复使用/);
+    await assert.rejects(submit(sixB,null,'different-lifetime@example.test','1 773 777 0400'),/重复使用/);
+    await role('anon');assert.equal((await preview(sixB,'different-lifetime@example.test','773-777-0400')).valid,false);
+    await complete(first.id,'已取消');
+    assert.equal(await scalar('select count(*) from customer_completed_identities where order_id=$1',[first.id]),0);
+    await role('service_role');
+    const retry=await submit(sixB,null,'guest-lifetime@example.test','7737770400');
+    const rewardsBefore=await countRewards();await complete(retry.id);
+    assert.equal(await countRewards(),rewardsBefore+1);
+    await complete(retry.id,'已取消');
+    assert.equal(await scalar('select status from referral_events where referred_order_id=$1',[retry.id]),'revoked');
+    await role('service_role');
+    await assert.rejects(submit(sixA,null,'guest-lifetime@example.test','7737770402'),/重复使用/);
+    await assert.rejects(submit(sixA,null,'new-email@example.test','+1 (773) 777-0400'),/重复使用/);
+    await db.exec('reset role');
+    const registered=randomUUID();await db.query('insert into auth.users values($1,$2,now())',[registered,'guest-lifetime@example.test']);
+    await role('service_role');await assert.rejects(submit(sixA,registered,'forged-new@example.test','7737770403'),/重复使用/);
+    // A normal guest order remains available, even after referral eligibility is spent.
+    assert.equal(Number((await submit(null,null,'guest-lifetime@example.test','7737770400')).discount_amount),0);
+  });
+  await t.test('UUID survives email/phone changes; completion and reward remain once-only',async()=>{
+    await db.exec('reset role');
+    const user=randomUUID();await db.query('insert into auth.users values($1,$2,now())',[user,'uuid-lifetime@example.test']);
+    await role('service_role');const order=await submit(sixA,user,'forged@example.test','7737770500');
+    const before=await countRewards();await complete(order.id,'已配送');await complete(order.id,'已取货');
+    assert.equal(await countRewards(),before+1);
+    await db.query('update auth.users set email=$1 where id=$2',['changed-uuid@example.test',user]);
+    await role('service_role');await assert.rejects(submit(sixB,user,'new-forged@example.test','7737770501'),/重复使用/);
+    await assert.rejects(submit(sixB,null,'uuid-lifetime@example.test','7737770502'),/重复使用/);
+    await assert.rejects(submit(sixB,null,'different-uuid@example.test','7737770500'),/重复使用/);
+  });
+  await t.test('completed ordinary orders permanently disqualify newcomers, including after contact edits and cancellation',async()=>{
+    await role('service_role');const order=await submit(null,null,'ordinary-lifetime@example.test','7737770600');
+    await complete(order.id);
+    await db.query("update orders set email='edited-history@example.test',phone='7737770601' where id=$1",[order.id]);
+    await complete(order.id,'已取消');
+    await role('service_role');
+    for(const [email,phone] of [['ordinary-lifetime@example.test','7737770602'],['new-ordinary@example.test','17737770600'],['edited-history@example.test','7737770603']])
+      await assert.rejects(submit(sixB,null,email,phone),/重复使用/);
+    // Distinct email aliases are not silently merged.
+    assert.equal(Number((await submit(sixA,null,'ordinary-lifetime+new@example.test','7737770604')).discount_amount),5);
+  });
+  await t.test('historical pending records and checkout use normalized identity locks rather than referral code locks',async()=>{
+    await db.exec('reset role');
+    // An independently retained event must still block even when order contact differs.
+    const manual=await scalar("insert into orders(email,phone,status) values('event-order@example.test','7737770701','待确认') returning id");
+    await db.query("insert into referral_events(referrer_user_id,referred_order_id,referred_email_key,contact_phone) values($1,$2,md5('event-original@example.test'),'+1 (773) 777-0700')",[a,manual]);
+    await role('service_role');await assert.rejects(submit(sixB,null,'event-new@example.test','7737770700'),/重复使用/);
+    await assert.rejects(submit(sixB,null,'EVENT-ORIGINAL@example.test','7737770702'),/重复使用/);
+    await complete(manual);
+    assert.equal(await scalar("select count(*) from customer_completed_identities where order_id=$1 and identity_kind='phone' and identity_key='7737770700'",[manual]),1);
+    await db.exec('reset role');
+    const definition=await scalar("select pg_get_functiondef('public.submit_shop_order_account(text,text,text,text,text,text,jsonb,uuid,uuid,uuid,text,text,uuid[])'::regprocedure)");
+    assert.ok(definition.indexOf('p_phone:=public.referral_normalize_phone(p_phone)')<definition.indexOf('pg_advisory_xact_lock'));
+    for(const lock of ["hashtextextended(p_user_id::text,73)","hashtextextended('email:'||email_value,74)","hashtextextended('contact:'||coalesce(p_phone,''),75)"])
+      assert.ok(definition.includes(lock));
+  });
 });

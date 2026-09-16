@@ -174,7 +174,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     if(unavailableRows.length){const history=el('details',null,'customer-coupon-history');history.append(el('summary','不可用优惠券'),...unavailableRows.map(c=>card(c,true)));couponsPanel.append(history)}
     rewardsPanel.replaceChildren();
     rewardsPanel.append(el('p','推荐码与奖励只属于当前邮箱账户。'));
-    rewardsPanel.append(el('p','推荐新客首次使用你的推荐码下单会获得满 $30 减 $5的优惠。订单完成后，您获得一张满 $30 减 $5 的奖励券，有效期 90 天。每位新客仅一次，奖励不可转让，不可与优惠券叠加使用。','customer-muted'));
+    rewardsPanel.append(el('p','推荐新客使用你的推荐码下单可享满 $30 减 $5。订单完成后，您获得一张满 $30 减 $5 的奖励券，有效期 90 天。每位新客终身仅享一次推荐新客优惠，更换推荐码不重复享受；游客也可使用。进行中的订单暂占资格，未完成取消可重试，完成后取消或退款不恢复资格。奖励不可转让，不可与优惠券叠加使用。','customer-muted'));
     rewardsPanel.append(el('h3','我的推荐码'));
     if(!wallet.referral_codes.length)rewardsPanel.append(el('p','推荐码暂未生成，请返回后重新打开推荐奖励。'));
     for(const item of wallet.referral_codes){

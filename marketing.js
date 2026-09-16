@@ -299,7 +299,7 @@
     referralSummary.querySelector('div + div > b').textContent=String(referrals.filter(item=>item.referrer_user_id).length);
     referralSummary.querySelector('h2').nextElementSibling?.remove();
     const explanation=referralSummary.querySelector('div>p:not(.eyebrow)');
-    explanation.textContent='邮箱登录账户拥有唯一推荐码。新客首个有效订单满 $30 减 $5；订单完成后仅推荐人获满 $30 减 $5 券，有效期 90 天。手机号不决定奖励归属，旧手机号记录不自动转入账户。';
+    explanation.textContent='邮箱登录账户拥有唯一推荐码。推荐新客优惠满 $30 减 $5，每位新客终身一次，跨推荐码按账户、邮箱、手机号与历史记录去重，游客也可使用。进行中的订单暂占资格，未完成取消可重试，完成后取消或退款不恢复资格。订单完成后仅推荐人获满 $30 减 $5 券，有效期 90 天；奖励归属邮箱账户。';
     root.querySelectorAll('[data-create-referral],[data-create-referral-code]').forEach(node=>node.remove());
     const records=document.createElement('section');records.className='panel';records.id='accountReferralEvents';
     const heading=document.createElement('h3');heading.textContent='账户推荐记录';records.append(heading);
@@ -660,9 +660,9 @@
       ? rows
           .map(
             (row) => {
-              const uses = orders.filter(
-                  (order) => order.coupon_code === row.referral_code || (row.short_code && order.coupon_code === row.short_code),
-                ).length,
+              const uses = referralEvents===null?null:new Set(referralEvents.filter(
+                  (event) => event.referrer_user_id === row.referrer_user_id,
+                ).map(event=>event.referred_order_id)).size,
                 rowAmount = Number(row.referral_amount ?? rewards?.referral_amount ?? rewards?.amount ?? 0),
                 rowMin = Number(row.referral_min_spend ?? rewards?.referral_min_spend ?? rewards?.min_spend ?? 0),
                 rowValidity = Number(row.referral_valid_days ?? validity),
@@ -672,7 +672,7 @@
                     ? new Date(row.created_at).getTime() + rowValidity * 86400000
                     : 0,
                 expired = expiresAt && expiresAt <= Date.now(),
-                exhausted = rowMaxUses > 0 && uses >= rowMaxUses,
+                exhausted = uses !== null && rowMaxUses > 0 && uses >= rowMaxUses,
                 remainingDays = expiresAt
                   ? Math.ceil(Math.max(0, expiresAt - Date.now()) / 86400000)
                   : 0,
@@ -683,7 +683,7 @@
                     : expiresAt
                       ? `有效期：剩余 ${remainingDays} 天`
                       : "长期有效";
-              return `<div class="referral-code-row"><div class="referral-code-main"><div class="referral-code-heading"><b>${esc(row.short_code || row.referral_code || "—")}</b><span class="referral-code-validity">${validityLabel}</span></div><small>所属账户：${esc(row.referrer_user_id || "—")}</small><div class="referral-code-meta"><span>已用 ${uses}${rowMaxUses > 0 ? ` / ${rowMaxUses}` : " 次（不限）"}</span><span>满 ${money(rowMin)} 减 ${money(rowAmount)}</span><span>生成：${esc(chicagoTime(row.created_at) || "—")}</span></div></div><button class="text-btn" type="button" data-referral-copy="${esc(row.short_code || row.referral_code || "")}">复制</button></div>`;
+              return `<div class="referral-code-row"><div class="referral-code-main"><div class="referral-code-heading"><b>${esc(row.referral_code || "—")}</b><span class="referral-code-validity">${validityLabel}</span></div><small>所属账户：${esc(row.referrer_user_id || "—")}</small><div class="referral-code-meta"><span>${uses===null?"使用次数暂无法读取":`已用 ${uses}${rowMaxUses > 0 ? ` / ${rowMaxUses}` : " 次（不限）"}`}</span><span>满 ${money(rowMin)} 减 ${money(rowAmount)}</span><span>生成：${esc(chicagoTime(row.created_at) || "—")}</span></div></div><button class="text-btn" type="button" data-referral-copy="${esc(row.referral_code || "")}">复制</button></div>`;
             },
           )
           .join("")

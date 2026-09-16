@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { resolveCustomerIdentity } from "./customer-identity.mjs";
+import { normalizeCustomerPhone, resolveCustomerIdentity } from "./customer-identity.mjs";
 
 const encoder = new TextEncoder();
 const productionOrigin = "https://tings-snack-house.pages.dev";
@@ -79,9 +79,9 @@ Deno.serve(async (request) => {
     return json({ error: "订单格式无效" }, 400, origin);
   }
 
-  const phone = String(body.p_phone ?? "").trim();
+  const phone = normalizeCustomerPhone(body.p_phone);
   const idempotencyKey = String(body.p_idempotency_key ?? "").trim();
-  if (!/^[0-9]{10}$/.test(phone))
+  if (!phone)
     return json({ error: "请输入 10 位数字电话号码" }, 400, origin);
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(

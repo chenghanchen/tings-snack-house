@@ -732,7 +732,7 @@ function showSuccessReferralReward(order) {
   setSuccessReferralCode("#submittedReferralCode",code);
   setSuccessReferralCode("#submittedYourRewardCoupon","");
   setSuccessReferralCode("#submittedReferrerRewardCoupon","");
-  section.dataset.codeInfo="朋友首个有效订单满 $30 减 $5。订单完成后，推荐人获得一张满 $30 减 $5 的账户奖励券，有效期 90 天。";
+  section.dataset.codeInfo="推荐新客优惠满 $30 减 $5，每位新客终身一次，更换推荐码不重复享受，游客也可使用。未完成取消可重试，完成后取消或退款不恢复资格。订单完成后，推荐人获得一张满 $30 减 $5 的账户奖励券，有效期 90 天。";
   section.dataset.couponInfo="";
   let pending=$("#successReferralPending");
   if(!pending){pending=document.createElement("p");pending.id="successReferralPending";pending.className="dialog-note";section.before(pending);}

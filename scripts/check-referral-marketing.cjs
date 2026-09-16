@@ -15,10 +15,10 @@ const assert=require('node:assert/strict'),path=require('node:path');
         marketing_campaigns:[],products:[],categories:[],coupon_redemptions:[],orders:[{id:'order',order_number:'TSH-TEST',coupon_code:'TSHREF-ACCOUNT',created_at:'2026-09-12',status:'已完成'},{id:'short-order',coupon_code:'K7M4X9P2'}],
         marketing_coupons:[{id:'reward',code:'RWD-TEST',name:'推荐奖励券',amount:5,min_spend:30,total_quantity:1,source:'referral',is_referral_reward:true,claimed_by_user_id:'account-a',active:true,status:'published'},
           {id:'legacy',code:'OLD20',name:'旧折扣券',amount:20,discount_kind:'percent',min_spend:40,total_quantity:20,per_phone_limit:3,requires_claim:false,active:true,status:'published',ends_at:'2099-09-30T23:59:37.456Z'}],
-        customer_referrals:[{referral_code:'TSHREF-ACCOUNT',short_code:'K7M4X9P2',referrer_user_id:'account-a',referral_amount:5,referral_min_spend:30,created_at:'2026-09-12'},
+        customer_referrals:[{referral_code:'TSHREF-K7M4X9',referrer_user_id:'account-a',referral_amount:5,referral_min_spend:30,created_at:'2026-09-12'},
           {referral_code:'TSHREF-LEGACY',phone:'3125550123',created_at:'2026-09-12'}],
         referral_reward_settings:{amount:5,min_spend:35,valid_days:0},
-        referral_events:[{id:'event',referrer_user_id:'account-a',referred_order_id:'order',status:'rewarded',created_at:'2026-09-12'}]
+        referral_events:[{id:'event',referrer_user_id:'account-a',referred_order_id:'order',status:'rewarded',created_at:'2026-09-12'},{id:'short-event',referrer_user_id:'account-a',referred_order_id:'short-order',status:'pending',created_at:'2026-09-12'}]
       };
       window.__marketingWrites=[];
       window.TINGS_SUPABASE={url:'offline',anonKey:'offline'};
@@ -38,8 +38,8 @@ const assert=require('node:assert/strict'),path=require('node:path');
     assert.match(await page.textContent('#accountReferralEvents'),/TSH-TEST.*已发奖励/);
     await page.click('[data-show-referral-codes]');
     assert.match(await page.textContent('#referralCodeList'),/account-a/);
-    assert.equal(await page.textContent('.referral-code-heading b'),'K7M4X9P2');
-    assert.equal(await page.getAttribute('[data-referral-copy]','data-referral-copy'),'K7M4X9P2');
+    assert.equal(await page.textContent('.referral-code-heading b'),'TSHREF-K7M4X9');
+    assert.equal(await page.getAttribute('[data-referral-copy]','data-referral-copy'),'TSHREF-K7M4X9');
     assert.match(await page.textContent('#referralCodeList'),/已用 2/);
     assert.doesNotMatch(await page.textContent('#referralCodeList'),/LEGACY|手机号/);
     await page.click('[data-close-referral-codes]');

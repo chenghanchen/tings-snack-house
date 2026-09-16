@@ -53,7 +53,7 @@ function mockSdk() {
           return {data:state.profile[uid]||{full_name:'',phone:'',address:''}};
         }
         if(name==='get_my_customer_wallet'){
-          const data=structuredClone(state.wallet||{coupons:[],referral_codes:[{code:uid==='bob@example.test'?'B7M4X9P2':'K7M4X9P2',amount:5,min_spend:30}],history:[]});
+          const data=structuredClone(state.wallet||{coupons:[],referral_codes:[{code:uid==='bob@example.test'?'TSHREF-B7M4X9':'TSHREF-K7M4X9',amount:5,min_spend:30}],history:[]});
           if(state.delayWallet)await new Promise(resolve=>{state.resolveWallet=resolve});
           return state.walletError?{error:{message:'network'}}:{data};
         }
@@ -504,7 +504,7 @@ function mockSdk() {
         {id:'expired',code:'EXPIRED',name:'过期券',amount:5,min_spend:30,kind:'regular',status:'expired',uses:[]},
         {id:'unavailable',code:'UNAVAILABLE',name:'不可用券',amount:5,min_spend:30,kind:'new',status:'unavailable',uses:[]},
         {id:'used',code:'RWD-USED',name:'<img src=x onerror=window.walletXss=1>',amount:5,min_spend:30,kind:'referral',status:'used',uses:[{order_number:'TSH-OWN',used_at:'2026-09-12'}]}
-      ],referral_codes:[{code:'K7M4X9P2',amount:5,min_spend:30}],history:[{created_at:'2026-09-12',status:'等待订单完成',reward_amount:5}]
+      ],referral_codes:[{code:'TSHREF-K7M4X9',amount:5,min_spend:30}],history:[{created_at:'2026-09-12',status:'等待订单完成',reward_amount:5}]
     }});
     await page.click('[data-account-tab=coupons]');
     await page.waitForSelector('#customerCouponsPanel .customer-coupon-card');
@@ -588,12 +588,12 @@ function mockSdk() {
     assert.equal(await page.locator('#customerRewardsPanel img').count(),0);
     assert.match(await page.textContent('#customerRewardsPanel'),/使用于订单 TSH-OWN/);
     assert.equal(await page.getByRole('button',{name:'刷新推荐奖励',exact:true}).count(),0);
-    assert.equal(await page.textContent('#customerRewardsPanel>code'),'K7M4X9P2');
+    assert.equal(await page.textContent('#customerRewardsPanel>code'),'TSHREF-K7M4X9');
     await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{__accountTest.copiedCode=text}}}));
     await page.getByRole('button',{name:'复制推荐码',exact:true}).click();
-    assert.equal(await page.evaluate(()=>__accountTest.copiedCode),'K7M4X9P2');
+    assert.equal(await page.evaluate(()=>__accountTest.copiedCode),'TSHREF-K7M4X9');
     assert.equal(await page.textContent('#customerRewardsPanel>p:first-child'),'推荐码与奖励只属于当前邮箱账户。');
-    assert.equal(await page.textContent('#customerRewardsPanel>p.customer-muted:nth-of-type(2)'),'推荐新客首次使用你的推荐码下单会获得满 $30 减 $5的优惠。订单完成后，您获得一张满 $30 减 $5 的奖励券，有效期 90 天。每位新客仅一次，奖励不可转让，不可与优惠券叠加使用。');
+    assert.equal(await page.textContent('#customerRewardsPanel>p.customer-muted:nth-of-type(2)'),'推荐新客使用你的推荐码下单可享满 $30 减 $5。订单完成后，您获得一张满 $30 减 $5 的奖励券，有效期 90 天。每位新客终身仅享一次推荐新客优惠，更换推荐码不重复享受；游客也可使用。进行中的订单暂占资格，未完成取消可重试，完成后取消或退款不恢复资格。奖励不可转让，不可与优惠券叠加使用。');
     for(const width of [320,390,780,1710]){
       await page.setViewportSize({width,height:844});
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));

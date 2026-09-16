@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {resolveCustomerIdentity} from '../supabase/functions/submit-order/customer-identity.mjs';
+import {normalizeCustomerPhone,resolveCustomerIdentity} from '../supabase/functions/submit-order/customer-identity.mjs';
+
+test('phone identity normalizes US formatting without accepting other countries or extensions', () => {
+  for (const value of ['3125550100',' (312) 555-0100 ','+1 (312) 555-0100','1.312.555.0100'])
+    assert.equal(normalizeCustomerPhone(value),'3125550100');
+  for (const value of ['',null,'+44 2071234567','3125550100 ext 1','3125550100x','+3125550100','1+3125550100','++13125550100','123'])
+    assert.equal(normalizeCustomerPhone(value),null);
+});
 
 test('guest identity requires the exact configured public key', async () => {
   assert.equal(await resolveCustomerIdentity('Bearer public-key','public-key',()=>assert.fail('guest should not use user lookup')),null);
