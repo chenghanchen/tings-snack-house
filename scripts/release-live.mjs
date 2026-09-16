@@ -15,7 +15,8 @@ async function getJSON(url, token, fetcher) {
   } catch { throw new EvidenceUnavailable('Management API unreachable; deployment evidence unavailable'); }
   // Never log API bodies: platform responses can contain environment secrets.
   if (!response.ok) throw new EvidenceUnavailable(`Management API HTTP ${response.status}; deployment evidence unavailable`);
-  return response.json();
+  try { return await response.json(); }
+  catch { throw new EvidenceUnavailable('Management API returned unreadable evidence'); }
 }
 
 export async function checkCloudflare(version, env = process.env, fetcher = fetch) {
@@ -31,20 +32,31 @@ export async function checkCloudflare(version, env = process.env, fetcher = fetc
 
 export async function checkSupabase(root, version, env = process.env, fetcher = fetch) {
   if (!env.SUPABASE_ACCESS_TOKEN) return pending('Missing SUPABASE_ACCESS_TOKEN; deployed function/config/source not verified');
-  const f = await getJSON(`https://api.supabase.com/v1/projects/${PROJECT}/functions/submit-order`, env.SUPABASE_ACCESS_TOKEN, fetcher);
-  if (f.slug !== 'submit-order' || f.status !== 'ACTIVE' || f.verify_jwt !== true || !Number.isInteger(f.version))
-    throw new Error('submit-order is missing, inactive, or JWT verification is disabled');
-  const observed = `submit-order version=${f.version}; ACTIVE; verify_jwt=true; bundle=${f.ezbr_sha256 || 'unavailable'}`;
+  const functions = [];
+  for (const slug of ['submit-order', 'admin-media-cleanup']) {
+    const f = await getJSON(`https://api.supabase.com/v1/projects/${PROJECT}/functions/${slug}`, env.SUPABASE_ACCESS_TOKEN, fetcher);
+    if (f.slug !== slug || f.status !== 'ACTIVE' || f.verify_jwt !== true || !Number.isInteger(f.version) || f.version < 1)
+      throw new Error(`${slug} is missing, inactive, or JWT verification is disabled`);
+    functions.push({ slug, version: f.version, verifyJwt: f.verify_jwt, bundle: /^[a-f0-9]{64}$/.test(f.ezbr_sha256 || '') ? f.ezbr_sha256 : null });
+  }
+  const observed = functions.map(f => `${f.slug} version=${f.version}; ACTIVE; JWT=true; bundle=${f.bundle || 'unavailable'}`).join('; ');
   const baselinePath = path.join(root, 'release-supabase-baseline.json');
   if (!existsSync(baselinePath)) return pending(`${observed}; missing reviewed release-supabase-baseline.json (source and migration provenance)`);
   const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
   // Baseline is a reviewed deployment receipt, not a hash learned from the target being tested.
-  if (baseline.project !== PROJECT || !/^[a-f0-9]{40}$/.test(baseline.sourceCommit || '') || !baseline.migrationEvidence?.trim() || !/^[a-f0-9]{64}$/.test(baseline.bundleSha256 || ''))
+  if (baseline.schemaVersion !== 1 || baseline.project !== PROJECT || !/^[a-f0-9]{40}$/.test(baseline.sourceCommit || '') || !baseline.migrationEvidence?.trim() || !Array.isArray(baseline.functions) || baseline.functions.length !== functions.length)
     throw new Error('Invalid Supabase deployment baseline');
+  for (const actual of functions) {
+    const matches = baseline.functions.filter(f => f.slug === actual.slug);
+    const expected = matches[0];
+    if (matches.length !== 1 || !/^[a-f0-9]{64}$/.test(expected.bundleSha256 || '') || !Number.isInteger(expected.functionVersion) || expected.functionVersion < 1 || expected.verifyJwt !== true || !expected.sourceEvidence?.trim() || !expected.productionEvidence?.trim() || !expected.reviewedBy?.trim() || !Number.isFinite(Date.parse(expected.reviewedAt)))
+      throw new Error('Incomplete Supabase source/review/production baseline evidence');
+    if (!actual.bundle) return pending(`${observed}; production bundle fingerprint unavailable`);
+    if (expected.bundleSha256 !== actual.bundle || expected.functionVersion !== actual.version)
+      throw new Error(`Supabase deployed bundle/version differs from reviewed baseline: ${actual.slug}`);
+  }
   const changed = execFileSync('git', ['diff', '--name-only', baseline.sourceCommit, version, '--', 'supabase', '*.sql'], { cwd: root, encoding: 'utf8', timeout: 30_000 }).trim();
-  if (changed) return pending(`${observed}; backend differs from reviewed baseline; verify deployment/migrations and update receipt`);
-  if (baseline.bundleSha256 !== f.ezbr_sha256 || baseline.functionVersion !== f.version)
-    throw new Error('Supabase deployed bundle/version differs from reviewed baseline');
+  if (changed) return { ...pending(`${observed}; backend differs from reviewed baseline; verify deployment/migrations and update receipt`), requirements: { deploymentRequired: true, verificationRequired: true } };
   return result('PASS', `${observed}; backend unchanged since reviewed source ${baseline.sourceCommit}; migration evidence=${baseline.migrationEvidence}`);
 }
 
@@ -128,9 +140,10 @@ export async function checkAssets(root, version, fetcher = fetch) {
 }
 
 export async function liveCheck(gate, { root, version, directory, report, env = process.env, fetcher = fetch }) {
+  const platformResult = check => ({ ...check, requirements: check.requirements || { deploymentRequired: check.status === 'PASS' ? false : 'UNKNOWN', verificationRequired: true } });
   try {
-    if (gate === 'cloudflare') return await checkCloudflare(version, env, fetcher);
-    if (gate === 'supabase') return await checkSupabase(root, version, env, fetcher);
+    if (gate === 'cloudflare') return platformResult(await checkCloudflare(version, env, fetcher));
+    if (gate === 'supabase') return platformResult(await checkSupabase(root, version, env, fetcher));
     if (['desktop', 'mobile'].includes(gate)) return await checkBrowser(gate, directory);
     if (gate === 'production') {
       const assets = await checkAssets(root, version);
@@ -142,6 +155,7 @@ export async function liveCheck(gate, { root, version, directory, report, env = 
   } catch (error) {
     // Raw Playwright errors can include DOM or response content. Keep the stored diagnosis bounded.
     const safe = String(error.message).split('\n')[0].slice(0, 250);
-    return result(error instanceof EvidenceUnavailable ? 'PENDING' : 'FAIL', safe);
+    const check = result(error instanceof EvidenceUnavailable ? 'PENDING' : 'FAIL', safe);
+    return ['cloudflare', 'supabase'].includes(gate) ? platformResult(check) : check;
   }
 }

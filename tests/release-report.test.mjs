@@ -4,10 +4,24 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, unli
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { GATES, createReport, recordCheck, outcome, renderReport, appendHistory } from '../scripts/release-report-core.mjs';
+import { GATES, createReport, recordCheck, outcome, renderReport, appendHistory, isReleaseOrigin, checkEnvironment } from '../scripts/release-report-core.mjs';
 import { scanText } from '../scripts/release-security.mjs';
 
 const sha = 'a'.repeat(40);
+test('GitHub origin accepts checkout HTTPS with or without .git, not other destinations', () => {
+  assert.equal(isReleaseOrigin('https://github.com/chenghanchen/tings-snack-house'), true);
+  assert.equal(isReleaseOrigin('https://github.com/chenghanchen/tings-snack-house.git'), true);
+  for (const remote of ['https://github.com/other/tings-snack-house', 'https://github.com/chenghanchen/tings-snack-house-extra',
+    'https://github.com.evil.test/chenghanchen/tings-snack-house', 'https://user@github.com/chenghanchen/tings-snack-house',
+    'http://github.com/chenghanchen/tings-snack-house', 'https://github.com/chenghanchen/tings-snack-house?query=1'])
+    assert.equal(isReleaseOrigin(remote), false);
+});
+
+test('check children cannot publish fixture summaries or inherit platform credentials', () => {
+  const original = { PATH: 'runtime', GITHUB_STEP_SUMMARY: 'parent-summary', CLOUDFLARE_API_TOKEN: 'test-only', SUPABASE_ACCESS_TOKEN: 'test-only' };
+  assert.deepEqual(checkEnvironment(original), { PATH: 'runtime' });
+  assert.equal(original.GITHUB_STEP_SUMMARY, 'parent-summary');
+});
 test('missing evidence is INCOMPLETE, any failure wins, all checks required for HEALTHY', () => {
   const report = createReport(sha, 'main', 'Example');
   assert.equal(outcome(report), 'INCOMPLETE');
@@ -61,7 +75,7 @@ function fixture() {
   git('add', '.');
   git('-c', 'user.name=Release Test', '-c', 'user.email=release@example.test', '-c', 'commit.gpgsign=false', 'commit', '-m', 'Fixture');
   const version = git('rev-parse', 'HEAD');
-  const run = (...args) => spawnSync(process.execPath, ['scripts/release-report.mjs', ...args], { cwd: root, encoding: 'utf8' });
+  const run = (...args) => spawnSync(process.execPath, ['scripts/release-report.mjs', ...args], { cwd: root, env: checkEnvironment(process.env), encoding: 'utf8' });
   const load = () => JSON.parse(readFileSync(path.join(root, '.build/releases', version, 'report.json'), 'utf8'));
   return { root, git, version, run, load };
 }

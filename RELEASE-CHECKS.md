@@ -107,7 +107,7 @@ PR 预检不持有平台凭据，不自动认定生产验证通过。
 - `CLOUDFLARE_API_TOKEN`：限定本项目账户的 Pages Read。读取 canonical production deployment，必须成功、main、非 dirty，完整 SHA 一致。响应中的 env_vars 不写日志。
 - `SUPABASE_ACCESS_TOKEN`：可读取项目 Edge Functions 的管理 API 凭据。核对 `submit-order` 的 ACTIVE、JWT 开启、实际版本、bundle 指纹。只读使用令牌，不部署、不修改配置。
 
-Supabase 还需要仓库内已审核的 `release-supabase-baseline.json` 部署凭证：`project`、`sourceCommit`（40 位）、`functionVersion`（数字）、`bundleSha256`（64 位）、`migrationEvidence`（无敏感信息的审核记录地址/说明）。它必须来自已确认的部署源码与数据库迁移记录，不能直接把当前目标的未知指纹抄过来使检查通过。首次建立需要核对实际部署来源。每次会比较 `supabase/` 与 SQL 文件相对于该提交的差异；发生变化则 PENDING，要求重新审核并更新基线。该自动门禁证明部署身份与沿用的迁移审核记录，不执行数据库迁移或全面数据库审计。
+Supabase 还需要仓库内已审核的 `release-supabase-baseline.json`，覆盖 `submit-order` 和 `admin-media-cleanup` 两个生产函数。结构、审核流程、最小权限与凭据配置位置见 [RELEASE-ACCESS.md](RELEASE-ACCESS.md)。必须关联已审核源码、每个函数的生产版本/指纹及生产验证记录，不能直接抄下未知指纹当作审核。每次比较 `supabase/` 与 SQL 相对于审核提交的差异，发生变化则 PENDING，要求确认发布与更新基线。报告明确分开 deployment required 与 verification required：无变更不必重复部署，但管理核验始终必须完成。没有可靠生产代码证据时不生成正式基线文件。
 
 桌面视口为 1710×1180，手机视口为 390×844，分别启动独立、未登录的真实生产浏览器会话，检查商品、加入购物车、结算入口、自取/配送地址控件和横向溢出。手机是 Chromium 移动模拟，不冒充实体手机或 Safari 测试。保存截图与场景 JSON。只允许 GET/HEAD/OPTIONS 以及明确列出的只读商品 RPC；禁止订单/OTP/优惠券领取等写请求，绝不点击提交订单。成功页等变更专项验收仍需另外执行，不能把本基础 Smoke Test 当成全部变更覆盖。
 

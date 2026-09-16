@@ -2,7 +2,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createReport, validateReport, recordCheck, renderReport, appendHistory, outcome } from './release-report-core.mjs';
+import { createReport, validateReport, recordCheck, renderReport, appendHistory, outcome, isReleaseOrigin, checkEnvironment } from './release-report-core.mjs';
 import { scanText } from './release-security.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -56,7 +56,7 @@ try {
     report.title = `DIAGNOSTIC ONLY — ${report.title}`;
     recordCheck(report, 'workingTree', 'PENDING', 'Diagnostic run; uncommitted tooling permitted, not release certification and not appended to history');
     for (const [gate, script] of Object.entries({ tests: 'release-check.mjs', database: 'release-database.mjs', security: 'release-security.mjs', guestCheckout: 'check-guest-checkout-live.mjs' })) {
-      const run = spawnSync(process.execPath, [path.join(root, 'scripts', script), ...(gate === 'tests' ? ['--unit-only'] : [])], { cwd: root, encoding: 'utf8', timeout: 240_000, maxBuffer: 8 * 1024 * 1024 });
+      const run = spawnSync(process.execPath, [path.join(root, 'scripts', script), ...(gate === 'tests' ? ['--unit-only'] : [])], { cwd: root, env: checkEnvironment(process.env), encoding: 'utf8', timeout: 240_000, maxBuffer: 8 * 1024 * 1024 });
       const output = `${run.stdout || ''}\n${run.stderr || ''}`;
       const safe = scanText(output, 'diagnostic-output').length ? '[Output withheld: potential credential detected]' : output;
       writeFileSync(path.join(directory, `${gate}.log`), safe);
@@ -68,7 +68,7 @@ try {
     for (const gate of ['cloudflare', 'supabase', 'desktop', 'mobile', 'production']) {
       const check = await liveCheck(gate, { root, version, directory, report });
       if (scanText(check.evidence, 'diagnostic-evidence').length) { check.status = 'FAIL'; check.evidence = 'Evidence withheld: potential credential detected'; }
-      recordCheck(report, gate, check.status, check.evidence);
+      recordCheck(report, gate, check.status, check.evidence, undefined, check.requirements);
       save();
       console.log(`${gate}: ${check.status} — ${check.evidence}`);
     }
@@ -79,25 +79,26 @@ try {
     if (report.finalizedAt) throw new Error('Finalized report cannot be changed');
     let status = 'PASS';
     let evidence;
+    let requirements;
     try {
       assertClean();
       if (opt.gate === 'workingTree') evidence = 'git status --porcelain: clean; HEAD matches full report SHA';
       else if (opt.gate === 'github') {
         const remote = git('remote', 'get-url', 'origin');
-        if (remote !== 'https://github.com/chenghanchen/tings-snack-house.git') throw new Error('Unexpected origin; verify destination manually');
+        if (!isReleaseOrigin(remote)) throw new Error('Unexpected origin; verify destination manually');
         if (report.branch !== 'main') throw new Error('Production release must target main');
         const result = git('ls-remote', '--exit-code', 'origin', 'refs/heads/main');
         if (result.split(/\s+/)[0] !== version) throw new Error('GitHub main does not match the release SHA');
         evidence = 'Read-only ls-remote verified origin/main equals the full release SHA';
       } else if (['cloudflare', 'supabase', 'desktop', 'mobile', 'production'].includes(opt.gate)) {
         const { liveCheck } = await import('./release-live.mjs');
-        ({ status, evidence } = await liveCheck(opt.gate, { root, version, directory, report }));
+        ({ status, evidence, requirements } = await liveCheck(opt.gate, { root, version, directory, report }));
         if (scanText(evidence, 'live-evidence').length) throw new Error('Live evidence withheld: potential credential detected');
       } else {
         const scripts = { security: 'release-security.mjs', tests: 'release-check.mjs', database: 'release-database.mjs', guestCheckout: 'check-guest-checkout-live.mjs' };
         if (!Object.hasOwn(scripts, opt.gate)) throw new Error('Unknown check gate; report/history are verified during save/finalize');
         const run = spawnSync(process.execPath, [path.join(root, 'scripts', scripts[opt.gate]), ...(opt.gate === 'tests' ? ['--unit-only'] : [])], {
-          cwd: root, encoding: 'utf8', timeout: 240_000, maxBuffer: 8 * 1024 * 1024,
+          cwd: root, env: checkEnvironment(process.env), encoding: 'utf8', timeout: 240_000, maxBuffer: 8 * 1024 * 1024,
         });
         const output = `${run.stdout || ''}\n${run.stderr || ''}`;
         // Do not persist credential-bearing output to an uploaded artifact.
@@ -112,7 +113,7 @@ try {
       }
       assertClean();
     } catch (error) { status = 'FAIL'; evidence = error.message; }
-    recordCheck(report, opt.gate, status, evidence);
+    recordCheck(report, opt.gate, status, evidence, undefined, requirements);
     if (status !== 'PASS') process.exitCode = 1;
   }
   if (command === 'record') {

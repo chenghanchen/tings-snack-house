@@ -5,6 +5,19 @@ export const GATES = Object.freeze({
   releaseReport: 'Release Report', releaseHistory: 'Release History',
 });
 
+export function isReleaseOrigin(remote) {
+  // actions/checkout uses HTTPS without .git; keep the repository allowlist exact.
+  return ['https://github.com/chenghanchen/tings-snack-house',
+    'https://github.com/chenghanchen/tings-snack-house.git'].includes(remote);
+}
+
+export function checkEnvironment(env) {
+  const isolated = { ...env };
+  // Test fixture reports must not publish to the real CI summary or inherit management tokens.
+  for (const name of ['GITHUB_STEP_SUMMARY', 'CLOUDFLARE_API_TOKEN', 'SUPABASE_ACCESS_TOKEN']) delete isolated[name];
+  return isolated;
+}
+
 export function createReport(version, branch, title, now = new Date().toISOString()) {
   if (!/^[0-9a-f]{40}$/.test(version)) throw new Error('Full commit SHA required');
   if (!title?.trim() || !branch?.trim()) throw new Error('Title and branch required');
@@ -26,12 +39,16 @@ export function validateReport(report) {
   return report;
 }
 
-export function recordCheck(report, key, status, evidence, now = new Date().toISOString()) {
+export function recordCheck(report, key, status, evidence, now = new Date().toISOString(), requirements) {
   validateReport(report);
   if (report.finalizedAt) throw new Error('Finalized report is immutable; create a new release commit to retry');
   if (!Object.hasOwn(GATES, key) || !['PASS', 'FAIL', 'PENDING'].includes(status) || !evidence?.trim())
     throw new Error('Known gate, PASS/FAIL/PENDING and nonempty evidence required');
-  report.checks[key] = { status, evidence: evidence.trim(), checkedAt: now };
+  if (requirements) {
+    if (!['cloudflare', 'supabase'].includes(key) || requirements.verificationRequired !== true || ![true, false, 'UNKNOWN'].includes(requirements.deploymentRequired))
+      throw new Error('Invalid platform deployment/verification requirements');
+  }
+  report.checks[key] = { status, evidence: evidence.trim(), checkedAt: now, ...(requirements ? { requirements } : {}) };
   report.events.push({ gate: key, ...report.checks[key] });
   report.updatedAt = now;
   return report;
@@ -54,7 +71,8 @@ export function renderReport(report) {
     `Updated: ${report.updatedAt}\n\n| Check | Result | Evidence | Checked at |\n| --- | --- | --- | --- |\n` +
     Object.entries(GATES).map(([key, label]) => {
       const check = report.checks[key];
-      return `| ${label} | ${check.status} | ${inline(check.evidence || '未验证')} | ${check.checkedAt || '—'} |`;
+      const requirementText = check.requirements ? `Deployment required: ${check.requirements.deploymentRequired}; Verification required: true; ` : '';
+      return `| ${label} | ${check.status} | ${inline(requirementText + (check.evidence || '未验证'))} | ${check.checkedAt || '—'} |`;
     }).join('\n') + `\n\nProduction: **${status === 'RELEASE SUCCESS' ? 'HEALTHY' : 'NOT VERIFIED HEALTHY'}**\n\n` +
     (status === 'RELEASE SUCCESS' ? '全部必需门禁已有通过证据，报告及历史已归档。HEALTHY 仅限报告列明的验证范围。\n' : '发布未标记为成功；失败或缺失的检查必须处理，不能推断生产健康。\n');
 }
