@@ -185,23 +185,34 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
       copy.className='referral-copy';copy.setAttribute('aria-label','复制推荐码');
       codeRow.append(code,copy);codeCard.append(codeRow);
       codeCard.append(el('p','把推荐码分享给新用户，好友首次符合条件的订单即可享受优惠。','customer-muted'));
-      const share=button('分享给好友',async()=>{
+      const text=`我在婷婷的零食屋买零食，符合条件的新客首次下单满 $30 可以减 $5。\n推荐码：${item.code}`;
+      const url='https://tings-snack-house.pages.dev/';
+      const invitation=`${text}\n${url}`;
+      const copyInvitation=button('复制邀请文案',async()=>{
         if(!current())return;
-        const text=`我在婷婷的零食屋买零食，符合条件的新客首次下单满 $30 可以减 $5。\n推荐码：${item.code}`;
-        const url='https://tings-snack-house.pages.dev/';
-        share.disabled=true;feedback.textContent='';
+        copyInvitation.disabled=true;share.disabled=true;feedback.textContent='';
+        try{
+          await navigator.clipboard.writeText(invitation);
+          if(current())feedback.textContent='邀请文案和链接已复制，请打开微信，选择好友后粘贴发送。';
+        }catch{if(current())feedback.textContent='暂时无法复制邀请文案，请长按或选中上方推荐码手动复制。';}
+        finally{if(current()){copyInvitation.disabled=false;share.disabled=false;}}
+      });
+      const share=button('系统分享',async()=>{
+        if(!current())return;
+        share.disabled=true;copyInvitation.disabled=true;feedback.textContent='';
         try{
           if(typeof navigator.share==='function'){
             await navigator.share({title:'婷婷的零食屋 · 邀请好友',text,url});
-            if(current())feedback.textContent='分享操作已完成。';
+            // Native hand-off does not confirm recipient selection or message delivery.
           }else{
-            await navigator.clipboard.writeText(`${text}\n${url}`);
-            if(current())feedback.textContent='邀请文案和链接已复制，可以粘贴给好友。';
+            if(current())feedback.textContent='当前浏览器不支持系统分享，请点击“复制邀请文案”后发送给好友。';
           }
-        }catch(error){if(current())feedback.textContent=error?.name==='AbortError'?'已取消分享。':'暂时无法分享，请复制推荐码后发送给好友。';}
-        finally{if(current())share.disabled=false;}
+        }catch(error){if(current())feedback.textContent=error?.name==='AbortError'?'已取消分享。':'暂时无法分享，请点击“复制邀请文案”后发送给好友。';}
+        finally{if(current()){share.disabled=false;copyInvitation.disabled=false;}}
       });
-      share.className='customer-primary referral-share';codeCard.append(share,feedback);
+      share.className='customer-primary referral-share';copyInvitation.className='referral-copy-invitation';
+      const actions=el('div',null,'referral-share-actions');actions.append(share,copyInvitation);
+      codeCard.append(actions,el('p','请以微信中的实际发送结果为准；也可复制邀请文案，粘贴给好友。','customer-muted'),feedback);
     }
     rewardsPanel.append(codeCard);
     const rewardCoupons=wallet.coupons.filter(c=>c.kind==='referral');

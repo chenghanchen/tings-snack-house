@@ -29,6 +29,8 @@
 .referral-code-row code{flex:1;min-width:0;font:700 21px/1.4 Arial, sans-serif;letter-spacing:.7px;color:#263e31;user-select:all;overflow-wrap:anywhere}
 #customerAccountDialog #customerRewardsPanel .referral-copy{flex:none;width:64px;padding:8px 5px;font-size:13px;font-weight:700;border-color:#ced9c9;background:#eef3e9;color:#334f3b}
 #customerAccountDialog #customerRewardsPanel .referral-share{width:100%;border-radius:12px;background:#293f32;border-color:#293f32;color:#fffefa;font-size:15px;font-weight:700;min-height:46px}
+.referral-share-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#customerAccountDialog #customerRewardsPanel .referral-copy-invitation{width:100%;min-width:0;min-height:46px;padding:8px 4px;border-radius:12px;border-color:#cdd8c9;background:#eef3e9;color:#334f3b;font-size:14px;font-weight:700}
 #customerRewardsPanel .referral-action-status{margin:0;font-size:12px;line-height:1.5;color:#52644f;overflow-wrap:anywhere}
 .referral-action-status:empty{display:none}
 .referral-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
