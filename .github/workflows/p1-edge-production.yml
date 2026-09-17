@@ -1,0 +1,140 @@
+name: P1 frozen Edge production deployment
+
+# Branch push is used because this workflow must NOT be merged into main.
+# Every run stops at the production Environment's required human reviewer.
+on:
+  push:
+    branches: [deploy/p1-frozen-6b4b7b9]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: p1-production-edge-ragqunnuxsfwhrfqpylg
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.repository == 'chenghanchen/tings-snack-house' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    outputs:
+      manifest_sha256: ${{ steps.package.outputs.manifest_sha256 }}
+    steps:
+      - name: Checkout deployment orchestration only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: orchestration
+          persist-credentials: false
+      - name: Checkout the ONLY approved application revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 6b4b7b9d236b1c2b04368e175df1a75521b229ef
+          path: frozen
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.22.0'
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.6
+      - name: Test fail-closed deployment adapter
+        run: node --test orchestration/tests/p1-edge-deploy.test.mjs
+      - name: Verify frozen source configuration and lockfile fingerprints
+        run: node orchestration/scripts/p1-edge-deploy.mjs frozen frozen
+      - name: Scan orchestration (no production credentials)
+        working-directory: orchestration
+        run: node scripts/release-security.mjs
+      - name: Install locked local test dependencies only
+        working-directory: frozen
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Full local Release Checks and frozen Deno integrity
+        working-directory: frozen
+        run: node scripts/release-check.mjs
+      - name: Independent PGlite database checks (never production)
+        working-directory: frozen
+        run: node scripts/release-database.mjs
+      - name: Frozen source security scan
+        working-directory: frozen
+        run: node scripts/release-security.mjs
+      - name: Verified digest Docker normal tampered control bundling
+        working-directory: frozen
+        env:
+          GITHUB_SHA: 6b4b7b9d236b1c2b04368e175df1a75521b229ef
+        run: node scripts/edge-bundle-proof.mjs
+      - name: Bind the successful local ESZIPs to frozen source and this run
+        id: package
+        run: node orchestration/scripts/p1-edge-deploy.mjs prepare frozen prepared
+      - name: Upload only pre-secret local bundles
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-prepared-${{ github.run_id }}
+          path: prepared/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Preserve no-secret Docker evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-docker-proof-${{ github.run_id }}
+          path: frozen/.build/edge-bundle-proof/evidence/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 30
+
+  deploy-and-verify:
+    needs: prepare
+    if: github.repository == 'chenghanchen/tings-snack-house' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Required reviewer chenghanchen, no admin bypass, exact branch restriction.
+    # Human approval is also checked through the run review-history API below.
+    environment: production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: orchestration
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 6b4b7b9d236b1c2b04368e175df1a75521b229ef
+          path: frozen
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.22.0'
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.6
+      - name: Recheck untouched frozen checkout
+        run: node orchestration/scripts/p1-edge-deploy.mjs frozen frozen
+      - name: Fresh frozen dependency verification before credential use
+        working-directory: frozen
+        run: node scripts/check-edge-dependencies.mjs
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: p1-prepared-${{ github.run_id }}
+          path: prepared
+      - name: Prove human production approval for this first-attempt run
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node orchestration/scripts/p1-edge-deploy.mjs approval frozen prepared
+      - name: Upload only two prebundled functions and immediately verify each
+        env:
+          # Configure ONLY as an Environment production secret. No local/.env fallback.
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PREPARED_MANIFEST_SHA256: ${{ needs.prepare.outputs.manifest_sha256 }}
+        run: node orchestration/scripts/p1-edge-deploy.mjs deploy frozen prepared
+      - name: Preserve sanitized deployment evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p1-edge-production-${{ github.run_id }}
+          path: edge-deploy-report/
+          if-no-files-found: warn
+          retention-days: 30
+      # Intentionally no migrations, main merge, function invocation, deletion,
+      # secret export, config synchronization, automatic rollback or cleanup resume.
