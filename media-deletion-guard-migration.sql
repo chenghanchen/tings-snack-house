@@ -112,6 +112,13 @@ begin
     inserted := null;
     insert into public.media_retired_paths(path) values(p) on conflict do nothing returning path into inserted;
     if inserted is not null then reserved := array_append(reserved,inserted); end if;
+    -- A fence alone is not deletion eligibility. An absent object is complete;
+    -- only a still-present object may retry after the locked checks above.
+    -- Never reset/remove the fence: delayed or concurrent DELETEs cannot hit
+    -- a replacement, because all reference/Storage writers remain fenced.
+    if inserted is null and not (p = any(reserved)) and exists (
+      select 1 from storage.objects where bucket_id = 'storefront-images' and name = p
+    ) then reserved := array_append(reserved,p); end if;
   end loop;
   return reserved;
 end $$;
