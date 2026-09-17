@@ -60,10 +60,9 @@ jobs:
         working-directory: frozen
         run: node scripts/release-security.mjs
       - name: Verified digest Docker normal tampered control bundling
-        working-directory: frozen
-        env:
-          GITHUB_SHA: 6b4b7b9d236b1c2b04368e175df1a75521b229ef
-        run: node scripts/edge-bundle-proof.mjs
+        # Trigger SHA identifies orchestration; the adapter checks actual frozen HEAD
+        # and source/config/lock hashes before AND after the unmodified Docker proof.
+        run: node orchestration/scripts/p1-edge-deploy.mjs proof frozen
       - name: Bind the successful local ESZIPs to frozen source and this run
         id: package
         run: node orchestration/scripts/p1-edge-deploy.mjs prepare frozen prepared

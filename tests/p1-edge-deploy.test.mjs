@@ -4,7 +4,7 @@ import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { TARGET, PROJECT, REPOSITORY, BRANCH, ENVIRONMENT_ID, IMAGE, FILES, SLUGS,
-  hash, configFor, assertContext, compressBundle, rawBundle, validateProof, loadPrepared,
+  hash, configFor, assertContext, compressBundle, rawBundle, validateProof, validateProofBinding, verifyFrozen, loadPrepared,
   metadata, compareProduction, managementClient, deploySequential, approvalFrom } from '../scripts/p1-edge-deploy.mjs';
 
 // Protocol/negative tests only. These do not claim real platform acceptance.
@@ -29,11 +29,17 @@ function mockClient(tweak = () => {}) {
 }
 function proof() {
   const sourceManifest = Object.fromEntries(Object.entries(FILES).filter(([f]) => f.startsWith('supabase/functions/')).map(([f, h]) => [f.slice(19), h]));
-  return { commit: TARGET, image: IMAGE, result: 'PASS', cases: SLUGS.flatMap(slug => ['normal', 'tampered', 'control'].map(mode => ({
+  return { commit: env.GITHUB_SHA, runId: env.GITHUB_RUN_ID, image: IMAGE, result: 'PASS', cases: SLUGS.flatMap(slug => ['normal', 'tampered', 'control'].map(mode => ({
     slug, mode, sourceManifest, result: 'PASS', lockUnchanged: true,
     originalLockSha256: FILES[`supabase/functions/${slug}/deno.lock`], status: mode === 'tampered' ? 1 : 0,
     bundleBytes: mode === 'tampered' ? 0 : raw.length,
+    bundleSha256: mode === 'tampered' ? null : hash(raw),
   }))) };
+}
+function binding(bytes = JSON.stringify(proof())) {
+  return { schemaVersion: 1, result: 'PASS', frozenSourceCommit: TARGET, workflowCommit: env.GITHUB_SHA,
+    runId: env.GITHUB_RUN_ID, runAttempt: '1', beforeSourceManifestSha256: hash(JSON.stringify(FILES)),
+    afterSourceManifestSha256: hash(JSON.stringify(FILES)), proofSha256: hash(bytes) };
 }
 test('only fixed branch/repository/push and first run attempt are accepted', () => {
   assert.doesNotThrow(() => assertContext(env));
@@ -50,13 +56,44 @@ test('official EZBR envelope preserves bundle; raw body is not double-decompress
   assert.throws(() => compressBundle(Buffer.from('not-eszip')), /INVALID_LOCAL/);
   assert.throws(() => rawBundle(Buffer.from('{}')), /NOT_ESZIP/);
 });
-test('Docker proof requires all six cases, same commit/digest and frozen source/locks', () => {
-  assert.doesNotThrow(() => validateProof(proof()));
-  for (const mutate of [p => p.commit = 'wrong', p => p.image = 'supabase/edge-runtime:latest', p => p.cases.pop(),
+test('Docker proof accepts distinct trigger/source commits only with current run and frozen source/locks', () => {
+  assert.notEqual(env.GITHUB_SHA, TARGET);
+  assert.doesNotThrow(() => validateProof(proof(), env));
+  for (const mutate of [p => p.commit = 'wrong', p => p.commit = TARGET, p => p.runId = '122',
+    p => p.image = 'supabase/edge-runtime:latest', p => p.cases.pop(),
     p => p.cases[1].result = 'PENDING', p => p.cases[0].sourceManifest = {},
     p => p.cases[0].lockUnchanged = false, p => p.cases[1].status = 0, p => p.cases[1].bundleBytes = 3]) {
-    const p = proof(); mutate(p); assert.throws(() => validateProof(p));
+    const p = proof(); mutate(p); assert.throws(() => validateProof(p, env));
   }
+});
+
+test('separate source binding rejects stale run, wrong source, drift, missing evidence and edited raw proof', () => {
+  const bytes = JSON.stringify(proof());
+  assert.doesNotThrow(() => validateProofBinding(binding(bytes), bytes, env));
+  for (const patch of [{ frozenSourceCommit: env.GITHUB_SHA }, { workflowCommit: TARGET }, { runId: '122' },
+    { runAttempt: '2' }, { beforeSourceManifestSha256: '0'.repeat(64) }, { afterSourceManifestSha256: '0'.repeat(64) },
+    { proofSha256: '0'.repeat(64) }, { result: 'PENDING' }])
+    assert.throws(() => validateProofBinding({ ...binding(bytes), ...patch }, bytes, env), /BINDING/);
+  assert.throws(() => validateProofBinding(undefined, bytes, env), /BINDING/);
+  assert.throws(() => validateProofBinding(binding(bytes), bytes + ' ', env), /BINDING/);
+  const edited = proof(); edited.cases[0].sourceManifest = {};
+  const editedBytes = JSON.stringify(edited);
+  assert.throws(() => validateProofBinding(binding(editedBytes), editedBytes, env), /SOURCE_MANIFEST/);
+});
+
+test('a non-checkout cannot attest frozen source; wrapper checks both sides of unmodified proof execution', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'p1-non-checkout-'));
+  try { assert.throws(() => verifyFrozen(dir)); }
+  finally { rmSync(dir, { recursive: true, force: true }); }
+  const script = readFileSync(new URL('../scripts/p1-edge-deploy.mjs', import.meta.url), 'utf8');
+  const wrapper = script.slice(script.indexOf('export function runDockerProof'), script.indexOf('export function prepare'));
+  assert.match(wrapper, /const before = verifyFrozen\(root\)/);
+  assert.match(wrapper, /requireGate\(!existsSync\(base\), 'DOCKER_PROOF_STALE_DIRECTORY'\)/);
+  assert.match(wrapper, /execFileSync\(process.execPath, \[path.join\(root, 'scripts\/edge-bundle-proof.mjs'\)\]/);
+  assert.ok(wrapper.indexOf('const before = verifyFrozen') < wrapper.indexOf('execFileSync'));
+  assert.ok(wrapper.indexOf('execFileSync') < wrapper.indexOf('const after = verifyFrozen'));
+  assert.ok(wrapper.indexOf('validateProofBinding') < wrapper.indexOf('writeFileSync'));
+  assert.doesNotMatch(wrapper, /env:|GITHUB_SHA\s*=/);
 });
 test('production approval must be a human approval for this exact environment', () => {
   const ok = [{ state: 'approved', user: { login: 'chenghanchen', type: 'User' }, environments: [{ name: 'production', id: ENVIRONMENT_ID }] }];
@@ -135,7 +172,9 @@ test('bounded API reader rejects oversized metadata rather than logging it', asy
 test('downloaded artifact must match current run, workflow commit, frozen manifest and both payloads', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'p1-edge-deploy-test-'));
   try {
-    const m = { target: TARGET, image: IMAGE, workflowCommit: env.GITHUB_SHA, runId: env.GITHUB_RUN_ID,
+    const proofBytes = JSON.stringify(proof());
+    writeFileSync(path.join(dir, 'docker-proof.json'), proofBytes);
+    const m = { target: TARGET, frozenSourceCommit: TARGET, proofBinding: binding(proofBytes), image: IMAGE, workflowCommit: env.GITHUB_SHA, runId: env.GITHUB_RUN_ID,
       sourceConfigLockManifestSha256: hash(JSON.stringify(FILES)), files: FILES,
       bundles: Object.fromEntries(SLUGS.map(s => [s, { ...expected(s), payload: undefined }])) };
     const bytes = JSON.stringify(m); writeFileSync(path.join(dir, 'manifest.json'), bytes);
@@ -143,6 +182,14 @@ test('downloaded artifact must match current run, workflow commit, frozen manife
     assert.deepEqual(Object.keys(loadPrepared(dir, hash(bytes), env)), SLUGS);
     assert.throws(() => loadPrepared(dir, '0'.repeat(64), env), /MANIFEST_MISMATCH/);
     assert.throws(() => loadPrepared(dir, hash(bytes), { ...env, GITHUB_RUN_ID: '456' }), /BINDING/);
+    assert.throws(() => loadPrepared(dir, hash(bytes), { ...env, GITHUB_SHA: TARGET }), /BINDING/);
+    const different = { ...m, bundles: { ...m.bundles, [SLUGS[0]]: { ...m.bundles[SLUGS[0]], rawSha256: '0'.repeat(64) } } };
+    const differentBytes = JSON.stringify(different); writeFileSync(path.join(dir, 'manifest.json'), differentBytes);
+    assert.throws(() => loadPrepared(dir, hash(differentBytes), env), /PROOF_BUNDLE_MISMATCH/);
+    writeFileSync(path.join(dir, 'manifest.json'), bytes);
+    writeFileSync(path.join(dir, 'docker-proof.json'), proofBytes + ' ');
+    assert.throws(() => loadPrepared(dir, hash(bytes), env), /BINDING/);
+    writeFileSync(path.join(dir, 'docker-proof.json'), proofBytes);
     writeFileSync(path.join(dir, `${SLUGS[1]}.ezbr`), 'tampered');
     assert.throws(() => loadPrepared(dir, hash(bytes), env), /BUNDLE_MISMATCH/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -151,6 +198,8 @@ test('workflow keeps frozen checkout, pinned tooling, protected job and single s
   const yaml = readFileSync(new URL('../.github/workflows/p1-edge-production.yml', import.meta.url), 'utf8');
   assert.equal(yaml.match(new RegExp(`ref: ${TARGET}`, 'g')).length, 2);
   assert.match(yaml, /environment: production/); assert.match(yaml, /needs: prepare/);
+  assert.match(yaml, /run: node orchestration\/scripts\/p1-edge-deploy.mjs proof frozen/);
+  assert.doesNotMatch(yaml, /GITHUB_SHA:/);
   assert.equal((yaml.match(/secrets\.SUPABASE_ACCESS_TOKEN/g) || []).length, 1);
   assert.ok([...yaml.matchAll(/uses: ([^\n]+)/g)].every(m => /@[a-f0-9]{40}$/.test(m[1])));
   assert.doesNotMatch(yaml, /pull_request_target|secrets: inherit|persist-credentials: true|continue-on-error: true/);

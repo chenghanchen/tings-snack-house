@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { brotliCompressSync, brotliDecompressSync, constants } from 'node:zlib';
-import { readFileSync, writeFileSync, mkdirSync, appendFileSync, lstatSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, appendFileSync, lstatSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -67,8 +67,12 @@ export function rawBundle(bytes) {
   requireGate(raw.length > 8 && raw.subarray(0, 5).toString() === 'ESZIP', 'PRODUCTION_BODY_NOT_ESZIP');
   return raw;
 }
-export function validateProof(proof) {
-  requireGate(proof.commit === TARGET && proof.image === IMAGE && proof.result === 'PASS' && proof.cases?.length === 6, 'DOCKER_PROOF_NOT_PASS');
+export function validateProof(proof, env = process.env) {
+  assertContext(env);
+  // The frozen proof script records GitHub's trigger identity, NOT its checkout HEAD.
+  // Source identity is established separately by verifyFrozen and every case's manifest.
+  requireGate(proof.commit === env.GITHUB_SHA && proof.runId === env.GITHUB_RUN_ID, 'DOCKER_PROOF_RUN_MISMATCH');
+  requireGate(proof.image === IMAGE && proof.result === 'PASS' && proof.cases?.length === 6, 'DOCKER_PROOF_NOT_PASS');
   const sources = Object.fromEntries(Object.entries(FILES).filter(([f]) => f.startsWith('supabase/functions/')).map(([f, v]) => [f.slice(19), v]));
   for (const slug of SLUGS) for (const mode of ['normal', 'tampered', 'control']) {
     const matches = proof.cases.filter(c => c.slug === slug && c.mode === mode);
@@ -79,12 +83,41 @@ export function validateProof(proof) {
     requireGate(mode === 'tampered' ? c.status !== 0 && c.bundleBytes === 0 : c.status === 0 && c.bundleBytes > 8, 'DOCKER_PROOF_EXIT_INVALID');
   }
 }
+export function validateProofBinding(binding, proofBytes, env = process.env) {
+  validateProof(JSON.parse(proofBytes), env);
+  const manifestHash = hash(JSON.stringify(FILES));
+  requireGate(binding?.schemaVersion === 1 && binding.result === 'PASS' &&
+    binding.frozenSourceCommit === TARGET && binding.workflowCommit === env.GITHUB_SHA &&
+    binding.runId === env.GITHUB_RUN_ID && binding.runAttempt === env.GITHUB_RUN_ATTEMPT &&
+    binding.beforeSourceManifestSha256 === manifestHash && binding.afterSourceManifestSha256 === manifestHash &&
+    binding.proofSha256 === hash(proofBytes), 'DOCKER_PROOF_BINDING_MISMATCH');
+}
+export function runDockerProof(root) {
+  assertContext();
+  const before = verifyFrozen(root);
+  const base = path.join(root, '.build/edge-bundle-proof');
+  requireGate(!existsSync(base), 'DOCKER_PROOF_STALE_DIRECTORY');
+  // Run the UNMODIFIED script from the verified frozen checkout. Do not override GITHUB_SHA.
+  execFileSync(process.execPath, [path.join(root, 'scripts/edge-bundle-proof.mjs')], { cwd: root, stdio: 'inherit' });
+  const after = verifyFrozen(root);
+  const proofBytes = readFileSync(path.join(base, 'evidence/report.json'));
+  const binding = { schemaVersion: 1, result: 'PASS', frozenSourceCommit: TARGET,
+    workflowCommit: process.env.GITHUB_SHA, runId: process.env.GITHUB_RUN_ID, runAttempt: process.env.GITHUB_RUN_ATTEMPT,
+    beforeSourceManifestSha256: before.sourceConfigLockManifestSha256,
+    afterSourceManifestSha256: after.sourceConfigLockManifestSha256, proofSha256: hash(proofBytes) };
+  validateProofBinding(binding, proofBytes);
+  writeFileSync(path.join(base, 'evidence/source-binding.json'), JSON.stringify(binding, null, 2) + '\n');
+  console.log(JSON.stringify(binding));
+  return binding;
+}
 export function prepare(root, out) {
   const frozen = verifyFrozen(root);
-  const proof = JSON.parse(readFileSync(path.join(root, '.build/edge-bundle-proof/evidence/report.json'), 'utf8'));
-  validateProof(proof);
+  const proofBytes = readFileSync(path.join(root, '.build/edge-bundle-proof/evidence/report.json'));
+  const proof = JSON.parse(proofBytes);
+  const proofBinding = JSON.parse(readFileSync(path.join(root, '.build/edge-bundle-proof/evidence/source-binding.json'), 'utf8'));
+  validateProofBinding(proofBinding, proofBytes);
   mkdirSync(out, { recursive: true });
-  const manifest = { ...frozen, image: IMAGE, runId: process.env.GITHUB_RUN_ID, workflowCommit: process.env.GITHUB_SHA, bundles: {} };
+  const manifest = { ...frozen, frozenSourceCommit: TARGET, proofBinding, image: IMAGE, runId: process.env.GITHUB_RUN_ID, workflowCommit: process.env.GITHUB_SHA, bundles: {} };
   for (const slug of SLUGS) {
     const raw = readFileSync(path.join(root, `.build/edge-bundle-proof/${slug}-normal/output/output.eszip`));
     requireGate(hash(raw) === proof.cases.find(c => c.slug === slug && c.mode === 'normal').bundleSha256, 'PREPARED_BUNDLE_HASH_MISMATCH');
@@ -92,6 +125,7 @@ export function prepare(root, out) {
     manifest.bundles[slug] = { rawSha256: hash(raw), ezbrSha256: hash(payload), config: configFor(slug) };
     writeFileSync(path.join(out, `${slug}.ezbr`), payload);
   }
+  writeFileSync(path.join(out, 'docker-proof.json'), proofBytes);
   const bytes = JSON.stringify(manifest, null, 2) + '\n';
   writeFileSync(path.join(out, 'manifest.json'), bytes);
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `manifest_sha256=${hash(bytes)}\n`);
@@ -101,13 +135,17 @@ export function loadPrepared(out, expectedManifestHash, env = process.env) {
   const bytes = readFileSync(path.join(out, 'manifest.json'));
   requireGate(/^[a-f0-9]{64}$/.test(expectedManifestHash || '') && hash(bytes) === expectedManifestHash, 'ARTIFACT_MANIFEST_MISMATCH');
   const m = JSON.parse(bytes);
-  requireGate(m.target === TARGET && m.image === IMAGE && m.workflowCommit === env.GITHUB_SHA && m.runId === env.GITHUB_RUN_ID &&
+  requireGate(m.target === TARGET && m.frozenSourceCommit === TARGET && m.image === IMAGE && m.workflowCommit === env.GITHUB_SHA && m.runId === env.GITHUB_RUN_ID &&
     m.sourceConfigLockManifestSha256 === hash(JSON.stringify(FILES)) && JSON.stringify(m.files) === JSON.stringify(FILES), 'ARTIFACT_BINDING_MISMATCH');
+  const proofBytes = readFileSync(path.join(out, 'docker-proof.json'));
+  validateProofBinding(m.proofBinding, proofBytes, env);
+  const proof = JSON.parse(proofBytes);
   requireGate(JSON.stringify(Object.keys(m.bundles).sort()) === JSON.stringify([...SLUGS].sort()), 'ARTIFACT_SLUG_MISMATCH');
   const bundles = {};
   for (const slug of SLUGS) {
     const expected = m.bundles[slug];
     const payload = readFileSync(path.join(out, `${slug}.ezbr`));
+    requireGate(expected.rawSha256 === proof.cases.find(c => c.slug === slug && c.mode === 'normal').bundleSha256, 'ARTIFACT_PROOF_BUNDLE_MISMATCH');
     requireGate(hash(payload) === expected.ezbrSha256 && hash(rawBundle(payload)) === expected.rawSha256 &&
       JSON.stringify(expected.config) === JSON.stringify(configFor(slug)), 'ARTIFACT_BUNDLE_MISMATCH');
     bundles[slug] = { ...expected, payload };
@@ -224,6 +262,7 @@ async function main() {
   const [mode, rootArg, outArg] = process.argv.slice(2);
   const root = path.resolve(rootArg || 'frozen'); const out = path.resolve(outArg || 'prepared');
   if (mode === 'frozen') { console.log(JSON.stringify(verifyFrozen(root))); return; }
+  if (mode === 'proof') { runDockerProof(root); return; }
   if (mode === 'prepare') { assertContext(); prepare(root, out); console.log('FROZEN_DEPLOY_ARTIFACT_PREPARED'); return; }
   if (mode === 'approval') { await checkApproval(out); console.log('HUMAN_APPROVAL_PASS'); return; }
   requireGate(mode === 'deploy', 'UNKNOWN_COMMAND');
