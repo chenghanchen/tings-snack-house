@@ -3,24 +3,62 @@ name: Release checks
 on:
   pull_request:
   push:
-    branches: [main, fix/media-guard-body-limits-locks]
+    branches: [main, fix/media-guard-body-limits-locks, tooling/release-levels]
   workflow_dispatch:
+    inputs:
+      base:
+        description: 'Full previous release SHA; absent/invalid base uses L3'
+        required: false
+        type: string
+
+env:
+  RELEASE_BASE_SHA: ${{ github.event.before || github.event.pull_request.base.sha || inputs.base }}
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  classify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    outputs:
+      level: ${{ steps.level.outputs.level }}
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: level
+        shell: bash
+        run: |
+          # Never let a candidate classifier lower its own review requirements.
+          level=L3
+          policy="$RUNNER_TEMP/trusted-release-level.mjs"
+          if [[ "$RELEASE_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && git merge-base --is-ancestor "$RELEASE_BASE_SHA" HEAD && git show "$RELEASE_BASE_SHA:scripts/release-level.mjs" > "$policy" 2>/dev/null; then
+            result=$(node "$policy" --root "$GITHUB_WORKSPACE" --base "$RELEASE_BASE_SHA" --head HEAD --format level) || result=L3
+            case "$result" in L1|L2|L3) level="$result" ;; *) level=L3 ;; esac
+          fi
+          echo "Trusted base policy gate floor: $level"
+          echo "level=$level" >> "$GITHUB_OUTPUT"
+  test:
+    needs: classify
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RELEASE_GATE_FLOOR: ${{ needs.classify.outputs.level || 'L3' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - uses: denoland/setup-deno@v2
+        if: ${{ needs.classify.outputs.level != 'L1' && needs.classify.outputs.level != 'L2' }}
         with:
           deno-version: v2.9.6
       - name: Initialize version-bound report
@@ -53,6 +91,8 @@ jobs:
           retention-days: 30
 
   edge-bundler:
+    needs: classify
+    if: ${{ always() && needs.classify.outputs.level != 'L1' && needs.classify.outputs.level != 'L2' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -75,6 +115,8 @@ jobs:
           retention-days: 30
 
   media-concurrency:
+    needs: classify
+    if: ${{ always() && needs.classify.outputs.level != 'L1' && needs.classify.outputs.level != 'L2' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

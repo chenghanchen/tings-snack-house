@@ -3,7 +3,39 @@
 本文件只定义发布规则；实际结果写入 [RELEASE-HISTORY.md](RELEASE-HISTORY.md)。
 **以后每次“发布”必须生成绑定完整 Git SHA 的 Release Report 并记录结果。**
 
-## 必需门禁
+## L1 / L2 / L3 分级（优先于下文旧版全量流程）
+
+发布范围是明确的完整 `base..head`，不是默认 `HEAD^`。分类器 `scripts/release-level.mjs` 只读 Git 对象，不部署、不开生产连接；多种修改取最高级，无法确认范围/路径/依赖关系则 L3。不得用提交标题、`[CF-Pages-Skip]` 或手工 `--level L1` 降级。
+
+| 等级 | 必需验证 |
+| --- | --- |
+| L1 纯 UI/样式/文案/被动静态资源 | 前端资源/语法/UI 测试、安全扫描、Cloudflare 精确版本、独立 Desktop/Mobile Smoke Test、生产前端资源一致性 |
+| L2 已明确识别的普通业务逻辑 | 完整非数据库自动测试、安全扫描、Desktop/Mobile 与业务/游客拒绝路径 Smoke Test、前端生产版本；数据库测试和 Supabase 核验按实际依赖要求 |
+| L3 高风险或不确定修改 | 下文全部原有门禁，加上明确保留的冻结版本、Docker 正常/篡改/恢复证明、人工 production approval、冻结源码生产 MATCH |
+
+所有等级仍需干净且已提交的 Git、main 同步、Release Report 与 Release History。`NOT_REQUIRED` 仅表示与本等级无关，**不是 PASS**；L1 不运行数据库/Edge/Supabase gate，缺 Supabase baseline 不会使 L1 INCOMPLETE。已观察到的明确 FAIL 不会被隐藏。L2 没有数据库依赖时 database 为 NOT_REQUIRED；目前所有 SQL、RLS、Edge Function 修改都直接属于 L3，相关性不明确也升级 L3，不猜测一个过小的数据库测试集合。
+
+当前规则为保守白名单：根目录 CSS、指定被动 assets/images/fonts 格式、无脚本且结构不变的 HTML 文案/展示属性、普通文档，以及已审查的 UI 辅助测试可为 L1。少量普通客户端模块可为 L2；若其中含金额、认证、权限或后端操作则升级 L3。`app.js`/管理员/账户/钱包/订单/营销金额/Storage 删除、所有 SQL 与 `supabase/`、依赖锁、发布工具、工作流和发布规则均 L3。未知 JS、可执行/结构变化的 HTML、CSS 活跃导入、删除、符号链接、子模块、改名的旧路径都不会被低等级白名单掩盖。
+
+操作示例（以下分类命令均只读）：
+
+```text
+node scripts/release-level.mjs --base <完整的上次发布或同步前main SHA> --head HEAD
+node scripts/release-report.mjs init --version HEAD --base <同一完整base SHA>
+node scripts/release-level.mjs --base fc29a0d1448bf4f834e93913a4596b37875fb6e0 --head bc6f03dec64e898da40fa252d2e5e82db71ef45b
+```
+
+`bc6f03d` 对上述真实前置 main 的 diff 只有 `styles.css` 和 `scripts/check-success-hero.cjs`，应判 **L1**。该辅助脚本仅在新增且内容 SHA-256 与已审核历史 fixture 完全一致时被接受；修改其代码或其他测试控制默认 L3，不能靠文件名绕过门禁。这不会改写其已封存的 schemaVersion 2 历史报告或把旧 INCOMPLETE 追认成 SUCCESS。
+
+CI push 自动使用 `github.event.before`；PR 使用基分支 SHA 对 checkout 的合并树做完整 diff。手动核验工作流要求输入前一发布完整 SHA；本地用 `--base` 或 `RELEASE_BASE_SHA`。缺历史、全零 base、非祖先、同一 SHA/空 diff、未知变更均回退 L3；未知范围仍阻止成功封存。操作人不能把未发布的中间提交随意指定为 base 来缩小范围，生产阶段必须沿用准备阶段的同一 base/head。
+
+新报告为 schemaVersion 3，记录等级、每文件理由、base/head、diff 指纹和必需 gate；check/render/finalize 均重算分类以拒绝被篡改或过期的计划。旧 schemaVersion 2 只允许读取已提交历史中的一致封存报告，不能作为新报告继续检查/封存，也不自动迁移。L1 的 `tests` 使用 `--frontend-only`，L2 使用 `--business-only`，L3 保留原 Deno frozen + 完整 unit 检查及单独全部 PGlite suites。CI 仅明确 L1/L2 时才免除高风险 Docker/concurrency job；分类失败不会跳过这些 job。
+
+CI 从已审核 base 的 Git 对象提取分类器，以显式 `--root` 检查候选树，不执行候选分类器来决定是否跳过 Docker/concurrency。base 分类器缺失、执行异常或输出未知值时，最低门禁为 L3；`RELEASE_GATE_FLOOR` 只可提高候选分类等级，不能降低。报告加载还核对 CI base/floor。可信边界依赖 base 的审核与工作流代码审查，不防御有权限恶意重写整个工作流的仓库管理员。此次基础设施变更自身属于 L3；专用 `tooling/release-levels` 分支 push 只运行无生产凭据的 Release checks，不调用生产核验或部署工作流。
+
+**L3 安全边界：**分级器不授予 production approval，也不将通用 Tests/Supabase baseline PASS 等同于冻结版本生产 MATCH。通用报告新增 frozenVersion、edgeBundler、productionApproval、productionMatch 必需项；这些项需既有已审核冻结部署工作流的同版本证据。通用 runner 尚未有已审核的专用工作流证据导入器，因此会保持 PENDING，并拒绝将这些项手工改成 PASS 的 schemaVersion 3 报告，而不是凭环境变量或旧版本报告自动 PASS。故本次 CI 全绿不等于 L3 生产 RELEASE SUCCESS；未来接入证据导入需另行审核，不得删除门禁。高风险发布仍必须走原人工审批/冻结部署流程；分级工作不改动该流程或生产设置。
+
+## L3 原有完整必需门禁（L1/L2 以分级表裁剪）
 
 - [ ] Git working tree：发布源码已提交，工作区干净，报告 SHA 等于 HEAD。
 - [ ] Security：源码 Secret 扫描通过，并人工检查 diff，不含服务器密钥、访问令牌或客户资料。
@@ -25,7 +57,7 @@
 PASS 仅代表已列明的验证范围，不是全面安全审计或真实下单写入全链路保证。
 Secret 扫描覆盖 Git 跟踪及未忽略的源码 / 配置，不覆盖忽略文件、二进制资产或 Git 历史，不能替代人工审查。
 
-## 每次发布顺序
+## 原完整发布顺序（按上述等级选择适用步骤）
 
 ```text
 本地修改完成
@@ -90,7 +122,7 @@ npm run release:report -- finalize --version HEAD
 `check` 根据真实退出码、管理 API 和浏览器断言记结果；所有门禁禁止通过 `record` 手写 PASS。工具不执行部署。
 证据不放密码、令牌、客户资料，只使用无敏感参数的日志 / 截图位置或链接。
 未封存报告可重跑，旧结果保存在 JSON `events`；`finalize` 封存并追加历史。
-RELEASE FAILED / INCOMPLETE 封存返回非零，同一 SHA 重复封存不重复追加。封存后不改旧结果，修复版本建立新报告。`render` 会核对已封存历史与报告是否一致；丢失归档不能再次显示成功。新报告使用 schemaVersion 2；旧 schemaVersion 1 报告保留为旧证据，不自动补齐新门禁或升级成成功。
+RELEASE FAILED / INCOMPLETE 封存返回非零，同一 SHA 重复封存不重复追加。封存后不改旧结果，修复版本建立新报告。`render` 会核对已封存历史与报告是否一致；丢失归档不能再次显示成功。新报告使用 schemaVersion 3；旧版报告保留为旧证据，不自动补齐新门禁或升级成成功。
 工具不自动授权 push、创建订单或更改平台权限。
 
 ## CI 自动报告边界
@@ -170,4 +202,4 @@ node --test tests/*.test.mjs
 
 快照 RPC 尚未部署时，顾客端会自动退回原有公开请求，不会阻止页面加载；媒体清理入口则应在对应 Edge Function 部署后再交付店主使用。
 
-仓库中的 `.github/workflows/release-check.yml` 会在 `main`、本批正式修复分支 `fix/media-guard-body-limits-locks` 推送和 Pull Request 时自动运行同一套检查，也支持手动触发。修复分支使用 `[CF-Pages-Skip]` 提交前缀，不触发前端部署；CI 预检通过不等于生产发布成功。
+仓库中的 `.github/workflows/release-check.yml` 会在 `main`、正式修复分支 `fix/media-guard-body-limits-locks`、分级基础设施分支 `tooling/release-levels` 推送和 Pull Request 时自动运行对应分级检查，也支持手动触发。基础设施分支使用 `[CF-Pages-Skip]` 提交前缀，沿用现有 Cloudflare 跳过机制；CI 预检通过不等于生产发布成功。

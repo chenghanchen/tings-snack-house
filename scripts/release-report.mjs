@@ -2,7 +2,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createReport, validateReport, recordCheck, renderReport, appendHistory, outcome, isReleaseOrigin, checkEnvironment } from './release-report-core.mjs';
+import { createReport, validateReport, recordCheck, renderReport, appendHistory, outcome, isReleaseOrigin, checkEnvironment, isGateRequired, L3_GATES } from './release-report-core.mjs';
+import { detectRelease, normalizeGateFloor } from './release-level.mjs';
 import { scanText } from './release-security.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -36,11 +37,23 @@ try {
     if (command === 'init') assertClean();
     if (existsSync(reportFile)) throw new Error('Report already exists; it will not be overwritten');
     const branch = git('branch', '--show-current') || process.env.GITHUB_REF_NAME;
-    report = createReport(version, branch, opt.title || git('log', '-1', '--format=%s'));
+    report = createReport(version, branch, opt.title || git('log', '-1', '--format=%s'), undefined,
+      detectRelease(root, { base: opt.base || process.env.RELEASE_BASE_SHA, head: version, minimumLevel: process.env.RELEASE_GATE_FLOOR }));
     mkdirSync(directory, { recursive: true });
   } else {
     report = validateReport(JSON.parse(readFileSync(reportFile, 'utf8')));
     if (report.version !== version) throw new Error('Report commit mismatch');
+    if (report.schemaVersion === 2) {
+      // Historical reports are read-only and must be backed by committed history.
+      // Deleting schema 3 fields must never downgrade an active L3 release.
+      if (command !== 'render' || !report.finalizedAt || !git('show', 'HEAD:RELEASE-HISTORY.md').includes(`<!-- release:${version} -->\n${renderReport(report)}`.trimEnd()))
+        throw Error('Legacy report is read-only and requires committed archival evidence');
+    } else {
+      if (process.env.RELEASE_BASE_SHA && report.classification.base !== process.env.RELEASE_BASE_SHA) throw Error('Report base differs from trusted CI release range');
+      if (process.env.RELEASE_GATE_FLOOR !== undefined && report.classification.minimumLevel !== normalizeGateFloor(process.env.RELEASE_GATE_FLOOR)) throw Error('Report gate floor differs from trusted CI classification');
+      if (JSON.stringify(detectRelease(root, { base: report.classification.base, head: version, minimumLevel: report.classification.minimumLevel })) !== JSON.stringify(report.classification))
+        throw Error('Stored classification differs from the complete Git diff; refusing stale or edited policy');
+    }
   }
   const save = () => {
     writeFileSync(reportFile, JSON.stringify(report, null, 2) + '\n');
@@ -56,7 +69,9 @@ try {
     report.title = `DIAGNOSTIC ONLY — ${report.title}`;
     recordCheck(report, 'workingTree', 'PENDING', 'Diagnostic run; uncommitted tooling permitted, not release certification and not appended to history');
     for (const [gate, script] of Object.entries({ tests: 'release-check.mjs', database: 'release-database.mjs', security: 'release-security.mjs', guestCheckout: 'check-guest-checkout-live.mjs' })) {
-      const run = spawnSync(process.execPath, [path.join(root, 'scripts', script), ...(gate === 'tests' ? ['--unit-only'] : [])], { cwd: root, env: checkEnvironment(process.env), encoding: 'utf8', timeout: 240_000, maxBuffer: 8 * 1024 * 1024 });
+      if (!isGateRequired(report, gate)) continue;
+      const diagnosticTestFlag = report.classification.level === 'L1' ? '--frontend-only' : report.classification.level === 'L2' ? '--business-only' : '--unit-only';
+      const run = spawnSync(process.execPath, [path.join(root, 'scripts', script), ...(gate === 'tests' ? [diagnosticTestFlag] : [])], { cwd: root, env: checkEnvironment(process.env), encoding: 'utf8', timeout: 240_000, maxBuffer: 8 * 1024 * 1024 });
       const output = `${run.stdout || ''}\n${run.stderr || ''}`;
       const safe = scanText(output, 'diagnostic-output').length ? '[Output withheld: potential credential detected]' : output;
       writeFileSync(path.join(directory, `${gate}.log`), safe);
@@ -66,6 +81,7 @@ try {
     }
     const { liveCheck } = await import('./release-live.mjs');
     for (const gate of ['cloudflare', 'supabase', 'desktop', 'mobile', 'production']) {
+      if (!isGateRequired(report, gate)) continue;
       const check = await liveCheck(gate, { root, version, directory, report });
       if (scanText(check.evidence, 'diagnostic-evidence').length) { check.status = 'FAIL'; check.evidence = 'Evidence withheld: potential credential detected'; }
       recordCheck(report, gate, check.status, check.evidence, undefined, check.requirements);
@@ -82,7 +98,22 @@ try {
     let requirements;
     try {
       assertClean();
-      if (opt.gate === 'workingTree') evidence = 'git status --porcelain: clean; HEAD matches full report SHA';
+      if (report.schemaVersion === 3 && JSON.stringify(detectRelease(root, { base: report.classification.base, head: version, minimumLevel: report.classification.minimumLevel })) !== JSON.stringify(report.classification))
+        throw new Error('Stored classification differs from the complete Git diff; refusing stale or edited policy');
+      if (report.schemaVersion === 3 && !Object.hasOwn(report.checks, opt.gate)) throw new Error('Unknown check gate');
+      if (!isGateRequired(report, opt.gate)) {
+        // This is NOT_REQUIRED, never a fabricated PASS; do not run unrelated APIs/tests.
+        console.log(`${opt.gate}: NOT_REQUIRED (${report.classification.level})`);
+        save();
+        process.exit(0);
+      }
+      if (Object.hasOwn(L3_GATES, opt.gate)) {
+        // Keep the separately audited frozen deployment/approval/MATCH workflow mandatory.
+        // The generic report runner cannot infer these controls from a token, old receipt,
+        // a successful push, or a normal unit-test run. No manual PASS input is accepted.
+        status = 'PENDING';
+        evidence = `L3 requires version-bound ${L3_GATES[opt.gate]} evidence from the audited frozen deployment workflow; generic checks do not certify this control`;
+      } else if (opt.gate === 'workingTree') evidence = 'git status --porcelain: clean; HEAD matches full report SHA';
       else if (opt.gate === 'github') {
         const remote = git('remote', 'get-url', 'origin');
         if (!isReleaseOrigin(remote)) throw new Error('Unexpected origin; verify destination manually');
@@ -97,7 +128,9 @@ try {
       } else {
         const scripts = { security: 'release-security.mjs', tests: 'release-check.mjs', database: 'release-database.mjs', guestCheckout: 'check-guest-checkout-live.mjs' };
         if (!Object.hasOwn(scripts, opt.gate)) throw new Error('Unknown check gate; report/history are verified during save/finalize');
-        const run = spawnSync(process.execPath, [path.join(root, 'scripts', scripts[opt.gate]), ...(opt.gate === 'tests' ? ['--unit-only'] : [])], {
+        const testFlag = report.schemaVersion === 3 && report.classification.level === 'L1' ? '--frontend-only'
+          : report.schemaVersion === 3 && report.classification.level === 'L2' ? '--business-only' : '--unit-only';
+        const run = spawnSync(process.execPath, [path.join(root, 'scripts', scripts[opt.gate]), ...(opt.gate === 'tests' ? [testFlag] : [])], {
           cwd: root, env: checkEnvironment(process.env), encoding: 'utf8', timeout: 240_000, maxBuffer: 8 * 1024 * 1024,
         });
         const output = `${run.stdout || ''}\n${run.stderr || ''}`;
@@ -123,6 +156,8 @@ try {
     const historyFile = path.join(root, 'RELEASE-HISTORY.md');
     if (!report.finalizedAt) {
       assertClean();
+      if (report.schemaVersion === 3 && JSON.stringify(detectRelease(root, { base: report.classification.base, head: version, minimumLevel: report.classification.minimumLevel })) !== JSON.stringify(report.classification))
+        throw new Error('Classification changed before finalization');
       // Refresh the clean-tree gate at the final boundary; appending history is
       // the one intentional post-release source change, documented separately.
       recordCheck(report, 'workingTree', 'PASS', 'Clean release checkout confirmed immediately before history append');

@@ -62,20 +62,29 @@ test('secret scanner reports positions without exposing values; public anon is n
   assert.equal(scanText(jwt('anon'), 'public.js').length, 0);
 });
 
-function fixture() {
+function fixture({ uiOnly = false } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'tings-release-test-'));
   mkdirSync(path.join(root, 'scripts'));
-  for (const file of ['release-report.mjs', 'release-report-core.mjs', 'release-security.mjs', 'release-live.mjs'])
+  for (const file of ['release-report.mjs', 'release-report-core.mjs', 'release-security.mjs', 'release-live.mjs', 'release-level.mjs'])
     copyFileSync(new URL(`../scripts/${file}`, import.meta.url), path.join(root, 'scripts', file));
   writeFileSync(path.join(root, '.gitignore'), '.build/\n');
   writeFileSync(path.join(root, 'RELEASE-HISTORY.md'), '# Release history\n');
   writeFileSync(path.join(root, 'scripts/release-check.mjs'), "console.log('simulated test failure'); process.exit(1);\n");
   const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   git('init', '-b', 'main');
+  git('-c', 'user.name=Release Test', '-c', 'user.email=release@example.test', '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'Fixture release base');
+  let base = git('rev-parse', 'HEAD');
   git('add', '.');
   git('-c', 'user.name=Release Test', '-c', 'user.email=release@example.test', '-c', 'commit.gpgsign=false', 'commit', '-m', 'Fixture');
-  const version = git('rev-parse', 'HEAD');
-  const run = (...args) => spawnSync(process.execPath, ['scripts/release-report.mjs', ...args], { cwd: root, env: checkEnvironment(process.env), encoding: 'utf8' });
+  let version = git('rev-parse', 'HEAD');
+  if (uiOnly) {
+    base = version;
+    writeFileSync(path.join(root, 'styles.css'), 'body { color: black; }');
+    git('add', 'styles.css');
+    git('-c', 'user.name=Release Test', '-c', 'user.email=release@example.test', '-c', 'commit.gpgsign=false', 'commit', '-m', 'UI fixture');
+    version = git('rev-parse', 'HEAD');
+  }
+  const run = (...args) => spawnSync(process.execPath, ['scripts/release-report.mjs', ...args, ...(args[0] === 'init' ? ['--base', base] : [])], { cwd: root, env: checkEnvironment(process.env), encoding: 'utf8' });
   const load = () => JSON.parse(readFileSync(path.join(root, '.build/releases', version, 'report.json'), 'utf8'));
   return { root, git, version, run, load };
 }
@@ -100,13 +109,13 @@ test('CLI records failed checks, refuses manual automated PASS, renders and arch
   assert.equal(readFileSync(path.join(f.root, 'RELEASE-HISTORY.md'), 'utf8'), history);
 });
 
-test('success requires Database plus real report/history persistence; lost history blocks success', () => {
-  const f = fixture();
+test('L1 success requires every selected gate plus actual report/history persistence; lost history blocks success', () => {
+  const f = fixture({ uiOnly: true });
   assert.equal(f.run('init', '--version', 'HEAD').status, 0);
   const report = f.load();
-  for (const gate of Object.keys(GATES).filter(g => !['releaseHistory', 'database'].includes(g))) recordCheck(report, gate, 'PASS', 'Fixture evidence only');
+  for (const gate of report.classification.requiredGates.filter(g => !['releaseHistory', 'mobile'].includes(g))) recordCheck(report, gate, 'PASS', 'Fixture evidence only');
   assert.equal(outcome(report), 'INCOMPLETE');
-  recordCheck(report, 'database', 'PASS', 'Fixture database evidence');
+  recordCheck(report, 'mobile', 'PASS', 'Fixture mobile evidence');
   writeFileSync(path.join(f.root, '.build/releases', f.version, 'report.json'), JSON.stringify(report));
   assert.equal(f.run('render', '--version', 'HEAD').status, 0);
   assert.match(f.run('render', '--version', 'HEAD').stdout, /INCOMPLETE/);
@@ -162,7 +171,7 @@ test('CLI refuses to count skipped tests as a complete pass', () => {
 test('CLI automatically saves missing live credentials and rejects hand-written platform PASS', () => {
   const f = fixture();
   assert.equal(f.run('init', '--version', 'HEAD').status, 0);
-  const run = spawnSync(process.execPath, ['scripts/release-report.mjs', 'check', '--version', 'HEAD', '--gate', 'cloudflare'], { cwd: f.root, encoding: 'utf8', env: { ...process.env, CLOUDFLARE_API_TOKEN: '' } });
+  const run = spawnSync(process.execPath, ['scripts/release-report.mjs', 'check', '--version', 'HEAD', '--gate', 'cloudflare'], { cwd: f.root, encoding: 'utf8', env: { ...checkEnvironment(process.env), CLOUDFLARE_API_TOKEN: '' } });
   assert.equal(run.status, 1);
   assert.equal(f.load().checks.cloudflare.status, 'PENDING');
   assert.match(f.load().checks.cloudflare.evidence, /Missing CLOUDFLARE_API_TOKEN/);
@@ -179,4 +188,23 @@ test('workflow always preserves a report and does not grant repo write/deploy pe
   assert.match(workflow, /if: always\(\)[\s\S]*upload-artifact/);
   assert.match(workflow, /include-hidden-files: true/);
   assert.match(workflow, /npm ci --ignore-scripts/);
+});
+
+test('CLI refuses forged L3 approval and legacy schema downgrade on every report path', () => {
+  const f = fixture();
+  assert.equal(f.run('init', '--version', 'HEAD').status, 0);
+  const file = path.join(f.root, '.build/releases', f.version, 'report.json');
+  const initial = f.load();
+  const forged = structuredClone(initial);
+  forged.checks.productionApproval = { status: 'PASS', checkedAt: new Date().toISOString(), evidence: 'forged approval' };
+  writeFileSync(file, JSON.stringify(forged));
+  for (const command of ['render', 'finalize', 'check']) assert.equal(f.run(command, '--version', 'HEAD', '--gate', 'workingTree').status, 1);
+  const legacy = createReport(f.version, 'main', 'Attempted downgrade');
+  writeFileSync(file, JSON.stringify(legacy));
+  for (const command of ['render', 'finalize', 'check']) assert.equal(f.run(command, '--version', 'HEAD', '--gate', 'workingTree').status, 1);
+  writeFileSync(file, JSON.stringify(initial));
+  const result = spawnSync(process.execPath, ['scripts/release-report.mjs', 'render', '--version', 'HEAD'], {
+    cwd: f.root, encoding: 'utf8', env: { ...checkEnvironment(process.env), RELEASE_GATE_FLOOR: 'L3' },
+  });
+  assert.equal(result.status, 1); assert.match(result.stderr, /gate floor differs/);
 });

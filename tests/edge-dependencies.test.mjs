@@ -27,13 +27,15 @@ test('floating source, changed lock, missing transitive integrity and unfrozen c
     assert.throws(() => validateDependencyPolicy(...f));
   }
 });
-test('release Tests gate always runs Deno; both CI paths install the same exact toolchain', () => {
+test('L3 release Tests gate retains frozen Deno; both CI paths pin the same toolchain', () => {
   const script = read('scripts/release-check.mjs');
   assert.match(script, /check-edge-dependencies\.mjs/);
   assert.match(script, /if \(edge\.error \|\| edge\.status !== 0\) process\.exit/);
+  assert.match(script, /if \(!frontendOnly && !businessOnly\)/);
   for (const file of ['release-check.yml', 'release-production.yml']) {
     const workflow = read('.github/workflows/' + file);
     assert.ok(workflow.includes(`deno-version: v${policy.denoVersion}`));
+    assert.match(workflow, /outputs\.level != 'L1' && .*outputs\.level != 'L2'/);
   }
   const config = read('supabase/config.toml');
   for (const slug of policy.functions) {

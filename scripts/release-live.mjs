@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
+import { isGateRequired } from './release-report-core.mjs';
 
 export const SITE = 'https://tings-snack-house.pages.dev';
 export const PROJECT = 'ragqunnuxsfwhrfqpylg';
@@ -139,6 +140,8 @@ export async function checkAssets(root, version, fetcher = fetch) {
   return result('PASS', `Production HTML/JS/CSS (${assets.join(', ')}) SHA256 matches committed source (CRLF normalized)`);
 }
 
+export const productionPrerequisites = report => ['cloudflare', 'desktop', 'mobile', 'guestCheckout'].filter(key => isGateRequired(report, key));
+
 export async function liveCheck(gate, { root, version, directory, report, env = process.env, fetcher = fetch }) {
   const platformResult = check => ({ ...check, requirements: check.requirements || { deploymentRequired: check.status === 'PASS' ? false : 'UNKNOWN', verificationRequired: true } });
   try {
@@ -147,7 +150,7 @@ export async function liveCheck(gate, { root, version, directory, report, env = 
     if (['desktop', 'mobile'].includes(gate)) return await checkBrowser(gate, directory);
     if (gate === 'production') {
       const assets = await checkAssets(root, version);
-      const missing = ['cloudflare', 'desktop', 'mobile', 'guestCheckout'].filter(key => report.checks[key].status !== 'PASS');
+      const missing = productionPrerequisites(report).filter(key => report.checks[key].status !== 'PASS');
       if (missing.length) return pending(`${assets.evidence}; required checks not PASS: ${missing.join(', ')}`);
       return assets;
     }
