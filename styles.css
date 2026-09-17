@@ -48,7 +48,8 @@
 .lookup-status.cancelled{background:var(--red);color:#fff}.lookup-thumbs{margin-top:0}.lookup-item-count{margin-right:auto;color:#748078;font-size:11px;font-weight:400}
 
 /* Order-success refinements: keep mobile's touch spacing while tightening the desktop dialog. */
-.order-success>.success-hero{padding-top:0;padding-bottom:0}
+/* Center the compact success heading; allow narrow dialogs to use their available width. */
+.order-success>.success-hero{width:min(350.01px,100%);margin-inline:auto;padding-top:0;padding-bottom:0}
 @media(min-width:781px){#orderDialog:has(.order-success:not([hidden])){padding-top:20px;padding-bottom:20px}.success-referral-line{font-size:17px}.success-referral-code{font-size:15px}}
 .order-success #successContactDetails{white-space:pre-line}
 
