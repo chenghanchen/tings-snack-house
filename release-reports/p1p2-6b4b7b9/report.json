@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "scope": "P1/P2 backend production hotfix final closure; not full-site release re-evaluation",
+  "status": "P1/P2 CLOSED",
+  "verification": "PASS",
+  "project": "ragqunnuxsfwhrfqpylg",
+  "frozenCommit": "6b4b7b9d236b1c2b04368e175df1a75521b229ef",
+  "workflowCommit": "b9a1d5d6a28f3b1e3b8f7d4a37a60b4b0b8e488f",
+  "deploymentRequired": false,
+  "verificationRequired": true,
+  "fullSiteReleaseSuccessClaimed": false,
+  "deployment": {
+    "target": "6b4b7b9d236b1c2b04368e175df1a75521b229ef",
+    "workflowCommit": "b9a1d5d6a28f3b1e3b8f7d4a37a60b4b0b8e488f",
+    "runId": 35187125500,
+    "artifactId": 10482930570,
+    "finishedAt": "2026-09-17T06:02:28.204Z",
+    "result": "MATCH",
+    "functions": [
+      {
+        "slug": "submit-order",
+        "version": 6,
+        "status": "ACTIVE",
+        "verifyJwt": true,
+        "rawBundleSha256": "c0fb165d8ee09759bf761a6ef975619a0335a26873dbd5ad4ab8c9feea0d5cd4",
+        "ezbrSha256": "a69b61237e568636f5faeb5b0bed1aaa05725581b5cb01f2f1122997b0d6f13e",
+        "configSha256": "4e9e14af6beaaf2586cc83f5f3b2df5f68fece3784ccdeba6d3248fb6b638440",
+        "sourceConfigLockManifestSha256": "ff412f1a8759552f0dd236c7dd902454fc05f3374ed3d728b2466778efcbdc45",
+        "sourceEvidence": "EXACT_PREBUNDLED_ESZIP_MATCH",
+        "result": "MATCH"
+      },
+      {
+        "slug": "admin-media-cleanup",
+        "version": 4,
+        "status": "ACTIVE",
+        "verifyJwt": true,
+        "rawBundleSha256": "ac0a39444422152b4c8beff6af67faf3116cc0a9f0d8544160218536ceec1f1d",
+        "ezbrSha256": "d24e847c2a0d5ac7f63c7a39a187b9846c2f500f40f3bec1e4627f4a04697c73",
+        "configSha256": "ca539272dc79cfbdf8e9b47e776d774deba13ab087718a5f5a744a7c1a793a50",
+        "sourceConfigLockManifestSha256": "ff412f1a8759552f0dd236c7dd902454fc05f3374ed3d728b2466778efcbdc45",
+        "sourceEvidence": "EXACT_PREBUNDLED_ESZIP_MATCH",
+        "result": "MATCH"
+      }
+    ]
+  },
+  "finalDatabaseVerification": {
+    "at": "2026-09-17T08:02:08.009258+00:00",
+    "source": "https://supabase.com/dashboard/project/ragqunnuxsfwhrfqpylg/sql/c54b6f8d-e171-4c0a-896a-95bca4bb293d",
+    "transactionReadOnly": true,
+    "functionsBodyAndPermissionMatch": 6,
+    "triggersMatch": 9,
+    "protectionTableOwner": "postgres",
+    "rls": true,
+    "policies": 0,
+    "applicationRoleTableGrants": 0,
+    "orders": 43,
+    "storageCount": 7,
+    "fenceRows": 0,
+    "storageMetadataFingerprint": "0102563faf03a2fd9b050c1b89d1769f"
+  },
+  "migration": {
+    "applied": "media-deletion-guard-migration.sql",
+    "sha256": "11c606789374080b086beffbbbdcb579e954c2c7911a60ef7fefcfeebee101ad",
+    "separateRetryMigrationApplied": false,
+    "frozenBlobRecheck": "PASS"
+  },
+  "evidenceChecks": {
+    "productionHttp": "18/18 PASS",
+    "validNonowner403": "PASS",
+    "testObjectCleanup": "PASS",
+    "mediaCleanupResumption": "PASS",
+    "dataFingerprint": "MATCH",
+    "frozenCommit": "MATCH",
+    "bothJwtEnabled": "PASS (current Settings UI)"
+  },
+  "mediaCleanup": {
+    "kind": "Normal owner entry scan; no-op cleanup because all media referenced",
+    "scanned": 7,
+    "referenced": 7,
+    "orphanCandidates": 0,
+    "eligible": 0,
+    "actualDeleted": 0,
+    "errorsObserved": [],
+    "deleteButtonDisabled": true,
+    "uiSummary": "已检查 7 个文件；7 个正在使用，0 个可安全删除（0 B）。",
+    "uiStatus": "没有发现孤立图片。"
+  },
+  "mediaCleanupState": "RESUMED (manual maintenance window ended; no scheduler changed)",
+  "evidenceFiles": [
+    "p1-production-http-smoke.json",
+    "p1-nonowner-auth-result.json",
+    "p1-nonowner-after-cleanup.json",
+    "p1-media-cleanup-resumed.json",
+    "P1-PRODUCTION-MIGRATION-20260917.md",
+    "P1-FULL-REGRESSION-20260917.md"
+  ],
+  "limitations": [
+    "Deployment versions and source/config/lockfile fingerprints use the re-read Management-API-produced deployment artifact from 06:02:28 UTC, not a newly collected bundle. Current Settings UI confirms both JWT switches remain enabled and lists last update as two hours ago; it does not expose a numeric current version.",
+    "Restored first cycle was a normal scan/no-op: no candidates, no delete RPC or Storage delete. No destructive production regression is claimed.",
+    "Storage fingerprint hashes ID/name/updated_at metadata only; it is not a media-byte or full-business-row fingerprint. Earlier migration report used a different fingerprint formula; those digest values are not directly compared.",
+    "No new tests, CI runs, deploys, migrations, database writes, media deletion, source/lockfile edits, main merge or push in this closure turn.",
+    "Local report and scoped history are archived together; repository RELEASE-HISTORY.md and existing historical reports remain unchanged. No repository commit/push claim.",
+    "An initial frozen checker attempt stopped at Git ownership isolation; identical read-only check under the authorized local-user context passed without changing Git configuration."
+  ]
+}

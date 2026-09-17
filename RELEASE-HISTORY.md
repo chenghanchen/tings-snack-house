@@ -60,3 +60,17 @@ Updated: 2026-09-16T11:30:42.294Z
 Production: **NOT VERIFIED HEALTHY**
 
 发布未标记为成功；失败或缺失的检查必须处理，不能推断生产健康。
+
+<!-- p1p2-closure:6b4b7b9d236b1c2b04368e175df1a75521b229ef -->
+## 2026-09-17 · 6b4b7b9 · P1/P2 production closure
+
+**P1/P2 CLOSED · 专项核验 PASS**
+
+Frozen application: `6b4b7b9d236b1c2b04368e175df1a75521b229ef`.
+Workflow/trigger commit: `b9a1d5d6a28f3b1e3b8f7d4a37a60b4b0b8e488f`.
+
+Production evidence: submit-order v6 / admin-media-cleanup v4 MATCH; final read-only guard state and metadata fingerprint match; non-destructive smoke and non-owner 403 passed; exact temporary test objects removed; media cleanup resumed with a normal 7 scanned / 7 referenced / 0 candidates / 0 deleted / 0 errors cycle.
+
+[Final Release Report](release-reports/p1p2-6b4b7b9/report.md) · [JSON evidence index](release-reports/p1p2-6b4b7b9/report.json).
+
+The report is preserved as the final production-verification snapshot; its statements about local-only archival describe the time of that snapshot. This documentation commit archives only the final report and history in Git. Raw supporting evidence (including test-account identifiers) remains local and was not uploaded. It is not a new application release or authorization to redeploy. main synchronization remains a separate, deployment-risk-gated operation. No full-site RELEASE SUCCESS is claimed.
