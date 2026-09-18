@@ -10,6 +10,72 @@ import { productionPrerequisites } from '../scripts/release-live.mjs';
 const base = 'a'.repeat(40), head = 'b'.repeat(40);
 const change = (file, extra = {}) => ({ path: file, status: 'M', before: '', after: '', ...extra });
 const classify = changes => classifyChanges(changes, { base, head });
+function reviewedSuccessUiChanges() {
+  const before = execFileSync('git', ['show', 'bc6f03dec64e898da40fa252d2e5e82db71ef45b:scripts/check-success-hero.cjs'], { cwd: new URL('..', import.meta.url), encoding: 'utf8' });
+  assert.ok(before.includes('Math.min(350.01, result.available)'));
+  return [
+    change('styles.css', { before: '.success-hero{width:min(350.01px,100%)}', after: '.success-hero{width:min(300px,100%)}' }),
+    change('scripts/check-success-hero.cjs', { before, after: before.replace('Math.min(350.01, result.available)', 'Math.min(300, result.available)') }),
+    change('scripts/check-success-dialog.cjs', { status: 'A', after: readFileSync(new URL('./fixtures/release-level/success-dialog.cjs.txt', import.meta.url), 'utf8').replace(/\r\n/g, '\n') }),
+  ];
+}
+
+test('reviewed success CSS + hero update + offline dialog addition together are L1', () => {
+  const changes = reviewedSuccessUiChanges();
+  const plan = classify(changes);
+  assert.equal(plan.level, 'L1'); assert.equal(plan.uncertainty, null);
+  assert.deepEqual(plan.files.map(f => f.level), ['L1', 'L1', 'L1']);
+  assert.equal(plan.databaseScope, 'none'); assert.equal(plan.testScope, 'frontend');
+  assert.ok(!plan.requiredGates.includes('supabase'));
+  const crlf = changes.map(c => ({ ...c, before: c.before.replace(/\r?\n/g, '\r\n'), after: c.after.replace(/\r?\n/g, '\r\n') }));
+  assert.equal(classify(crlf).level, 'L1', 'Git checkout line endings do not invalidate reviewed content');
+});
+
+test('UI allowlist rejects unreviewed content, aliases, deletions and mode changes', () => {
+  const scripts = reviewedSuccessUiChanges().slice(1);
+  for (const script of scripts) {
+    for (const after of ['', script.after + '\nprocess.exit(0);', script.after + '\nfetch("https://example.test/deploy", {method:"POST"});'])
+      assert.equal(classify([{ ...script, after }]).level, 'L3', script.path);
+    assert.equal(classify([{ ...script, status: 'M', before: 'unreviewed prior source' }]).level, 'L3');
+    for (const extra of [{ status: 'D' }, { status: 'R' }, { mode: '120000' }, { mode: '100755' }, { oldMode: '100755' }])
+      assert.equal(classify([{ ...script, ...extra }]).level, 'L3');
+    for (const file of [script.path.replace('scripts/', 'scripts/nested/'), script.path + '.copy.cjs', 'scripts/check-other-ui.cjs'])
+      assert.equal(classify([{ ...script, path: file }]).level, 'L3', file);
+  }
+  assert.equal(classify([{ ...scripts[1], status: 'M', before: scripts[1].after.replace(/\n/g, '\r\n') }]).level, 'L1');
+});
+
+test('reviewed UI never downgrades mixed database/Edge/migration/deploy/security/unknown script changes', () => {
+  const ui = reviewedSuccessUiChanges();
+  for (const file of ['schema.sql', 'media-deletion-guard-migration.sql', 'supabase/migrations/20260917.sql',
+    'supabase/functions/submit-order/index.ts', 'supabase/functions/admin-media-cleanup/deno.lock',
+    'scripts/release-level.mjs', 'scripts/release-report.mjs', 'scripts/release-security.mjs', 'scripts/release-database.mjs',
+    'scripts/deploy.cjs', 'scripts/security-scan.cjs', 'scripts/unknown.cjs', 'scripts/check-unknown.cjs',
+    '.github/workflows/release-check.yml', 'tests/release-level.test.mjs', 'RELEASE-CHECKS.md']) {
+    const risk = change(file, { status: 'A', after: ui[2].after });
+    for (const mixed of [[...ui, risk], [risk, ...ui]]) {
+      const plan = classify(mixed);
+      assert.equal(plan.level, 'L3', file); assert.deepEqual(plan.requiredGates, FULL_GATES, file);
+    }
+  }
+  assert.equal(classifyChanges(ui, { base, head, minimumLevel: 'L3' }).level, 'L3');
+});
+
+test('complete Git diff of reviewed success UI is L1; renaming or modifying the fixture is L3', () => {
+  const f = gitFixture(), changes = reviewedSuccessUiChanges();
+  mkdirSync(path.join(f.root, 'scripts'));
+  for (const c of changes.filter(c => c.status === 'M')) writeFileSync(path.join(f.root, c.path), c.before);
+  const b = f.commit();
+  for (const c of changes) writeFileSync(path.join(f.root, c.path), c.after);
+  const h = f.commit();
+  const plan = detectRelease(f.root, { base: b, head: h });
+  assert.equal(plan.uncertainty, null); assert.equal(plan.level, 'L1');
+  assert.equal(plan.files.length, 3);
+  writeFileSync(path.join(f.root, changes[2].path), changes[2].after + '\nprocess.exit(0);');
+  assert.equal(detectRelease(f.root, { base: h, head: f.commit() }).level, 'L3');
+  f.git('mv', changes[2].path, 'scripts/unknown.cjs');
+  assert.equal(detectRelease(f.root, { base: h, head: f.commit() }).level, 'L3');
+});
 
 test('styles plus allowlisted UI regression support are L1; no unrelated backend gates', () => {
   // The allowlist approves the historical fixture, not future edits to the same path.

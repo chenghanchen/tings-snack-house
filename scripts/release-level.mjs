@@ -7,9 +7,17 @@ export const POLICY_VERSION = 1;
 export const BASE_GATES = Object.freeze(['workingTree', 'tests', 'security', 'github', 'cloudflare', 'desktop', 'mobile', 'production', 'releaseReport', 'releaseHistory']);
 export const FULL_GATES = Object.freeze([...BASE_GATES, 'database', 'supabase', 'guestCheckout', 'frozenVersion', 'edgeBundler', 'productionApproval', 'productionMatch']);
 export const normalizeGateFloor = value => value === undefined ? 'L1' : ['L1', 'L2', 'L3'].includes(value) ? value : 'L3';
-// Only this reviewed historical fixture is UI support. A filename alone must
-// never let modified test/release code bypass the full gates.
-const reviewedUiSupport = new Map([['scripts/check-success-hero.cjs', '8f354a89bd8232d847dad8c8a574cdf5b7bce56095a8d967359c926766d25bd9']]);
+// Exact paths AND reviewed normalized contents, never a scripts/*.cjs glob.
+// Modifications require both sides to be known: removing unknown code is not L1.
+const reviewedUiSupport = new Map([
+  ['scripts/check-success-hero.cjs', new Set([
+    '8f354a89bd8232d847dad8c8a574cdf5b7bce56095a8d967359c926766d25bd9', // historical 350.01px fixture
+    'e9371f11481ba6c3297a40ecd3e64d47c07506a5f50e3a6f6b0e21f5e604ba30', // reviewed 300px fixture
+  ])],
+  ['scripts/check-success-dialog.cjs', new Set([
+    '62001c564682372689e6f86ad457d00b19d495ba74995a7ffa4f1e6d7ac2576d', // offline layout/close-hit-area fixture
+  ])],
+]);
 const ordinary = new Set(['mobile-header.js', 'admin-mobile-nav.js', 'footer-contact-overlay.js', 'activity-announcement.js', 'site-appearance.js']);
 const sha = value => /^[a-f0-9]{40}$/.test(value || '');
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -33,9 +41,10 @@ export function classifyFile(change) {
   }
   if (reviewedUiSupport.has(file)) {
     const expected = reviewedUiSupport.get(file);
-    const matches = source => hash(source.replace(/\r\n/g, '\n')) === expected;
-    return status === 'A' && matches(after) ? answer('L1', 'Exact reviewed UI regression fixture; content fingerprint matched')
-      : answer('L3', 'UI test code changed or not the reviewed fixture');
+    const matches = source => expected.has(hash(source.replace(/\r\n/g, '\n')));
+    return mode === oldMode && matches(after) && (status === 'A' || matches(before))
+      ? answer('L1', 'Exact reviewed UI regression fixture; before/after fingerprints matched where applicable')
+      : answer('L3', 'Unreviewed UI test content or file-mode change');
   }
   if (riskPath.test(file) || ['app.js', 'admin.js', 'supabase-config.js', 'store-settings.js', 'marketing.js', 'category-product-manager.js', 'appearance-settings.js', 'activity-promotions.js'].includes(file))
     return answer('L3', 'High-risk business/security/release control', /^supabase\//.test(file) || /\.sql$/.test(file) || /supabase/.test(file));

@@ -25,7 +25,9 @@ node scripts/release-report.mjs init --version HEAD --base <同一完整base SHA
 node scripts/release-level.mjs --base fc29a0d1448bf4f834e93913a4596b37875fb6e0 --head bc6f03dec64e898da40fa252d2e5e82db71ef45b
 ```
 
-`bc6f03d` 对上述真实前置 main 的 diff 只有 `styles.css` 和 `scripts/check-success-hero.cjs`，应判 **L1**。该辅助脚本仅在新增且内容 SHA-256 与已审核历史 fixture 完全一致时被接受；修改其代码或其他测试控制默认 L3，不能靠文件名绕过门禁。这不会改写其已封存的 schemaVersion 2 历史报告或把旧 INCOMPLETE 追认成 SUCCESS。
+`bc6f03d` 对上述真实前置 main 的 diff 只有 `styles.css` 和 `scripts/check-success-hero.cjs`，应判 **L1**。UI 验证脚本只允许两个精确路径：`scripts/check-success-hero.cjs`（已审核的历史 350.01px 与当前 300px 版本）、`scripts/check-success-dialog.cjs`（已审核的离线布局/关闭按钮验证版本）。新增时目标内容须命中固定 SHA-256；修改时前后内容均须命中该路径的已审核指纹，且文件模式不得改变。仅规范化 CRLF/LF，不忽略其他内容变化。删除、未知内容、同名替身、其他测试/部署/安全脚本均保持 L3，绝不放宽整个 scripts 目录。历史报告不改写，也不将旧 INCOMPLETE 追认成 SUCCESS。
+
+三项 UI 修改单独组成的范围（上述两脚本及 `styles.css`）按已审核内容判 L1；分类器、指纹白名单、分类回归测试与发布规则的变更本身仍为 L3。CI 仍使用已审核 base 策略作最低门禁，因此规则修正必须先独立审核进入可信基线，后续 UI 发布才可使用新规则，不能用候选策略给自身降级。
 
 CI push 自动使用 `github.event.before`；PR 使用基分支 SHA 对 checkout 的合并树做完整 diff。手动核验工作流要求输入前一发布完整 SHA；本地用 `--base` 或 `RELEASE_BASE_SHA`。缺历史、全零 base、非祖先、同一 SHA/空 diff、未知变更均回退 L3；未知范围仍阻止成功封存。操作人不能把未发布的中间提交随意指定为 base 来缩小范围，生产阶段必须沿用准备阶段的同一 base/head。
 
