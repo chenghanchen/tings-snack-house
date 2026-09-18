@@ -47,7 +47,7 @@ const root = path.resolve(__dirname, '..');
           }),
         };
       });
-      assert.ok(Math.abs(result.width - Math.min(350.01, result.available)) < 1, JSON.stringify(result));
+      assert.ok(Math.abs(result.width - Math.min(300, result.available)) < 1, JSON.stringify(result));
       assert.ok(Math.abs(result.left - result.right) < 1, 'hero must remain centered');
       assert.ok(!result.overflow && result.childrenFit, 'hero text must fit at ' + width);
       console.log(`PASS ${production ? 'production success-layout fixture' : 'local'} ${width}px: hero ${result.width.toFixed(2)}px, margins ${result.left.toFixed(2)}/${result.right.toFixed(2)}px`);

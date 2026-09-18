@@ -49,7 +49,7 @@
 
 /* Order-success refinements: keep mobile's touch spacing while tightening the desktop dialog. */
 /* Center the compact success heading; allow narrow dialogs to use their available width. */
-.order-success>.success-hero{width:min(350.01px,100%);margin-inline:auto;padding-top:0;padding-bottom:0}
+.order-success>.success-hero{width:min(300px,100%);margin-inline:auto;padding-top:0;padding-bottom:0}
 @media(min-width:781px){#orderDialog:has(.order-success:not([hidden])){padding-top:20px;padding-bottom:20px}.success-referral-line{font-size:17px}.success-referral-code{font-size:15px}}
 .order-success #successContactDetails{white-space:pre-line}
 
@@ -60,6 +60,26 @@
 .success-order-summary>div:nth-child(3){grid-template-columns:90px minmax(0,1fr);gap:8px;height:auto}
 #submittedFulfillmentNote{white-space:normal;overflow:visible;text-overflow:clip}
 #submittedOrderNumber{font-size:15px}
+/* Success dialog: share typography across devices; keep the close target above
+   the positioned hero, but below the referral explanation overlay (z-index:20). */
+#orderDialog>#closeDialog{z-index:2;pointer-events:auto}
+#successReferralReward>.success-referral-line:first-child{column-gap:10px}
+#successReferralReward>.success-referral-line:first-child>span,#submittedReferralCode{font-size:16px}
+#submittedReferralCode{margin-left:-10px}
+#successReferralReward .success-referral-info{font-size:12px;font-weight:500;padding:3px 10px 1px;margin-top:-3px}
+#successMessage .success-order-summary dt{font-size:16px;white-space:nowrap}
+#successMessage .success-order-summary dt>.success-icon{flex-shrink:0}
+#successMessage .success-order-summary>div{height:auto}
+#successMessage .success-order-summary>div:nth-child(3){grid-template-columns:80px minmax(0,1fr)}
+#successMessage :is(#submittedOrderNumber,#submittedOrderTotal,#submittedFulfillmentNote){min-height:30px;height:auto;padding-block:6px;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+/* The 80px label leaves ~330px for the desktop address without a negative
+   margin. On phones the value uses the remaining width and grows vertically. */
+@media(max-width:780px){
+  #successReferralReward>.success-referral-line:first-child{column-gap:5px;row-gap:8px}
+  #submittedReferralCode{margin-left:0}
+  #successMessage .success-order-summary>div:nth-child(-n+2){grid-template-columns:105px minmax(0,1fr);column-gap:8px}
+  #successMessage .success-order-summary>.success-items-row{grid-template-columns:max-content minmax(0,1fr)}
+}
 .lookup-order-tabs{display:flex;gap:8px}.lookup-order-tab{min-height:39px;padding:0 12px;border:1px solid var(--line);border-radius:7px;background:#fffefa;color:var(--ink);cursor:pointer;font-size:12px;font-weight:700}.lookup-order-tab.active{border-color:var(--red);background:var(--red);color:#fff}.lookup-toolbar-actions{margin-left:auto}.lookup-item-count{display:inline-flex;align-items:center;height:25px;margin:5px auto 0 15px;font-size:15px}.lookup-total>span{margin-top:5px}.lookup-address-content{display:flex;align-items:center;gap:7px;min-width:0}.lookup-address-content>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lookup-fulfillment-pill{flex:none;padding:2px 8px;border:1.25px solid var(--red);border-radius:10px;color:var(--red);font-size:11px;line-height:1.4}.lookup-empty{padding:24px 4px;text-align:center}@media(max-width:600px){#lookupResultToolbar{flex-wrap:wrap}.lookup-order-tabs,.lookup-toolbar-actions{width:100%;margin-left:0}.lookup-order-tabs>*,.lookup-toolbar-actions>*{flex:1;min-height:44px}}@media(max-width:350px){.lookup-toolbar-actions{flex-direction:column}}
 .lookup-order-tabs[hidden]{display:none}.lookup-order-tab{padding-inline:10px}.lookup-retry.lookup-nav-button{padding-inline:5px}.lookup-return.lookup-nav-button{padding-inline:10px}
 .lookup-details{margin-top:0}.lookup-detail-list{margin-top:-5px}.lookup-amounts{margin-bottom:-10px}.lookup-amounts>div:first-child{margin-top:-5px}.lookup-amounts .lookup-final b{font-size:16px}.lookup-note.cancellation-reason b{display:inline;margin-right:6px}.lookup-note.cancellation-reason{margin:10px 0 0;border-radius:10px;line-height:1.65}@media(max-width:600px){#lookupResultToolbar{flex-wrap:nowrap;gap:4px}.lookup-order-tabs,.lookup-toolbar-actions{width:auto;min-width:0;flex:1;gap:4px}.lookup-order-tabs>*,.lookup-toolbar-actions>*{min-width:0;padding-inline:4px!important;font-size:10px}}@media(max-width:350px){.lookup-toolbar-actions{flex-direction:row}}
