@@ -32,6 +32,125 @@ const reviewedUiModules = new Map([
 const riskPath = /(?:^supabase\/|\.sql$|(?:^|\/)(?:AGENTS\.md|RELEASE[^/]*|EDGE[^/]*|MEDIA[^/]*|P1[^/]*|release[^/]*|package(?:-lock)?\.json|deno\.(?:json|lock)|wrangler[^/]*|_headers|_redirects)$|^\.github\/|(?:auth|identity|wallet|checkout|payment|pricing|order|media-cleanup|storage|rls|permission|edge-depend|edge-bundle|request-body))/i;
 const riskyCode = /(?:supabase|\.rpc\s*\(|\.from\s*\(|\.storage\b|auth|jwt|token|role|permission|price|amount|total|discount|tax|payment|checkout|delete|removeItem)/i;
 
+// Release policy, not an application manifest. Expanding this map is L3 review.
+// Keep this module self-contained: CI executes a copy from the trusted base tree.
+const managedResources = Object.freeze({
+  'styles.css': { html: 'index.html', tag: 'link', attribute: 'href' },
+  'mobile-header.js': { html: 'index.html', tag: 'script', attribute: 'src' },
+});
+const normalizedHash = source => hash(source.replace(/\r\n/g, '\n'));
+
+// Recognize actual HTML tags, never matching resource-like strings inside scripts,
+// comments, styles, templates, or foreign/raw-text content. Unknown syntax fails closed.
+function resourceParts(source) {
+  let offset = 0, shape = '';
+  const references = [];
+  while (offset < source.length) {
+    const next = source.indexOf('<', offset);
+    if (next < 0) { shape += source.slice(offset); break; }
+    shape += source.slice(offset, next);
+    const token = /^(?:<!--[\s\S]*?-->|<!doctype[^>]*>|<\/?([a-z][a-z0-9:-]*)\b(?:[^"'<>]|"[^"]*"|'[^']*')*>)/i.exec(source.slice(next));
+    if (!token) throw Error('Unrecognized HTML syntax');
+    let rendered = token[0];
+    offset = next + rendered.length;
+    const name = token[1]?.toLowerCase();
+    if (name && !rendered.startsWith('</')) {
+      if (name === 'base') throw Error('HTML base URL requires reference review');
+      const start = /^<[a-z][a-z0-9:-]*/i.exec(rendered)[0].length;
+      const attrs = new Map(); let pos = start;
+      while (!/^\s*\/?\s*>$/.test(rendered.slice(pos))) {
+        const a = /\s+([a-z_:][a-z0-9_.:-]*)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+))?/iy;
+        a.lastIndex = pos; const m = a.exec(rendered);
+        if (!m || attrs.has(m[1].toLowerCase())) throw Error('Ambiguous HTML attributes');
+        attrs.set(m[1].toLowerCase(), { value: m[2], start: m.index + m[0].lastIndexOf(m[2] || '') });
+        pos = a.lastIndex;
+      }
+      // Both canonical references and suspicious aliases count, including extra consumers.
+      for (const attribute of ['src', 'href']) {
+        const a = attrs.get(attribute); if (!a?.value) continue;
+        const quoted = /^["']/.test(a.value);
+        const raw = quoted ? a.value.slice(1, -1) : a.value;
+        let decoded;
+        try {
+          const entities = raw.replace(/&#(?:x([a-f0-9]+)|(\d+));?/gi, (_, x, d) => String.fromCodePoint(parseInt(x || d, x ? 16 : 10)));
+          if (/&(?!amp;)[a-z][a-z0-9]*;/i.test(entities)) throw Error('Unknown entity');
+          decoded = decodeURIComponent(entities.replace(/&amp;/gi, '&')).replace(/[\t\r\n]/g, '');
+        }
+        catch { throw Error('Unrecognized resource URL encoding'); }
+        for (const [asset, expected] of Object.entries(managedResources)) {
+          if (!decoded.includes(asset)) continue;
+          const prefix = `${asset}?v=`;
+          const version = raw.startsWith(prefix) ? raw.slice(prefix.length) : '';
+          const canonical = quoted && /^[a-zA-Z0-9._-]+$/.test(version) && name === expected.tag && attribute === expected.attribute &&
+            (name !== 'link' || /^(["'])stylesheet\1$/i.test(attrs.get('rel')?.value || ''));
+          references.push({ asset, version, canonical });
+          if (canonical) {
+            const at = a.start + 1 + prefix.length;
+            // Only version bytes may be masked. All paths, attributes and code stay exact.
+            rendered = rendered.slice(0, at) + '__RESOURCE_VERSION__' + rendered.slice(at + version.length);
+          }
+        }
+      }
+      shape += rendered;
+      if (['script', 'style', 'title', 'textarea', 'svg', 'math', 'template', 'noscript', 'xmp', 'iframe', 'noembed', 'noframes'].includes(name)) {
+        if (/\/\s*>$/.test(token[0])) throw Error('Ambiguous raw-text tag');
+        const close = new RegExp(`</${name}\\s*>`, 'i').exec(source.slice(offset));
+        if (!close) throw Error('Unterminated HTML element');
+        const body = source.slice(offset, offset + close.index);
+        if (!['script', 'style', 'title', 'textarea'].includes(name) && new RegExp(`<${name}\\b`, 'i').test(body)) throw Error('Nested opaque HTML');
+        // Dynamic imports/hidden consumers are not covered by the static reference map.
+        if (Object.keys(managedResources).some(asset => body.includes(asset))) throw Error('Opaque resource consumer requires review');
+        shape += body + close[0]; offset += close.index + close[0].length;
+      }
+    } else shape += rendered;
+  }
+  return { shape, references };
+}
+
+function onlyManagedVersionsChanged(file, before, after) {
+  try {
+    const a = resourceParts(before), b = resourceParts(after);
+    if (before === after || (a.shape !== b.shape && !onlyPresentationStylesChanged(a.shape, b.shape)) ||
+      !b.references.length || a.references.length !== b.references.length) return false;
+    return b.references.every((r, i) => r.canonical && a.references[i].canonical && r.asset === a.references[i].asset &&
+      managedResources[r.asset].html === file && /^[a-f0-9]{64}$/.test(r.version));
+  } catch { return false; }
+}
+
+function checkResourceVersions(git, base, target, changes) {
+  const files = git('ls-tree', '-r', '--name-only', '-z', target).split('\0').filter(f => /\.html$/i.test(f));
+  const relevant = changes.some(c => Object.hasOwn(managedResources, c.path) || /\.html$/i.test(c.path));
+  if (!relevant) return { status: 'NOT_REQUIRED', reason: 'No managed resource or HTML changes' };
+  const checked = [], problems = [];
+  try {
+    const expected = new Map(Object.keys(managedResources).map(asset => {
+      if (!git('ls-tree', target, '--', asset).startsWith('100644 blob ')) throw Error(`Missing/non-regular managed resource: ${asset}`);
+      return [asset, normalizedHash(git('show', `${target}:${asset}`))];
+    }));
+    for (const html of files) {
+      if (!git('ls-tree', target, '--', html).startsWith('100644 blob ')) throw Error(`Non-regular HTML: ${html}`);
+      const parsed = resourceParts(git('show', `${target}:${html}`));
+      for (const ref of parsed.references) {
+        if (!ref.canonical || managedResources[ref.asset].html !== html) problems.push(`Unknown reference: ${html} -> ${ref.asset}`);
+        if (ref.version !== expected.get(ref.asset)) problems.push(`Stale content version: ${html} -> ${ref.asset}`);
+        checked.push({ html, asset: ref.asset, version: ref.version, sha256: expected.get(ref.asset) });
+      }
+    }
+    for (const asset of Object.keys(managedResources)) {
+      if (checked.filter(r => r.asset === asset).length !== 1) problems.push(`Missing/duplicate consumer: ${asset}`);
+      const changed = changes.find(c => c.path === asset);
+      if (changed && changed.before !== changed.after) {
+        // Require a changed cache key as well as a matching target content hash.
+        const old = resourceParts(git('show', `${base}:${managedResources[asset].html}`));
+        const prior = old.references.filter(r => r.asset === asset);
+        const next = checked.filter(r => r.asset === asset);
+        if (prior.length !== 1 || next.length !== 1 || prior[0].version === next[0].version) problems.push(`Unchanged/unknown cache key: ${asset}`);
+      }
+    }
+  } catch (error) { problems.push(error.message); }
+  return { status: problems.length ? 'FAIL' : 'PASS', checked, problems };
+}
+
 // Small, intentionally conservative recognizer, not a general HTML/CSS parser.
 // Preserve every byte outside real style bodies, including all executable content.
 function htmlStyleParts(source) {
@@ -117,6 +236,8 @@ export function classifyFile(change) {
     return answer('L3', 'High-risk business/security/release control', /^supabase\//.test(file) || /\.sql$/.test(file) || /supabase/.test(file));
   if (/^(?:assets|images|fonts)\/[a-zA-Z0-9_./-]+\.(?:png|jpe?g|webp|gif|ico|woff2?|ttf)$/i.test(file)) return answer('L1', 'Passive static asset');
   if (/\.html$/.test(file)) {
+    if (status === 'M' && mode === oldMode && onlyManagedVersionsChanged(file, before.replace(/\r\n/g, '\n'), after.replace(/\r\n/g, '\n')))
+      return answer('L1', 'Managed content-version references and optional reviewed numeric layout changes only; complete Git-tree cache validation still required');
     if (status === 'M' && mode === oldMode && onlyPresentationStylesChanged(before.replace(/\r\n/g, '\n'), after.replace(/\r\n/g, '\n')))
       return answer('L1', 'Only numeric layout declarations in style blocks changed; scripts and remaining HTML byte-identical');
     // Only text/presentation-attribute edits with identical remaining markup are L1.
@@ -176,13 +297,24 @@ export function detectRelease(root, { base, head = 'HEAD', minimumLevel } = {}) 
         before: status === 'A' ? '' : binary ? git('rev-parse', `${base}:${file}`).trim() : blob(base, file),
         after: status === 'D' ? '' : binary ? git('rev-parse', `${target}:${file}`).trim() : blob(target, file) });
     }
-    return classifyChanges(changes, { base, head: target, minimumLevel });
+    const resourceVersions = checkResourceVersions(git, base, target, changes);
+    return { ...classifyChanges(changes, { base, head: target, minimumLevel,
+      uncertainty: resourceVersions.status === 'FAIL' ? `Cache/version release blocked: ${resourceVersions.problems.join('; ')}` : null }), resourceVersions };
   } catch {
     return classifyChanges([], { base: sha(base) ? base : null, head: target || null, minimumLevel, uncertainty: 'Cannot establish complete ancestor diff (missing/invalid base, shallow history, binary/oversized/unknown diff)' });
   }
 }
 
 export function validateClassification(value) {
+  if (value?.resourceVersions?.status === 'FAIL') throw Error(`Cache/version release blocked: ${value.resourceVersions.problems.join('; ')}`);
+  if (value?.resourceVersions && !['PASS', 'NOT_REQUIRED'].includes(value.resourceVersions.status)) throw Error('Invalid resource-version evidence');
+  if (value?.resourceVersions?.status === 'PASS' &&
+    (!Array.isArray(value.resourceVersions.checked) || value.resourceVersions.checked.length !== Object.keys(managedResources).length ||
+      !Array.isArray(value.resourceVersions.problems) || value.resourceVersions.problems.length ||
+      Object.keys(managedResources).some(asset => {
+        const rows = value.resourceVersions.checked.filter(r => r.asset === asset);
+        return rows.length !== 1 || rows[0].html !== managedResources[asset].html || !/^[a-f0-9]{64}$/.test(rows[0].sha256) || rows[0].version !== rows[0].sha256;
+      }))) throw Error('Invalid resource-version evidence');
   if (value?.policyVersion !== POLICY_VERSION || !['L1', 'L2', 'L3'].includes(value.level) || !['L1', 'L2', 'L3'].includes(value.minimumLevel) || !Array.isArray(value.files) || !Array.isArray(value.requiredGates)) throw Error('Invalid release classification');
   const expected = value.level === 'L3' ? FULL_GATES : value.level === 'L2' ? [...BASE_GATES, 'guestCheckout', ...(value.backendChanged ? ['database', 'supabase'] : [])] : BASE_GATES;
   if (JSON.stringify(value.requiredGates) !== JSON.stringify(expected) || (value.uncertainty && value.level !== 'L3') || (!value.uncertainty && (!sha(value.base) || !sha(value.head) || !/^[a-f0-9]{64}$/.test(value.diffFingerprint || '')))) throw Error('Classification/gate policy mismatch');
@@ -200,4 +332,5 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   while (args.length) { const key = args.shift(); if (!allowed.has(key) || !args.length || Object.hasOwn(options, key.slice(2))) throw Error('Use --base FULL_SHA --head REF [--format level]'); options[key.slice(2)] = args.shift(); }
   const result = detectRelease(options.root ? path.resolve(options.root) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), options);
   console.log(options.format === 'level' ? result.level : JSON.stringify(result, null, 2));
+  if (result.resourceVersions?.status === 'FAIL') process.exitCode = 1;
 }

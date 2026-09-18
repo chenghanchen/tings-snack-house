@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, unli
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { GATES, createReport, recordCheck, outcome, renderReport, appendHistory, isReleaseOrigin, checkEnvironment } from '../scripts/release-report-core.mjs';
 import { scanText } from '../scripts/release-security.mjs';
 
@@ -70,6 +71,16 @@ function fixture({ uiOnly = false } = {}) {
   writeFileSync(path.join(root, '.gitignore'), '.build/\n');
   writeFileSync(path.join(root, 'RELEASE-HISTORY.md'), '# Release history\n');
   writeFileSync(path.join(root, 'scripts/release-check.mjs'), "console.log('simulated test failure'); process.exit(1);\n");
+  // Report lifecycle fixtures must satisfy the same managed-cache contract as a release.
+  // These files exist only in this disposable repository, never the real application.
+  const uiAssets = css => {
+    const js = '// unchanged UI fixture\n';
+    const digest = text => createHash('sha256').update(text).digest('hex');
+    writeFileSync(path.join(root, 'styles.css'), css);
+    writeFileSync(path.join(root, 'mobile-header.js'), js);
+    writeFileSync(path.join(root, 'index.html'), `<link rel="stylesheet" href="styles.css?v=${digest(css)}"><script src="mobile-header.js?v=${digest(js)}"></script>`);
+  };
+  if (uiOnly) uiAssets('body { color: gray; }');
   const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   git('init', '-b', 'main');
   git('-c', 'user.name=Release Test', '-c', 'user.email=release@example.test', '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'Fixture release base');
@@ -79,8 +90,8 @@ function fixture({ uiOnly = false } = {}) {
   let version = git('rev-parse', 'HEAD');
   if (uiOnly) {
     base = version;
-    writeFileSync(path.join(root, 'styles.css'), 'body { color: black; }');
-    git('add', 'styles.css');
+    uiAssets('body { color: black; }');
+    git('add', 'styles.css', 'index.html');
     git('-c', 'user.name=Release Test', '-c', 'user.email=release@example.test', '-c', 'commit.gpgsign=false', 'commit', '-m', 'UI fixture');
     version = git('rev-parse', 'HEAD');
   }

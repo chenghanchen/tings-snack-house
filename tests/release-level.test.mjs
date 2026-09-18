@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync, copyFileSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { classifyChanges, detectRelease, FULL_GATES } from '../scripts/release-level.mjs';
 import { createReport, recordCheck, outcome, validateReport, checkEnvironment, renderReport } from '../scripts/release-report-core.mjs';
 import { productionPrerequisites } from '../scripts/release-live.mjs';
@@ -22,7 +22,9 @@ function currentMobileUiChanges() {
     writeFileSync(path.join(f.root, file), before);
     return change(file, { before });
   });
-  f.git('apply', '--unidiff-zero', '--', fileURLToPath(new URL('./fixtures/release-level/mobile-catalog.patch.txt', import.meta.url)));
+  execFileSync('git', ['apply', '--unidiff-zero', '--'], { cwd: f.root,
+    input: readFileSync(new URL('./fixtures/release-level/mobile-catalog.patch.txt', import.meta.url), 'utf8').replace(/\r\n/g, '\n'),
+    stdio: ['pipe', 'pipe', 'pipe'] });
   mobileFixture = changes.map(c => ({ ...c, after: readFileSync(path.join(f.root, c.path), 'utf8') }));
   return mobileFixture;
 }
@@ -172,7 +174,7 @@ test('complete Git diff of reviewed success UI is L1; renaming or modifying the 
   const h = f.commit();
   const plan = detectRelease(f.root, { base: b, head: h });
   assert.equal(plan.uncertainty, null); assert.equal(plan.level, 'L1');
-  assert.equal(plan.files.length, 3);
+  assert.equal(plan.files.length, 4); // Includes synchronized styles.css consumer in index.html.
   writeFileSync(path.join(f.root, changes[2].path), changes[2].after + '\nprocess.exit(0);');
   assert.equal(detectRelease(f.root, { base: h, head: f.commit() }).level, 'L3');
   f.git('mv', changes[2].path, 'scripts/unknown.cjs');
@@ -257,7 +259,22 @@ function gitFixture() {
   const root = mkdtempSync(path.join(tmpdir(), 'release-level-'));
   const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   git('init', '-b', 'main');
-  const commit = () => { git('add', '.'); git('-c', 'user.name=Test', '-c', 'user.email=test@example.test', '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'Local fixture'); return git('rev-parse', 'HEAD'); };
+  writeFileSync(path.join(root, 'styles.css'), 'p{}');
+  writeFileSync(path.join(root, 'mobile-header.js'), readFileSync(new URL('../mobile-header.js', import.meta.url)));
+  writeFileSync(path.join(root, 'index.html'), '<link rel="stylesheet" href="styles.css?v=legacy"><script defer src="mobile-header.js?v=legacy"></script>');
+  // Existing Git fixtures now model a correctly maintained consumer, not stale cache keys.
+  // Negative cache tests explicitly opt out; application/worktree files are never written.
+  const commit = ({ syncVersions = true } = {}) => {
+    if (syncVersions) {
+      let html = readFileSync(path.join(root, 'index.html'), 'utf8');
+      for (const asset of ['styles.css', 'mobile-header.js']) {
+        const digest = createHash('sha256').update(readFileSync(path.join(root, asset), 'utf8').replace(/\r\n/g, '\n')).digest('hex');
+        html = html.replaceAll(new RegExp(`${asset.replace('.', '\\.')}\\?v=[a-zA-Z0-9._-]+`, 'g'), `${asset}?v=${digest}`);
+      }
+      writeFileSync(path.join(root, 'index.html'), html);
+    }
+    git('add', '.'); git('-c', 'user.name=Test', '-c', 'user.email=test@example.test', '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'Local fixture'); return git('rev-parse', 'HEAD');
+  };
   return { root, git, commit };
 }
 test('Git range includes all commits, rename source and deleted risky paths', () => {
@@ -284,16 +301,27 @@ test('CLI skips unrelated APIs and DB execution for L1, and rejects edited class
     const r = run('check', '--version', h, '--gate', gate); assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, /NOT_REQUIRED/);
   }
   const file = path.join(f.root, '.build/releases', h, 'report.json');
-  const report = JSON.parse(readFileSync(file, 'utf8')); report.classification.diffFingerprint = '0'.repeat(64); writeFileSync(file, JSON.stringify(report));
-  assert.equal(run('check', '--version', h, '--gate', 'workingTree').status, 1);
-  assert.equal(run('render', '--version', h).status, 1);
-  assert.equal(run('finalize', '--version', h).status, 1);
+  const original = JSON.parse(readFileSync(file, 'utf8'));
+  for (const tamper of [
+    p => { p.diffFingerprint = '0'.repeat(64); },
+    p => { p.resourceVersions = { status: 'NOT_REQUIRED' }; },
+    p => { delete p.resourceVersions; },
+    p => { p.resourceVersions.checked[0].version = '0'.repeat(64); },
+  ]) {
+    const report = structuredClone(original); tamper(report.classification);
+    writeFileSync(file, JSON.stringify(report));
+    assert.equal(run('check', '--version', h, '--gate', 'workingTree').status, 1);
+    assert.equal(run('render', '--version', h).status, 1);
+    assert.equal(run('finalize', '--version', h).status, 1);
+  }
 });
-test('real bc6f03d diff is L1 when complete known previous-main range is available', () => {
+test('historical styles remain UI but new cache policy refuses to recertify stale historic references', () => {
   const root = path.resolve(new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
   const p = detectRelease(decodeURIComponent(root), { base: 'fc29a0d1448bf4f834e93913a4596b37875fb6e0', head: 'bc6f03dec64e898da40fa252d2e5e82db71ef45b' });
-  assert.equal(p.uncertainty, null, 'Historical L1 proof requires complete Git history; fallback is covered separately');
-  assert.equal(p.level, 'L1'); assert.deepEqual(p.files.map(f => f.path).sort(), ['scripts/check-success-hero.cjs', 'styles.css']);
+  assert.equal(p.level, 'L3'); assert.match(p.uncertainty, /Cache\/version release blocked/);
+  assert.equal(p.resourceVersions.status, 'FAIL');
+  assert.ok(p.files.every(f => f.level === 'L1'));
+  assert.deepEqual(p.files.map(f => f.path).sort(), ['scripts/check-success-hero.cjs', 'styles.css']);
 });
 
 test('base policy evaluates explicit candidate root, not a replacement candidate classifier', () => {
@@ -342,4 +370,119 @@ test('trusted CI floor only escalates; absent/invalid/mixed scope cannot remove 
   const r = createReport(head, 'main', 'L3 evidence cannot be fabricated', undefined, classify([change('app.js')]));
   r.checks.productionApproval = { status: 'PASS', checkedAt: new Date().toISOString(), evidence: 'hand-written' };
   assert.throws(() => validateReport(r), /Unverified L3 evidence/);
+});
+
+test('managed content changed with stale version blocks CLI/report; synchronized references pass', () => {
+  const f = gitFixture(); mkdirSync(path.join(f.root, 'scripts'));
+  for (const file of ['release-report.mjs', 'release-report-core.mjs', 'release-level.mjs', 'release-security.mjs'])
+    copyFileSync(new URL('../scripts/' + file, import.meta.url), path.join(f.root, 'scripts', file));
+  const b = f.commit();
+  writeFileSync(path.join(f.root, 'styles.css'), 'p{color:red}');
+  const h = f.commit({ syncVersions: false }), bad = detectRelease(f.root, { base: b, head: h });
+  assert.equal(bad.level, 'L3'); assert.equal(bad.resourceVersions.status, 'FAIL');
+  assert.match(bad.uncertainty, /Stale content version.*Unchanged\/unknown cache key/);
+  assert.throws(() => createReport(h, 'main', 'must block', undefined, bad), /Cache\/version release blocked/);
+  const cli = spawnSync(process.execPath, ['scripts/release-level.mjs', '--base', b, '--head', h, '--format', 'level'], { cwd: f.root, encoding: 'utf8' });
+  assert.equal(cli.status, 1); assert.equal(cli.stdout.trim(), 'L3');
+  const report = spawnSync(process.execPath, ['scripts/release-report.mjs', 'init', '--version', h, '--base', b], { cwd: f.root, encoding: 'utf8' });
+  assert.equal(report.status, 1); assert.match(report.stderr, /Cache\/version release blocked/);
+  const fixed = detectRelease(f.root, { base: b, head: f.commit() });
+  assert.equal(fixed.level, 'L1'); assert.equal(fixed.resourceVersions.status, 'PASS');
+  assert.equal(fixed.resourceVersions.checked.length, 2);
+});
+
+test('version-only migration from legacy keys requires actual target hashes; no runtime source changes', () => {
+  const f = gitFixture(), b = f.commit({ syncVersions: false });
+  const h = f.commit(), plan = detectRelease(f.root, { base: b, head: h });
+  assert.equal(plan.level, 'L1'); assert.equal(plan.resourceVersions.status, 'PASS');
+  assert.deepEqual(plan.files.map(f => f.path), ['index.html']);
+  assert.ok(!plan.requiredGates.includes('productionApproval'));
+  assert.equal(detectRelease(f.root, { base: b, head: h, minimumLevel: 'L3' }).level, 'L3');
+  const html = readFileSync(path.join(f.root, 'index.html'), 'utf8');
+  writeFileSync(path.join(f.root, 'index.html'), html.replace(/styles.css\?v=[a-f0-9]{64}/, 'styles.css?v=' + '0'.repeat(64)));
+  const wrong = detectRelease(f.root, { base: b, head: f.commit({ syncVersions: false }) });
+  assert.equal(wrong.level, 'L3'); assert.equal(wrong.resourceVersions.status, 'FAIL');
+});
+
+test('reviewed mobile module still requires cache update; new JS behavior never becomes L1', () => {
+  const f = gitFixture(), ui = currentMobileUiChanges()[1];
+  writeFileSync(path.join(f.root, 'mobile-header.js'), ui.before); const b = f.commit();
+  writeFileSync(path.join(f.root, 'mobile-header.js'), ui.after);
+  assert.equal(detectRelease(f.root, { base: b, head: f.commit({ syncVersions: false }) }).resourceVersions.status, 'FAIL');
+  assert.equal(detectRelease(f.root, { base: b, head: f.commit() }).level, 'L1');
+  writeFileSync(path.join(f.root, 'mobile-header.js'), ui.after + '\nfetch("/write", {method:"POST"});');
+  const plan = detectRelease(f.root, { base: b, head: f.commit() });
+  assert.equal(plan.resourceVersions.status, 'PASS'); assert.equal(plan.level, 'L3');
+  assert.deepEqual(plan.requiredGates, FULL_GATES);
+});
+
+test('all HTML consumers checked, including unchanged, missing, duplicate and nested consumers', () => {
+  for (const extra of [
+    '<link rel="stylesheet" href="styles.css?v=legacy">',
+    '<script src="/mobile-header.js?v=legacy"></script>',
+    '<script src="https://example.test/mobile-header.js?v=legacy"></script>',
+    '<script src="mobile-header%2Ejs?v=legacy"></script>',
+    '<script src="mobile-header&#46;js?v=legacy"></script>',
+    '<script src="mobile-header&period;js?v=legacy"></script>',
+    '<script src="mobile-\nheader.js?v=legacy"></script>',
+  ]) {
+    const f = gitFixture(); writeFileSync(path.join(f.root, 'admin.html'), extra);
+    const b = f.commit(); writeFileSync(path.join(f.root, 'styles.css'), 'p{margin:1px}');
+    const plan = detectRelease(f.root, { base: b, head: f.commit() });
+    assert.equal(plan.resourceVersions.status, 'FAIL', extra); assert.equal(plan.level, 'L3');
+  }
+  const f = gitFixture(), b = f.commit();
+  mkdirSync(path.join(f.root, 'nested')); writeFileSync(path.join(f.root, 'nested/page.html'), '<link rel="stylesheet" href="../styles.css?v=legacy">');
+  assert.equal(detectRelease(f.root, { base: b, head: f.commit() }).resourceVersions.status, 'FAIL');
+  const g = gitFixture(), old = g.commit();
+  writeFileSync(path.join(g.root, 'index.html'), '<p>No managed consumers</p>');
+  assert.equal(detectRelease(g.root, { base: old, head: g.commit() }).resourceVersions.status, 'FAIL');
+  const unicode = gitFixture(), prior = unicode.commit();
+  writeFileSync(path.join(unicode.root, '备用.html'), '<link rel="stylesheet" href="styles.css?v=legacy">');
+  assert.equal(detectRelease(unicode.root, { base: prior, head: unicode.commit() }).resourceVersions.status, 'FAIL');
+});
+
+test('HTML version allowlist cannot mask path, executable attributes, duplicate attributes or opaque lookalikes', () => {
+  const f = gitFixture(), b = f.commit({ syncVersions: false }); f.commit();
+  const good = readFileSync(path.join(f.root, 'index.html'), 'utf8');
+  const original = f.git('show', b + ':index.html');
+  for (const html of [
+    good.replace('styles.css?', '/styles.css?'), good.replace('styles.css?', 'other.css?'),
+    good.replace('defer', 'async'), good.replace('<script ', '<script onload="pay()" '),
+    good.replace('<script ', '<script src="unknown.js" '),
+    good.replace('<link ', '<link href="unknown.css" '),
+    good + '<base href="https://example.test/">', good + '<script>pay()</script>',
+    good + '<link rel="stylesheet" href="styles.css?v=legacy">',
+    '<!--' + good + '-->', '<template>' + good + '</template>',
+    '<script>const x=`' + good + '`;</script>',
+  ]) assert.equal(classify([change('index.html', { before: original, after: html })]).level, 'L3', html);
+  writeFileSync(path.join(f.root, 'index.html'), good.replace('defer', 'async'));
+  assert.equal(detectRelease(f.root, { base: b, head: f.commit() }).level, 'L3');
+});
+
+test('infrastructure-only staging does not update legacy resources or waive cache failures on mixed diffs', () => {
+  const f = gitFixture(); mkdirSync(path.join(f.root, 'scripts'));
+  const b = f.commit({ syncVersions: false });
+  writeFileSync(path.join(f.root, 'scripts/release-level.mjs'), '// infrastructure-only fixture');
+  const infrastructure = detectRelease(f.root, { base: b, head: f.commit({ syncVersions: false }) });
+  assert.equal(infrastructure.level, 'L3'); assert.equal(infrastructure.resourceVersions.status, 'NOT_REQUIRED');
+  writeFileSync(path.join(f.root, 'styles.css'), 'p{color:red}');
+  const mixed = detectRelease(f.root, { base: b, head: f.commit({ syncVersions: false }) });
+  assert.equal(mixed.level, 'L3'); assert.equal(mixed.resourceVersions.status, 'FAIL');
+  assert.throws(() => createReport(mixed.head, 'main', 'mixed', undefined, mixed), /Cache\/version release blocked/);
+});
+
+test('actual production HTML version-only proposal is L1 only after both hashes match', () => {
+  const f = gitFixture();
+  for (const file of ['index.html', 'admin.html', 'styles.css', 'mobile-header.js', 'supabase/templates/customer-otp.html']) {
+    mkdirSync(path.dirname(path.join(f.root, file)), { recursive: true });
+    writeFileSync(path.join(f.root, file), readFileSync(new URL('../' + file, import.meta.url)));
+  }
+  const b = f.commit({ syncVersions: false }), h = f.commit();
+  const p = detectRelease(f.root, { base: b, head: h });
+  assert.equal(p.resourceVersions.status, 'PASS', JSON.stringify(p.resourceVersions));
+  assert.equal(p.level, 'L1'); assert.deepEqual(p.files.map(f => f.path), ['index.html']);
+  // Matching cache keys are not a way to downgrade a simultaneous backend migration.
+  writeFileSync(path.join(f.root, 'migration.sql'), 'select 1;');
+  assert.equal(detectRelease(f.root, { base: b, head: f.commit() }).level, 'L3');
 });

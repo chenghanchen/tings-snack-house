@@ -45,6 +45,24 @@ CI 从已审核 base 的 Git 对象提取分类器，以显式 `--root` 检查�
 
 **L3 安全边界：**分级器不授予 production approval，也不将通用 Tests/Supabase baseline PASS 等同于冻结版本生产 MATCH。通用报告新增 frozenVersion、edgeBundler、productionApproval、productionMatch 必需项；这些项需既有已审核冻结部署工作流的同版本证据。通用 runner 尚未有已审核的专用工作流证据导入器，因此会保持 PENDING，并拒绝将这些项手工改成 PASS 的 schemaVersion 3 报告，而不是凭环境变量或旧版本报告自动 PASS。故本次 CI 全绿不等于 L3 生产 RELEASE SUCCESS；未来接入证据导入需另行审核，不得删除门禁。高风险发布仍必须走原人工审批/冻结部署流程；分级工作不改动该流程或生产设置。
 
+### 受管理资源引用与缓存版本门禁
+
+以下新门禁优先于前述历史 UI 示例的可发布判断。文件职责为 L1 不等于缓存检查通过；`bc6f03d` 的两个文件仍属 L1，但旧提交没有同步内容版本，使用新策略重新验证该历史范围会得到 L3 + 缓存 FAIL，不能重新签署发布成功。历史报告保持原样。
+
+当前明确管理的生产引用只有两项，扩充关系表属于 L3 基础设施审核，不自动信任新的文件名或消费者：
+
+| 生产资源 | 唯一 HTML 消费者 | 允许的引用 |
+| --- | --- | --- |
+| `styles.css` | `index.html` | `link rel="stylesheet" href="styles.css?v=<SHA-256>"` |
+| `mobile-header.js` | `index.html` | `script src="mobile-header.js?v=<SHA-256>"`，其他属性不变 |
+
+- 版本为目标 Git blob 内容统一 CRLF → LF 后的完整小写 64 位 SHA-256，不使用手写日期。该规则只涉及上述受管理资源，不宣称其他 CSS/JS 已有内容版本保护；未知脚本和关系仍需 L3 审核。
+- 完整 `base..head` 中任一受管理资源或任一 HTML 改动，都会检查候选 Git 树的**全部已跟踪 HTML**，包含未修改的消费者。两项引用均须各出现一次且匹配目标资源指纹。缺失、重复、其他消费者、非规范 URL/编码、符号链接、无法解释的 HTML 或不匹配指纹均 fail-closed。资源内容变化时，缓存键还必须相对 base 改变。旧缓存键恰好等于新内容指纹也不能作为重用 URL 的理由。
+- 仅改变这两项引用的版本，可从旧日期键迁移到正确内容指纹，归 L1；可同时包含既有白名单认可的内联数值布局变化。路径、执行属性、脚本正文和其余结构不得因此被掩盖。SQL、Auth/RLS、Storage 删除、Edge Functions、部署/安全/分类脚本等混合变化仍取最高 L3。
+- `detectRelease` 生成 `resourceVersions` 证据。失败时返回 L3、明确的 FAIL 与阻断原因；分类 CLI 返回非零，报告初始化/校验拒绝失败证据。即使提高 L3 gate floor 也不能绕过缓存失败。报告 check/render/finalize 继续从同一 base/head 重算，不能手改为 PASS/NOT_REQUIRED。仅调用 `classifyChanges` 的文件职责测试不是发布凭证。
+- **分阶段边界：**纯分类器/测试/文档提交没有资源或 HTML 变化，缓存项为 NOT_REQUIRED，并仍执行完整 L3 CI。它不证明现有旧缓存已修复。本步骤不修改实际页面、CSS/JS 或版本；之后必须单独更新实际引用，再作为新 L1 发布范围验证。混合资源变化不能利用此豁免。
+- 本门禁不改变可信 base 策略、L3 冻结版本、人工 production approval 或 Production MATCH。CI PASS 不代表生产部署获准，也不替代之后保留旧浏览器缓存的 Desktop/Mobile 验证。
+
 ## L3 原有完整必需门禁（L1/L2 以分级表裁剪）
 
 - [ ] Git working tree：发布源码已提交，工作区干净，报告 SHA 等于 HEAD。
