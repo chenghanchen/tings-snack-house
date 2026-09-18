@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 3,
+  "version": "1b0ac4a0ec73c5def8a60049fa7c325f45a86afc",
+  "branch": "main",
+  "title": "style: refine mobile catalog and prevent narrow tablet overflow",
+  "createdAt": "2026-09-18T07:08:58.660Z",
+  "updatedAt": "2026-09-18T07:09:42.712Z",
+  "classification": {
+    "policyVersion": 1,
+    "base": "0b0262fcf2cbbc32cc9d07b0f6a7b4c639b1e4a6",
+    "head": "1b0ac4a0ec73c5def8a60049fa7c325f45a86afc",
+    "level": "L1",
+    "minimumLevel": "L1",
+    "uncertainty": null,
+    "files": [
+      {
+        "path": "index.html",
+        "status": "M",
+        "level": "L1",
+        "reason": "Only numeric layout declarations in style blocks changed; scripts and remaining HTML byte-identical",
+        "backend": false
+      },
+      {
+        "path": "mobile-header.js",
+        "status": "M",
+        "level": "L1",
+        "reason": "Reviewed DOM-only UI module; both source fingerprints match the audited presentation scope",
+        "backend": false
+      },
+      {
+        "path": "styles.css",
+        "status": "M",
+        "level": "L1",
+        "reason": "Stylesheet only",
+        "backend": false
+      }
+    ],
+    "diffFingerprint": "18ba187ed24192e7af5e48063d114ed0459a5fd121e9d5c762c364810cc10992",
+    "backendChanged": false,
+    "databaseScope": "none",
+    "testScope": "frontend",
+    "requiredGates": [
+      "workingTree",
+      "tests",
+      "security",
+      "github",
+      "cloudflare",
+      "desktop",
+      "mobile",
+      "production",
+      "releaseReport",
+      "releaseHistory"
+    ]
+  },
+  "checks": {
+    "workingTree": {
+      "status": "PASS",
+      "evidence": "Clean release checkout confirmed immediately before history append",
+      "checkedAt": "2026-09-18T07:09:42.710Z"
+    },
+    "tests": {
+      "status": "PASS",
+      "evidence": "node scripts/release-check.mjs; exit=0; log=tests-1789715371869.log",
+      "checkedAt": "2026-09-18T07:09:31.872Z"
+    },
+    "database": {
+      "status": "NOT_REQUIRED",
+      "evidence": "L1: outside classified release scope",
+      "checkedAt": "2026-09-18T07:08:58.660Z"
+    },
+    "security": {
+      "status": "PASS",
+      "evidence": "node scripts/release-security.mjs; exit=0; log=security-1789715372144.log",
+      "checkedAt": "2026-09-18T07:09:32.148Z"
+    },
+    "github": {
+      "status": "PASS",
+      "evidence": "Read-only ls-remote verified origin/main equals the full release SHA",
+      "checkedAt": "2026-09-18T07:09:32.588Z"
+    },
+    "cloudflare": {
+      "status": "PASS",
+      "evidence": "Cloudflare production deployment=3a2d14d4-818c-4b05-9782-d82593902d73; SHA=1b0ac4a0ec73c5def8a60049fa7c325f45a86afc; deploy=success; site=https://tings-snack-house.pages.dev",
+      "checkedAt": "2026-09-18T07:09:33.286Z",
+      "requirements": {
+        "deploymentRequired": false,
+        "verificationRequired": true
+      }
+    },
+    "supabase": {
+      "status": "NOT_REQUIRED",
+      "evidence": "L1: outside classified release scope",
+      "checkedAt": "2026-09-18T07:08:58.660Z"
+    },
+    "desktop": {
+      "status": "PASS",
+      "evidence": "https://tings-snack-house.pages.dev; 1710x1180; isolated Chromium; products/cart/checkout/pickup/delivery/layout; no order submitted; desktop.json; desktop-checkout.png",
+      "checkedAt": "2026-09-18T07:09:38.012Z"
+    },
+    "mobile": {
+      "status": "PASS",
+      "evidence": "https://tings-snack-house.pages.dev; 390x844; isolated Chromium mobile emulation (not physical device); products/cart/checkout/pickup/delivery/layout; no order submitted; mobile.json; mobile-checkout.png",
+      "checkedAt": "2026-09-18T07:09:40.303Z"
+    },
+    "guestCheckout": {
+      "status": "NOT_REQUIRED",
+      "evidence": "L1: outside classified release scope",
+      "checkedAt": "2026-09-18T07:08:58.660Z"
+    },
+    "production": {
+      "status": "PASS",
+      "evidence": "Production HTML/JS/CSS (index.html, app.js, styles.css, customer-account.js, supabase-config.js) SHA256 matches committed source (CRLF normalized)",
+      "checkedAt": "2026-09-18T07:09:41.342Z"
+    },
+    "releaseReport": {
+      "status": "PASS",
+      "evidence": "report.json and report.md generated and verified by read-back",
+      "checkedAt": "2026-09-18T07:08:58.662Z"
+    },
+    "releaseHistory": {
+      "status": "PASS",
+      "evidence": "RELEASE-HISTORY.md archived with version marker and exact report; read-back verified",
+      "checkedAt": "2026-09-18T07:09:42.712Z"
+    },
+    "frozenVersion": {
+      "status": "NOT_REQUIRED",
+      "evidence": "L1: outside classified release scope",
+      "checkedAt": "2026-09-18T07:08:58.660Z"
+    },
+    "edgeBundler": {
+      "status": "NOT_REQUIRED",
+      "evidence": "L1: outside classified release scope",
+      "checkedAt": "2026-09-18T07:08:58.660Z"
+    },
+    "productionApproval": {
+      "status": "NOT_REQUIRED",
+      "evidence": "L1: outside classified release scope",
+      "checkedAt": "2026-09-18T07:08:58.660Z"
+    },
+    "productionMatch": {
+      "status": "NOT_REQUIRED",
+      "evidence": "L1: outside classified release scope",
+      "checkedAt": "2026-09-18T07:08:58.660Z"
+    }
+  },
+  "events": [
+    {
+      "gate": "releaseReport",
+      "status": "PASS",
+      "evidence": "report.json and report.md generated and verified by read-back",
+      "checkedAt": "2026-09-18T07:08:58.662Z"
+    },
+    {
+      "gate": "workingTree",
+      "status": "PASS",
+      "evidence": "git status --porcelain: clean; HEAD matches full report SHA",
+      "checkedAt": "2026-09-18T07:09:31.150Z"
+    },
+    {
+      "gate": "tests",
+      "status": "PASS",
+      "evidence": "node scripts/release-check.mjs; exit=0; log=tests-1789715371869.log",
+      "checkedAt": "2026-09-18T07:09:31.872Z"
+    },
+    {
+      "gate": "security",
+      "status": "PASS",
+      "evidence": "node scripts/release-security.mjs; exit=0; log=security-1789715372144.log",
+      "checkedAt": "2026-09-18T07:09:32.148Z"
+    },
+    {
+      "gate": "github",
+      "status": "PASS",
+      "evidence": "Read-only ls-remote verified origin/main equals the full release SHA",
+      "checkedAt": "2026-09-18T07:09:32.588Z"
+    },
+    {
+      "gate": "cloudflare",
+      "status": "PASS",
+      "evidence": "Cloudflare production deployment=3a2d14d4-818c-4b05-9782-d82593902d73; SHA=1b0ac4a0ec73c5def8a60049fa7c325f45a86afc; deploy=success; site=https://tings-snack-house.pages.dev",
+      "checkedAt": "2026-09-18T07:09:33.286Z",
+      "requirements": {
+        "deploymentRequired": false,
+        "verificationRequired": true
+      }
+    },
+    {
+      "gate": "desktop",
+      "status": "PASS",
+      "evidence": "https://tings-snack-house.pages.dev; 1710x1180; isolated Chromium; products/cart/checkout/pickup/delivery/layout; no order submitted; desktop.json; desktop-checkout.png",
+      "checkedAt": "2026-09-18T07:09:38.012Z"
+    },
+    {
+      "gate": "mobile",
+      "status": "PASS",
+      "evidence": "https://tings-snack-house.pages.dev; 390x844; isolated Chromium mobile emulation (not physical device); products/cart/checkout/pickup/delivery/layout; no order submitted; mobile.json; mobile-checkout.png",
+      "checkedAt": "2026-09-18T07:09:40.303Z"
+    },
+    {
+      "gate": "production",
+      "status": "PASS",
+      "evidence": "Production HTML/JS/CSS (index.html, app.js, styles.css, customer-account.js, supabase-config.js) SHA256 matches committed source (CRLF normalized)",
+      "checkedAt": "2026-09-18T07:09:41.342Z"
+    },
+    {
+      "gate": "workingTree",
+      "status": "PASS",
+      "evidence": "Clean release checkout confirmed immediately before history append",
+      "checkedAt": "2026-09-18T07:09:42.710Z"
+    },
+    {
+      "gate": "releaseHistory",
+      "status": "PASS",
+      "evidence": "RELEASE-HISTORY.md archived with version marker and exact report; read-back verified",
+      "checkedAt": "2026-09-18T07:09:42.712Z"
+    }
+  ],
+  "finalizedAt": "2026-09-18T07:09:42.712Z"
+}
