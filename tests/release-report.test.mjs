@@ -78,7 +78,9 @@ function fixture({ uiOnly = false } = {}) {
     const digest = text => createHash('sha256').update(text).digest('hex');
     writeFileSync(path.join(root, 'styles.css'), css);
     writeFileSync(path.join(root, 'mobile-header.js'), js);
-    writeFileSync(path.join(root, 'index.html'), `<link rel="stylesheet" href="styles.css?v=${digest(css)}"><script src="mobile-header.js?v=${digest(js)}"></script>`);
+    writeFileSync(path.join(root, 'customer-account.css'), 'p{}');
+    writeFileSync(path.join(root, 'customer-account.js'), js);
+    writeFileSync(path.join(root, 'index.html'), `<link rel="stylesheet" href="styles.css?v=${digest(css)}"><script src="mobile-header.js?v=${digest(js)}"></script><link rel="stylesheet" href="customer-account.css?v=${digest('p{}')}"><script src="customer-account.js?v=${digest(js)}"></script>`);
   };
   if (uiOnly) uiAssets('body { color: gray; }');
   const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();

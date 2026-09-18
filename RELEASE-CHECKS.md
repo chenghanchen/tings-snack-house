@@ -49,21 +49,25 @@ CI 从已审核 base 的 Git 对象提取分类器，以显式 `--root` 检查�
 
 以下新门禁优先于前述历史 UI 示例的可发布判断。文件职责为 L1 不等于缓存检查通过；`bc6f03d` 的两个文件仍属 L1，但旧提交没有同步内容版本，使用新策略重新验证该历史范围会得到 L3 + 缓存 FAIL，不能重新签署发布成功。历史报告保持原样。
 
-当前明确管理的生产引用只有两项，扩充关系表属于 L3 基础设施审核，不自动信任新的文件名或消费者：
+当前明确管理的生产引用为以下四项，扩充关系表属于 L3 基础设施审核，不自动信任新的文件名或消费者：
 
 | 生产资源 | 唯一 HTML 消费者 | 允许的引用 |
 | --- | --- | --- |
 | `styles.css` | `index.html` | `link rel="stylesheet" href="styles.css?v=<SHA-256>"` |
 | `mobile-header.js` | `index.html` | `script src="mobile-header.js?v=<SHA-256>"`，其他属性不变 |
+| `customer-account.css` | `index.html` | `link rel="stylesheet" href="customer-account.css?v=<SHA-256>"` |
+| `customer-account.js` | `index.html` | `script src="customer-account.js?v=<SHA-256>"`，其他属性不变 |
 
 - 版本为目标 Git blob 内容统一 CRLF → LF 后的完整小写 64 位 SHA-256，不使用手写日期。该规则只涉及上述受管理资源，不宣称其他 CSS/JS 已有内容版本保护；未知脚本和关系仍需 L3 审核。
-- 完整 `base..head` 中任一受管理资源或任一 HTML 改动，都会检查候选 Git 树的**全部已跟踪 HTML**，包含未修改的消费者。两项引用均须各出现一次且匹配目标资源指纹。缺失、重复、其他消费者、非规范 URL/编码、符号链接、无法解释的 HTML 或不匹配指纹均 fail-closed。资源内容变化时，缓存键还必须相对 base 改变。旧缓存键恰好等于新内容指纹也不能作为重用 URL 的理由。
-- 仅改变这两项引用的版本，可从旧日期键迁移到正确内容指纹，归 L1；可同时包含既有白名单认可的内联数值布局变化。路径、执行属性、脚本正文和其余结构不得因此被掩盖。SQL、Auth/RLS、Storage 删除、Edge Functions、部署/安全/分类脚本等混合变化仍取最高 L3。
+- 完整 `base..head` 中任一受管理资源或任一 HTML 改动，都会检查候选 Git 树的**全部已跟踪 HTML**，包含未修改的消费者。四项引用均须各出现一次且匹配目标资源指纹。缺失、重复、其他消费者、非规范 URL/编码、符号链接、无法解释的 HTML 或不匹配指纹均 fail-closed。资源内容变化时，缓存键还必须相对 base 改变。旧缓存键恰好等于新内容指纹也不能作为重用 URL 的理由。
+- 仅改变上述受管理引用的版本，可从旧日期键迁移到正确内容指纹，归 L1；可同时包含既有白名单认可的内联数值布局变化。路径、执行属性、脚本正文和其余结构不得因此被掩盖。SQL、Auth/RLS、Storage 删除、Edge Functions、部署/安全/分类脚本等混合变化仍取最高 L3。
 - `detectRelease` 生成 `resourceVersions` 证据。失败时返回 L3、明确的 FAIL 与阻断原因；分类 CLI 返回非零，报告初始化/校验拒绝失败证据。即使提高 L3 gate floor 也不能绕过缓存失败。报告 check/render/finalize 继续从同一 base/head 重算，不能手改为 PASS/NOT_REQUIRED。仅调用 `classifyChanges` 的文件职责测试不是发布凭证。
 - **分阶段边界：**纯分类器/测试/文档提交没有资源或 HTML 变化，缓存项为 NOT_REQUIRED，并仍执行完整 L3 CI。它不证明现有旧缓存已修复。本步骤不修改实际页面、CSS/JS 或版本；之后必须单独更新实际引用，再作为新 L1 发布范围验证。混合资源变化不能利用此豁免。
 - 本门禁不改变可信 base 策略、L3 冻结版本、人工 production approval 或 Production MATCH。CI PASS 不代表生产部署获准，也不替代之后保留旧浏览器缓存的 Desktop/Mobile 验证。
 
 ## L3 原有完整必需门禁（L1/L2 以分级表裁剪）
+
+账户刷新 UI 专项只认可一次已审核的完整源码指纹转换，详见 `docs/release-order-refresh-audit.md`。它不是账户/订单目录白名单。两个验证脚本只允许精确路径和已审核内容，L1 分类不能豁免测试失败。基础设施本身仍执行完整 L3 CI；生产 approval、冻结版本、Production MATCH 和可信 base gate floor 不变。账户资源关系纳入缓存门禁，本提交不修改实际页面版本。
 
 - [ ] Git working tree：发布源码已提交，工作区干净，报告 SHA 等于 HEAD。
 - [ ] Security：源码 Secret 扫描通过，并人工检查 diff，不含服务器密钥、访问令牌或客户资料。

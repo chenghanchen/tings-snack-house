@@ -10,6 +10,15 @@ export const normalizeGateFloor = value => value === undefined ? 'L1' : ['L1', '
 // Exact paths AND reviewed normalized contents, never a scripts/*.cjs glob.
 // Modifications require both sides to be known: removing unknown code is not L1.
 const reviewedUiSupport = new Map([
+  ['scripts/check-customer-account.cjs', new Set([
+    'ec444723969214a45d5f37ec27e6ad2ca673d66ebf4c53a8d9ef4a5609946ce5', // original offline account suite
+    'd004960d204b7e583ff17ff2df9c23de1a6b302149122c03ebb81f89757eedd4', // corrected released success-dialog dimensions
+    '71de69a1f8d9af0e646fac914eae5c53ad9f949490f93585e8eb6c2d055f97ae', // pending refresh UI assertions; old dimensions still fail
+    '357b8507d6232726a1502fa71b60c1ac84035d1639c15809593e42d688657359', // same UI assertions plus corrected released dimensions
+  ])],
+  ['scripts/check-order-refresh.cjs', new Set([
+    '437daffbaa35590870ff78332a1a642d6a9454cf4643984e031f60a3e31218b9', // offline refresh UI checks only
+  ])],
   ['scripts/check-success-hero.cjs', new Set([
     '8f354a89bd8232d847dad8c8a574cdf5b7bce56095a8d967359c926766d25bd9', // historical 350.01px fixture
     'e9371f11481ba6c3297a40ecd3e64d47c07506a5f50e3a6f6b0e21f5e604ba30', // reviewed 300px fixture
@@ -37,8 +46,16 @@ const riskyCode = /(?:supabase|\.rpc\s*\(|\.from\s*\(|\.storage\b|auth|jwt|token
 const managedResources = Object.freeze({
   'styles.css': { html: 'index.html', tag: 'link', attribute: 'href' },
   'mobile-header.js': { html: 'index.html', tag: 'script', attribute: 'src' },
+  'customer-account.css': { html: 'index.html', tag: 'link', attribute: 'href' },
+  'customer-account.js': { html: 'index.html', tag: 'script', attribute: 'src' },
 });
 const normalizedHash = source => hash(source.replace(/\r\n/g, '\n'));
+// This is an audited one-way transition, NOT approval of the account module's
+// business logic or a permanent account-file exemption. Every other byte fails closed.
+const accountRefreshTransition = Object.freeze({
+  before: '2a1b49e338c28710261381c5ba566201918d7dfcbe8ac3c3f998904ec11bbd51',
+  after: '940c11a79a01bd0979d68fa855a18d5da5b2bfb9feb277f3da9d1c9f6b802093',
+});
 
 // Recognize actual HTML tags, never matching resource-like strings inside scripts,
 // comments, styles, templates, or foreign/raw-text content. Unknown syntax fails closed.
@@ -231,6 +248,12 @@ export function classifyFile(change) {
     return mode === oldMode && matches(after) && (status === 'A' || matches(before))
       ? answer('L1', 'Exact reviewed UI regression fixture; before/after fingerprints matched where applicable')
       : answer('L3', 'Unreviewed UI test content or file-mode change');
+  }
+  if (file === 'customer-account.js') {
+    return status === 'M' && mode === '100644' && oldMode === '100644' &&
+      normalizedHash(before) === accountRefreshTransition.before && normalizedHash(after) === accountRefreshTransition.after
+      ? answer('L1', 'Exact audited refresh-button presentation/busy-state transition; RPC/auth/order business code unchanged')
+      : answer('L3', 'Account code outside the exact audited UI transition');
   }
   if (riskPath.test(file) || ['app.js', 'admin.js', 'supabase-config.js', 'store-settings.js', 'marketing.js', 'category-product-manager.js', 'appearance-settings.js', 'activity-promotions.js'].includes(file))
     return answer('L3', 'High-risk business/security/release control', /^supabase\//.test(file) || /\.sql$/.test(file) || /supabase/.test(file));

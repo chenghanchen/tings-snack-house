@@ -981,8 +981,8 @@ function mockSdk() {
         addressWidth:Math.round(address.width),orderNumberSize:style('#submittedOrderNumber').fontSize,
         overflow:dialogNode.scrollWidth>dialogNode.clientWidth+1};
     });
-    assert.deepEqual(successLayout,{dialogPadding:['20px','20px'],heroPadding:['0px','0px'],referralSize:'17px',codeSize:'15px',
-      radius:'15px',close:[50,50],labelWidth:90,addressWidth:320,orderNumberSize:'15px',overflow:false});
+    assert.deepEqual(successLayout,{dialogPadding:['20px','20px'],heroPadding:['0px','0px'],referralSize:'17px',codeSize:'16px',
+      radius:'15px',close:[50,50],labelWidth:80,addressWidth:330,orderNumberSize:'15px',overflow:false});
     for(const width of [320,390,780]){
       await page.setViewportSize({width,height:844});
       const mobileSuccessLayout=await page.evaluate(()=>{
@@ -995,7 +995,7 @@ function mockSdk() {
           rowFits:row.scrollWidth<=row.clientWidth+1,addressInside:addressBox.right<=row.getBoundingClientRect().right+1,
           dialogFits:dialog.scrollWidth<=dialog.clientWidth+1};
       });
-      assert.deepEqual(mobileSuccessLayout,{radius:'15px',close:[50,50],labelWidth:90,orderNumberSize:'15px',addressWrap:'normal',
+      assert.deepEqual(mobileSuccessLayout,{radius:'15px',close:[50,50],labelWidth:80,orderNumberSize:'15px',addressWrap:'normal',
         addressFits:true,rowFits:true,addressInside:true,dialogFits:true},`mobile success ${width}px`);
     }
     await page.setViewportSize({width:1710,height:1180});

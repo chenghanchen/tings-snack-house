@@ -261,13 +261,14 @@ function gitFixture() {
   git('init', '-b', 'main');
   writeFileSync(path.join(root, 'styles.css'), 'p{}');
   writeFileSync(path.join(root, 'mobile-header.js'), readFileSync(new URL('../mobile-header.js', import.meta.url)));
-  writeFileSync(path.join(root, 'index.html'), '<link rel="stylesheet" href="styles.css?v=legacy"><script defer src="mobile-header.js?v=legacy"></script>');
+  for (const file of ['customer-account.css', 'customer-account.js']) writeFileSync(path.join(root, file), readFileSync(new URL('../' + file, import.meta.url)));
+  writeFileSync(path.join(root, 'index.html'), '<link rel="stylesheet" href="styles.css?v=legacy"><script defer src="mobile-header.js?v=legacy"></script><link rel="stylesheet" href="customer-account.css?v=legacy"><script defer src="customer-account.js?v=legacy"></script>');
   // Existing Git fixtures now model a correctly maintained consumer, not stale cache keys.
   // Negative cache tests explicitly opt out; application/worktree files are never written.
   const commit = ({ syncVersions = true } = {}) => {
     if (syncVersions) {
       let html = readFileSync(path.join(root, 'index.html'), 'utf8');
-      for (const asset of ['styles.css', 'mobile-header.js']) {
+      for (const asset of ['styles.css', 'mobile-header.js', 'customer-account.css', 'customer-account.js']) {
         const digest = createHash('sha256').update(readFileSync(path.join(root, asset), 'utf8').replace(/\r\n/g, '\n')).digest('hex');
         html = html.replaceAll(new RegExp(`${asset.replace('.', '\\.')}\\?v=[a-zA-Z0-9._-]+`, 'g'), `${asset}?v=${digest}`);
       }
@@ -388,7 +389,7 @@ test('managed content changed with stale version blocks CLI/report; synchronized
   assert.equal(report.status, 1); assert.match(report.stderr, /Cache\/version release blocked/);
   const fixed = detectRelease(f.root, { base: b, head: f.commit() });
   assert.equal(fixed.level, 'L1'); assert.equal(fixed.resourceVersions.status, 'PASS');
-  assert.equal(fixed.resourceVersions.checked.length, 2);
+  assert.equal(fixed.resourceVersions.checked.length, 4);
 });
 
 test('version-only migration from legacy keys requires actual target hashes; no runtime source changes', () => {

@@ -1,0 +1,303 @@
+diff --git a/customer-account.css b/customer-account.css
+index 9a8b39f..2ad87b3 100644
+--- a/customer-account.css
++++ b/customer-account.css
+@@ -40,10 +40,25 @@
+ .customer-order-toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,.45fr);gap:12px;margin:16px 0}
+ #customerAccountDialog select{width:100%;min-width:0;min-height:44px;padding:10px;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:#fff;font:inherit;font-size:16px}
+ #customerAccountDialog select:focus-visible,#customerAccountDialog summary:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+-/* Order-only tools follow the title; narrow headers wrap them beneath it, leaving Back at top right. */
++/* Keep the refresh control compact; animation follows the actual request state. */
+ .customer-order-refresh{display:flex;align-items:center;gap:4px 6px;flex-wrap:wrap;max-width:100%}
+-#customerAccountDialog #customerRefreshOrders{color:#ff0000;background-color:#ffffff;font-size:15px;border-radius:10px;border-color:#000000;padding:0 5px;width:80px;height:35px;min-height:35px;flex:none;white-space:nowrap}
+-#customerOrderUpdated{font-size:10px;white-space:nowrap}
++#customerAccountDialog #customerRefreshOrders{display:inline-flex;align-items:center;justify-content:center;gap:6px;color:var(--red);background:#fff;font-size:13px;font-weight:500;line-height:1;border:1px solid currentColor;border-radius:8px;padding:0 10px;height:36px;min-height:36px;flex:none;white-space:nowrap}
++#customerAccountDialog #customerRefreshOrders:hover:not(:disabled){background:#fff1ee}
++#customerRefreshOrders svg{width:16px;height:16px;flex:none;transform-origin:center}
++#customerRefreshOrders{justify-self:start}
++#customerRefreshOrders[aria-busy="true"] svg{animation:customer-order-refresh-spin .75s linear infinite}
++@keyframes customer-order-refresh-spin{to{transform:rotate(360deg)}}
++@media(prefers-reduced-motion:reduce){#customerRefreshOrders[aria-busy="true"] svg{animation:none}}
++/* Only the orders heading uses this grid; other account panels stay unchanged. */
++.customer-account-heading:has(#customerOrderRefresh:not([hidden])){display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px}
++.customer-account-heading:has(#customerOrderRefresh:not([hidden])) .customer-account-title-row,
++.customer-account-heading #customerOrderRefresh:not([hidden]){display:contents}
++.customer-account-heading:has(#customerOrderRefresh:not([hidden])) h2{font-size:18px;white-space:nowrap}
++.customer-account-heading:has(#customerOrderRefresh:not([hidden])) #customerAccountBack{grid-column:3;grid-row:1;padding:0 8px;font-size:13px}
++@media(max-width:780px){
++  .customer-account-heading:has(#customerOrderRefresh:not([hidden])){grid-template-columns:minmax(0,1fr) auto auto;gap:8px}
++  .customer-account-heading:has(#customerOrderRefresh:not([hidden])) #customerAccountBack{grid-column:3}
++}
+ .customer-reorder-preview{padding:12px;background:var(--cream);border-radius:8px;margin:10px 0;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+ .customer-order-entry .lookup-order-card header{flex-wrap:wrap}
+ .customer-order-entry .lookup-order-card header>div{flex:1 1 220px;min-width:0}
+diff --git a/customer-account.js b/customer-account.js
+index 7567174..9a95b64 100644
+--- a/customer-account.js
++++ b/customer-account.js
+@@ -28,7 +28,7 @@
+   // This template contains only application-owned text, never remote data.
+   dialog.innerHTML = `
+     <div class="customer-account-heading"><div class="customer-account-title-row"><h2 id="customerAccountTitle" tabindex="-1">登录 / 注册</h2>
+-      <div id="customerOrderRefresh" class="customer-order-refresh" hidden><button type="button" id="customerRefreshOrders">刷新订单</button><span id="customerOrderUpdated" class="customer-muted" aria-live="polite"></span></div>
++      <div id="customerOrderRefresh" class="customer-order-refresh" hidden><button type="button" id="customerRefreshOrders" aria-busy="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/></svg><span>刷新订单</span></button></div>
+       </div>
+       <button type="button" id="customerAccountBack" aria-label="返回商店">返回</button></div>
+     <p id="customerAccountMessage" role="status" aria-live="polite"></p>
+@@ -188,9 +188,10 @@
+       authExpired = false; $('#customerReauthenticate').hidden = true;
+       if (session) authBlocked = false;
+       $('#customerOrderSearch').value = ''; $('#customerOrderFilter').value = 'all';
+-      $('#customerOrderUpdated').textContent = ''; $('#customerOrdersPage').textContent = '';
++      $('#customerOrdersPage').textContent = '';
+       $('#customerOrders').replaceChildren();
+       $('#customerOrders').setAttribute('aria-busy','false');
++      setOrderRefreshBusy(false);
+       showAccountView('home');
+       message('');
+     }
+@@ -486,10 +487,16 @@
+   }
+   $('#customerOrderSearch').oninput = renderOrders;
+   $('#customerOrderFilter').onchange = renderOrders;
++  function setOrderRefreshBusy(busy) {
++    const refresh = $('#customerRefreshOrders');
++    refresh.disabled = busy;
++    refresh.setAttribute('aria-busy', String(busy));
++  }
+   async function loadOrders() {
+     if (!session) return;
+     const stamp = epoch, request = ++orderRequest;
+     const list = $('#customerOrders'); orderRows = []; ordersLoaded = false; list.textContent = '正在加载订单…'; list.setAttribute('aria-busy','true');
++    setOrderRefreshBusy(true);
+     $('#customerOrderSearch').disabled = true; $('#customerOrderFilter').disabled = true;
+     $('#customerOrdersPrev').disabled = true; $('#customerOrdersNext').disabled = true;
+     try {
+@@ -497,14 +504,13 @@
+       if (error || !Array.isArray(data)) throw error || new Error('Invalid orders');
+       if (stamp !== epoch || request !== orderRequest) return;
+       orderRows = data; ordersLoaded = true; renderOrders();
+-      $('#customerOrderUpdated').textContent = `更新于 ${new Date().toLocaleTimeString('zh-CN')}`;
+       $('#customerOrdersPage').textContent = `第 ${offset / 20 + 1} 页`;
+       $('#customerOrdersPrev').disabled = offset === 0;
+       $('#customerOrdersNext').disabled = data.length < 20;
+-    } catch (error) { if (stamp === epoch && request === orderRequest) { list.textContent = accountError(error,'订单暂时无法加载，请检查网络后点击“刷新订单”重试。'); $('#customerOrdersPrev').disabled = offset === 0; $('#customerOrderUpdated').textContent = authExpired ? '登录已过期' : '加载失败'; } }
+-    finally { if (stamp === epoch && request === orderRequest) { list.setAttribute('aria-busy','false'); $('#customerOrderSearch').disabled = !ordersLoaded; $('#customerOrderFilter').disabled = !ordersLoaded; } }
++    } catch (error) { if (stamp === epoch && request === orderRequest) { list.textContent = accountError(error,'订单暂时无法加载，请检查网络后点击“刷新订单”重试。'); $('#customerOrdersPrev').disabled = offset === 0; } }
++    finally { if (stamp === epoch && request === orderRequest) { list.setAttribute('aria-busy','false'); setOrderRefreshBusy(false); $('#customerOrderSearch').disabled = !ordersLoaded; $('#customerOrderFilter').disabled = !ordersLoaded; } }
+   }
+-  $('#customerRefreshOrders').onclick = () => { offset = 0; void loadOrders(); };
++  $('#customerRefreshOrders').onclick = () => { if ($('#customerRefreshOrders').disabled) return; offset = 0; void loadOrders(); };
+   $('#customerOrdersPrev').onclick = () => { offset = Math.max(0, offset - 20); void loadOrders(); };
+   $('#customerOrdersNext').onclick = () => { offset += 20; void loadOrders(); };
+ 
+diff --git a/index.html b/index.html
+index b773a95..4daa48f 100644
+--- a/index.html
++++ b/index.html
+@@ -17,7 +17,7 @@
+     <link rel="stylesheet" href="styles.css?v=560f5cd7c6989270183deeef945e9e8d37f77484e329da1504213c642ccb1a8b" />
+     <link rel="stylesheet" href="checkout-layout.css?v=20260916a" />
+     <link rel="stylesheet" href="footer-layout.css?v=20260915a" />
+-    <link rel="stylesheet" href="customer-account.css?v=20260915e" />
++    <link rel="stylesheet" href="customer-account.css?v=274f6c6adbd701ddf42b250af1fb99f6f7d77b438a2fceb0979981621a8f2deb" />
+     <link rel="stylesheet" href="customer-wallet.css?v=20260915p" />
+     <link rel="stylesheet" href="brand-header.css?v=20260915a" />
+     <link rel="stylesheet" href="header-entry-buttons.css?v=20260915a" />
+@@ -29,7 +29,7 @@
+     <script defer src="supabase-config.js?v=20260913b"></script>
+     <script defer src="customer-order-tools.js?v=20260911a"></script>
+     <script defer src="customer-wallet.js?v=20260915o"></script>
+-    <script defer src="customer-account.js?v=20260916a"></script>
++    <script defer src="customer-account.js?v=940c11a79a01bd0979d68fa855a18d5da5b2bfb9feb277f3da9d1c9f6b802093"></script>
+     <script defer src="app.js?v=20260916b"></script>
+     <script defer src="mobile-header.js?v=902f8028e24f807bc808063aa320158619aa2ace602e40a8577427a9cd1b976a"></script>
+     <script defer src="activity-announcement.js?v=20260915a"></script>
+diff --git a/scripts/check-customer-account.cjs b/scripts/check-customer-account.cjs
+index 7f8f6c0..9aa4a60 100644
+--- a/scripts/check-customer-account.cjs
++++ b/scripts/check-customer-account.cjs
+@@ -96,6 +96,7 @@ function mockSdk() {
+     const page=await browser.newPage({viewport:{width:390,height:844}});
+     const errors=[];
+     page.on('pageerror',e=>errors.push(e.message));
++    page.on('console',entry=>{if(entry.type()==='error')errors.push(entry.text())});
+     async function openCustomerAccount(){
+       if(await page.locator('#mobileMenuToggle').isVisible()){
+         await page.click('#mobileMenuToggle');await page.click('#mobileAccountEntry');
+@@ -155,6 +156,10 @@ function mockSdk() {
+     });
+     await page.goto('http://localhost/');
+     await page.waitForSelector('#productGrid .product');
++    if (process.env.TINGS_ACCOUNT_CHECK === 'order-refresh') {
++      await require('./check-order-refresh.cjs')(page, errors);
++      return;
++    }
+     assert.equal(await page.locator('.activity-card').count(),4);
+     assert.equal(await page.textContent('#openCustomerAccount'),'登录账户');
+     assert.equal(await page.textContent('#mobileAccountEntry'),'登录账户');
+@@ -880,6 +885,30 @@ function mockSdk() {
+     await page.waitForFunction(()=>document.querySelector('#customerAccountEmail').textContent.includes('alice@example.test'));
+     await page.click('[data-account-tab=orders]');
+     await page.waitForSelector('#customerOrders .lookup-order-card');
++    // Refresh UI uses the existing request lifecycle, including rapid-click protection.
++    const refreshCount = () => page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='get_my_customer_orders').length);
++    const callsBeforeRefresh = await refreshCount();
++    await page.evaluate(()=>{
++      __accountTest.delayed=true; delete __accountTest.resolveOrders;
++    });
++    await page.click('#customerRefreshOrders');
++    await page.waitForFunction(()=>typeof __accountTest.resolveOrders==='function');
++    assert.equal(await page.locator('#customerRefreshOrders').isDisabled(),true);
++    assert.equal(await page.getAttribute('#customerRefreshOrders','aria-busy'),'true');
++    assert.equal(await page.locator('#customerRefreshOrders svg').evaluate(el=>getComputedStyle(el).animationIterationCount),'infinite');
++    const spinning = await page.locator('#customerRefreshOrders svg').evaluate(el=>getComputedStyle(el).transform);
++    await page.waitForTimeout(90);
++    assert.notEqual(await page.locator('#customerRefreshOrders svg').evaluate(el=>getComputedStyle(el).transform),spinning);
++    await page.evaluate(()=>{for(let i=0;i<8;i++)document.querySelector('#customerRefreshOrders').click()});
++    assert.equal(await refreshCount(),callsBeforeRefresh+1,'rapid clicks must not issue duplicate order requests');
++    await page.emulateMedia({reducedMotion:'reduce'});
++    assert.equal(await page.locator('#customerRefreshOrders svg').evaluate(el=>getComputedStyle(el).animationName),'none');
++    await page.emulateMedia({reducedMotion:'no-preference'});
++    await page.evaluate(()=>{__accountTest.delayed=false;__accountTest.resolveOrders()});
++    await page.waitForFunction(()=>!document.querySelector('#customerRefreshOrders').disabled);
++    assert.equal(await page.getAttribute('#customerRefreshOrders','aria-busy'),'false');
++    assert.equal(await page.locator('#customerRefreshOrders svg').evaluate(el=>getComputedStyle(el).animationName),'none');
++    assert.equal(await page.locator('#customerOrderUpdated').count(),0);
+     assert.equal(await page.locator('#customerOrders .lookup-order-card img').count(),0);
+     assert.equal(await page.evaluate(()=>window.xss),undefined);
+     await page.click('#customerOrders [data-show-cancel]');
+@@ -1051,6 +1080,9 @@ function mockSdk() {
+     await page.waitForFunction(()=>document.querySelector('#customerOrders').textContent.includes('检查网络'));
+     assert.equal(await page.locator('#customerOrderSearch').isDisabled(),true);
+     assert.equal(await page.getAttribute('#customerOrders','aria-busy'),'false');
++    assert.equal(await page.locator('#customerRefreshOrders').isDisabled(),false);
++    assert.equal(await page.getAttribute('#customerRefreshOrders','aria-busy'),'false');
++    assert.equal(await page.locator('#customerRefreshOrders svg').evaluate(el=>getComputedStyle(el).animationName),'none');
+     await page.evaluate(()=>{__accountTest.ordersError=false});await page.click('#customerRefreshOrders');
+     await page.waitForFunction(()=>document.querySelector('#customerOrders').textContent.includes('还没有账户订单'));
+     await page.click('#customerAccountBack');await page.click('[data-account-tab=details]');
+@@ -1074,18 +1106,17 @@ function mockSdk() {
+     assert.equal(await page.locator('#customerHomePanel').isVisible(),true);
+     await page.click('[data-account-tab=orders]');
+     await page.waitForFunction(()=>document.querySelector('#customerOrders').textContent.includes('TSH-260912-EE019'));
+-    for (const width of [320,375,390,780,1100,1710]) {
++    for (const width of [320,360,375,390,414,768,780,781,782,1100,1710]) {
+       await page.setViewportSize({width,height:1180});
+       const heading=await page.evaluate(()=>{
+         const title=document.querySelector('#customerAccountTitle').getBoundingClientRect();
+         const back=document.querySelector('#customerAccountBack'),r=back.getBoundingClientRect();
+         const heading=document.querySelector('.customer-account-heading').getBoundingClientRect();
+-        const tools=document.querySelector('#customerOrderRefresh'),refresh=tools.getBoundingClientRect();
+-        const time=document.querySelector('#customerOrderUpdated').getBoundingClientRect();
++        const tools=document.querySelector('#customerOrderRefresh'),refresh=document.querySelector('#customerRefreshOrders').getBoundingClientRect();
+         return {label:back.textContent,afterTitle:r.left>=title.right,atRight:Math.abs(r.right-heading.right)<1,
+           sameRow:Math.abs(r.top+r.height/2-title.top-title.height/2)<1,
+           toolsInHeading:tools.closest('.customer-account-heading')!==null,
+-          toolsClear:refresh.right<=r.left-4 && time.right<=refresh.right+1 && refresh.bottom<=heading.bottom+1,
++          toolsClear:refresh.left>=title.right && refresh.right<=r.left-4 && refresh.bottom<=heading.bottom+1,
+           desktopInline:innerWidth<=780 || Math.abs(refresh.top+refresh.height/2-title.top-title.height/2)<1,
+           emailMargin:getComputedStyle(document.querySelector('#customerAccountEmail')).marginTop};
+       });
+@@ -1095,7 +1126,9 @@ function mockSdk() {
+         return {color:s.color,background:s.backgroundColor,fontSize:s.fontSize,radius:s.borderRadius,border:s.borderTopColor,
+           padding:[s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft],width:Math.round(r.width),height:Math.round(r.height),overflow:button.scrollWidth>button.clientWidth+1};
+       });
+-      assert.deepEqual(refreshStyle,{color:'rgb(255, 0, 0)',background:'rgb(255, 255, 255)',fontSize:'15px',radius:'10px',border:'rgb(0, 0, 0)',padding:['0px','5px','0px','5px'],width:80,height:35,overflow:false},`refresh button at ${width}px`);
++      assert.deepEqual(refreshStyle,{color:'rgb(215, 91, 75)',background:'rgb(255, 255, 255)',fontSize:'13px',radius:'8px',border:'rgb(215, 91, 75)',padding:['0px','10px','0px','10px'],width:96,height:36,overflow:false},`refresh button at ${width}px`);
++      assert.equal(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth),true,`dialog overflow at ${width}px`);
++      if(process.env.TINGS_ACCOUNT_SCREENSHOT && [390,1710].includes(width))await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-refresh-${width}.png`)});
+       const compactOrders=await page.evaluate(()=>{
+         const root=document.querySelector('#customerAccountDialog'),email=document.querySelector('#customerAccountEmail'),note=document.querySelector('#customerOrdersPanel>p.customer-muted');
+         const rootStyle=getComputedStyle(root),noteStyle=getComputedStyle(note);
+diff --git a/scripts/check-order-refresh.cjs b/scripts/check-order-refresh.cjs
+new file mode 100644
+index 0000000..bea6b11
+--- /dev/null
++++ b/scripts/check-order-refresh.cjs
+@@ -0,0 +1,85 @@
++// Focused offline checks, sharing the existing account suite's SDK fixture/routes.
++const assert = require('node:assert/strict');
++module.exports = async (page, errors) => {
++  await page.evaluate(() => {
++    __accountTest.change({access_token:'fixture',user:{id:'refresh@example.test',email:'refresh@example.test'}});
++    TingsAccount.open();
++  });
++  await page.click('[data-account-tab=orders]');
++  await page.waitForSelector('#customerOrders .lookup-order-card');
++  const button = page.locator('#customerRefreshOrders');
++  const icon = button.locator('svg');
++  const count = () => page.evaluate(() => __accountTest.calls.filter(c=>c.name==='get_my_customer_orders').length);
++  const idle = async () => {
++    await page.waitForFunction(()=>!document.querySelector('#customerRefreshOrders').disabled);
++    assert.equal(await button.getAttribute('aria-busy'),'false');
++    assert.equal(await icon.evaluate(el=>getComputedStyle(el).animationName),'none');
++  };
++  await idle();
++  const before = await count();
++  await page.evaluate(()=>{
++    __accountTest.delayed=true;
++  });
++  await button.click();
++  await page.waitForFunction(()=>typeof __accountTest.resolveOrders==='function');
++  assert.equal(await button.isDisabled(),true);
++  assert.equal(await button.getAttribute('aria-busy'),'true');
++  assert.equal(await icon.evaluate(el=>getComputedStyle(el).animationIterationCount),'infinite');
++  const transform=await icon.evaluate(el=>getComputedStyle(el).transform);
++  await page.waitForTimeout(90);
++  assert.notEqual(await icon.evaluate(el=>getComputedStyle(el).transform),transform);
++  await page.evaluate(()=>{for(let i=0;i<10;i++)document.querySelector('#customerRefreshOrders').click()});
++  assert.equal(await count(),before+1);
++  await page.emulateMedia({reducedMotion:'reduce'});
++  assert.equal(await icon.evaluate(el=>getComputedStyle(el).animationName),'none');
++  await page.emulateMedia({reducedMotion:'no-preference'});
++  await page.evaluate(()=>{__accountTest.delayed=false;__accountTest.resolveOrders()});
++  await idle();
++  assert.equal(await page.locator('#customerOrderUpdated').count(),0);
++  await page.evaluate(()=>{__accountTest.ordersError=true});
++  await button.click();
++  await page.waitForFunction(()=>document.querySelector('#customerOrders').textContent.includes('检查网络'));
++  await idle();
++  await page.evaluate(()=>{__accountTest.ordersError=false});
++  await button.click();
++  await page.waitForSelector('#customerOrders .lookup-order-card');
++  await idle();
++  await page.mouse.move(0,0);
++  for (const width of [320,360,375,390,414,768,780,781,782,1100,1710]) {
++    await page.setViewportSize({width,height:844});
++    const layout=await page.evaluate(()=>{
++      const rect=id=>document.getElementById(id).getBoundingClientRect();
++      const title=rect('customerAccountTitle'),refresh=rect('customerRefreshOrders'),back=rect('customerAccountBack');
++      const root=document.getElementById('customerAccountDialog'),s=getComputedStyle(document.getElementById('customerRefreshOrders'));
++      return {clear:title.right<=refresh.left && refresh.right<back.left,
++        inline:Math.abs(title.top+title.height/2-refresh.top-refresh.height/2)<1 && Math.abs(back.top+back.height/2-refresh.top-refresh.height/2)<1,
++        overflow:root.scrollWidth>root.clientWidth,
++        style:[s.color,s.borderTopColor,s.borderRadius,s.fontSize,refresh.height]};
++    });
++    assert.equal(layout.clear,true,`header overlap at ${width}: ${JSON.stringify(layout)}`);
++    assert.equal(layout.inline,true,`header row at ${width}`);
++    assert.equal(layout.overflow,false,`dialog overflow at ${width}`);
++    assert.deepEqual(layout.style,['rgb(215, 91, 75)','rgb(215, 91, 75)','8px','13px',36]);
++    if(process.env.TINGS_ACCOUNT_SCREENSHOT && [390,1710].includes(width))await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-refresh-${width}.png`)});
++  }
++  await page.fill('#customerOrderSearch','no-match-fixture');
++  assert.equal(await page.locator('#customerOrders .lookup-order-card').count(),0);
++  await page.fill('#customerOrderSearch','');
++  await page.selectOption('#customerOrderFilter','completed');
++  assert.equal(await page.locator('#customerOrders .lookup-order-card').count(),0);
++  await page.selectOption('#customerOrderFilter','all');
++  assert.equal(await page.locator('#customerOrders .lookup-order-card').count(),1);
++  await page.click('#customerAccountBack');
++  assert.equal(await page.locator('#customerHomePanel').isVisible(),true);
++  // Stale requests cannot leave a spinner running across account changes.
++  await page.click('[data-account-tab=orders]');
++  await idle();
++  await page.evaluate(()=>{__accountTest.delayed=true;delete __accountTest.resolveOrders});
++  await button.click();
++  await page.waitForFunction(()=>typeof __accountTest.resolveOrders==='function');
++  await page.evaluate(()=>{__accountTest.change(null);__accountTest.delayed=false;__accountTest.resolveOrders()});
++  await idle();
++  assert.equal(await page.locator('#customerOrderRefresh').isVisible(),false);
++  assert.deepEqual(errors,[]);
++  console.log('PASS order refresh: one request; rapid-click lock; busy animation/start/stop; failure/retry; no timestamp; session reset; reduced motion; search/filter/back; 11 responsive widths; no page errors.');
++};
