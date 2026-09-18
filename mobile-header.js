@@ -4,6 +4,48 @@
   const toggle = document.getElementById('mobileMenuToggle');
   const menu = document.getElementById('mobileHeaderMenu');
   const mobile = window.matchMedia('(max-width:780px)');
+  const search = document.getElementById('productSearch');
+  const desktopSearchPlaceholder = search?.getAttribute('placeholder');
+  const updateSearchPlaceholder = () => {
+    if (search) search.setAttribute('placeholder', mobile.matches ? '搜索你喜欢的零食…' : desktopSearchPlaceholder);
+  };
+  updateSearchPlaceholder();
+  mobile.addEventListener('change', updateSearchPlaceholder);
+  const filters = document.getElementById('filters');
+  if (filters) {
+    let centerFrame;
+    const centerActiveFilter = (animate = false) => {
+      cancelAnimationFrame(centerFrame);
+      centerFrame = requestAnimationFrame(() => {
+        if (!mobile.matches) return;
+        const buttons = filters.querySelectorAll('button');
+        const active = filters.querySelector('button.active');
+        if (!buttons.length || !active || !filters.clientWidth) return;
+        const index = Array.from(buttons).indexOf(active);
+        const maxScroll = Math.max(0, filters.scrollWidth - filters.clientWidth);
+        const bar = filters.getBoundingClientRect();
+        const selected = active.getBoundingClientRect();
+        // Keep the first/last two categories at the corresponding edge, without spacers.
+        const centered = filters.scrollLeft + selected.left + selected.width / 2 - bar.left - filters.clientLeft - filters.clientWidth / 2;
+        const left = index < 2 ? 0 : index >= buttons.length - 2 ? maxScroll : Math.max(0, Math.min(maxScroll, centered));
+        filters.scrollTo({
+          left,
+          behavior: animate && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'instant',
+        });
+      });
+    };
+    // Also covers asynchronous category rendering and programmatic selection.
+    new MutationObserver(() => centerActiveFilter(true)).observe(filters, {
+      childList: true, subtree: true, attributes: true, attributeFilter: ['class'],
+    });
+    new ResizeObserver(() => centerActiveFilter()).observe(filters);
+    filters.addEventListener('click', event => {
+      if (event.target.closest('button')) centerActiveFilter(true);
+    });
+    mobile.addEventListener('change', () => centerActiveFilter());
+    document.fonts?.ready.then(() => centerActiveFilter());
+    centerActiveFilter();
+  }
   if (!toggle || !menu) return;
   function closeMenu(restoreFocus = false) {
     menu.hidden = true;
