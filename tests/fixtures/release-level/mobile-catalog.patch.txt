@@ -1,0 +1,117 @@
+diff --git a/index.html b/index.html
+index 3623825..6a7258a 100644
+--- a/index.html
++++ b/index.html
+@@ -160 +160 @@
+-          min-height: 560px;
++          min-height: 400px;
+@@ -164,2 +164,2 @@
+-          min-height: 560px;
+-          padding: 60px 8vw;
++          min-height: 400px;
++          padding: 32px 8vw;
+diff --git a/mobile-header.js b/mobile-header.js
+index 5238fb1..331b79f 100644
+--- a/mobile-header.js
++++ b/mobile-header.js
+@@ -6,0 +7,42 @@
++  const search = document.getElementById('productSearch');
++  const desktopSearchPlaceholder = search?.getAttribute('placeholder');
++  const updateSearchPlaceholder = () => {
++    if (search) search.setAttribute('placeholder', mobile.matches ? '搜索你喜欢的零食…' : desktopSearchPlaceholder);
++  };
++  updateSearchPlaceholder();
++  mobile.addEventListener('change', updateSearchPlaceholder);
++  const filters = document.getElementById('filters');
++  if (filters) {
++    let centerFrame;
++    const centerActiveFilter = (animate = false) => {
++      cancelAnimationFrame(centerFrame);
++      centerFrame = requestAnimationFrame(() => {
++        if (!mobile.matches) return;
++        const buttons = filters.querySelectorAll('button');
++        const active = filters.querySelector('button.active');
++        if (!buttons.length || !active || !filters.clientWidth) return;
++        const index = Array.from(buttons).indexOf(active);
++        const maxScroll = Math.max(0, filters.scrollWidth - filters.clientWidth);
++        const bar = filters.getBoundingClientRect();
++        const selected = active.getBoundingClientRect();
++        // Keep the first/last two categories at the corresponding edge, without spacers.
++        const centered = filters.scrollLeft + selected.left + selected.width / 2 - bar.left - filters.clientLeft - filters.clientWidth / 2;
++        const left = index < 2 ? 0 : index >= buttons.length - 2 ? maxScroll : Math.max(0, Math.min(maxScroll, centered));
++        filters.scrollTo({
++          left,
++          behavior: animate && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'instant',
++        });
++      });
++    };
++    // Also covers asynchronous category rendering and programmatic selection.
++    new MutationObserver(() => centerActiveFilter(true)).observe(filters, {
++      childList: true, subtree: true, attributes: true, attributeFilter: ['class'],
++    });
++    new ResizeObserver(() => centerActiveFilter()).observe(filters);
++    filters.addEventListener('click', event => {
++      if (event.target.closest('button')) centerActiveFilter(true);
++    });
++    mobile.addEventListener('change', () => centerActiveFilter());
++    document.fonts?.ready.then(() => centerActiveFilter());
++    centerActiveFilter();
++  }
+diff --git a/styles.css b/styles.css
+index 1f9aebc..7967c68 100644
+--- a/styles.css
++++ b/styles.css
+@@ -148,0 +149,53 @@
++/* Phone catalog: image-left list cards; desktop rules and purchase behavior stay unchanged. */
++@media(max-width:780px){
++  #productSearch{padding-left:40px;font-size:16px;background-color:#fff;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23777b82' stroke-width='1.6' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='7.5'/%3E%3Cpath d='m16 16 5 5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-size:20px 20px;background-position:13px center}
++  #productSearch::placeholder{color:#a0a3aa;opacity:1}
++  #filters{flex-wrap:nowrap;max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:none;padding:0 0 2px}
++  #filters::-webkit-scrollbar{display:none}
++  #filters>button{flex:0 0 auto;white-space:nowrap}
++  #productGrid{grid-template-columns:minmax(0,1fr);gap:8px}
++  #productGrid>.product{display:grid;grid-template-columns:108px minmax(0,1fr);grid-template-rows:auto auto auto 1fr;gap:5px 12px;padding:8px;min-height:116px;border-radius:12px;background:#fff;container:none}
++  #productGrid .product-image{grid-column:1;grid-row:1/5;position:static;width:100%;height:100px;min-height:100px;margin:0;border-radius:9px;overflow:visible;align-self:start}
++  #productGrid .product-image:after{display:none}
++  #productGrid .product-image img{position:static;display:block;width:100%;height:100%;object-fit:cover;border-radius:9px}
++  #productGrid .product-icon{font-size:48px}
++  #productGrid .product-tag{top:8px;right:8px;left:auto;max-width:62px;padding:3px 7px;background:#fff1f1;color:#d65353;border-radius:20px;font-size:10px;line-height:16px}
++  #productGrid .image-zoom-hint{display:none}
++  #productGrid .product h3{grid-column:2;grid-row:1;min-width:0;margin:1px 0 0;padding-right:52px;color:#252525;font-size:15px;line-height:1.4;overflow-wrap:anywhere}
++  #productGrid .product>.promotion-badge{grid-column:2;grid-row:2;margin:0;padding:0;background:transparent;color:#9a7560;font-size:11px;line-height:16px}
++  #productGrid .product-options{grid-column:2;grid-row:3;min-width:0;margin:0}
++  #productGrid .option-group{margin:0;gap:4px;flex-wrap:wrap}
++  #productGrid .option-choice{padding:3px 6px;font-size:11px;line-height:16px}
++  #productGrid .product-bottom,#productGrid .product-bottom.has-promotion{grid-column:2;grid-row:4;display:flex;align-items:center;align-self:end;flex-wrap:wrap;gap:4px 6px;min-width:0;margin:3px 0 0;padding:0}
++  #productGrid .product-price-wrap{flex:1 1 auto;min-width:0;width:auto}
++  #productGrid .product-price-wrap b{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px;color:#ff4d57;line-height:26px}
++  #productGrid .product-price-wrap b s{order:1;font-size:11px;line-height:16px;color:#9da2ad}
++  #productGrid .product-price-wrap .sale-price{color:#ff4d57}
++  #productGrid .product-action-wrap{margin-left:auto;min-height:34px}
++  #productGrid .add{min-height:34px;padding:6px 10px;border-radius:9px;background:#ff515b;color:#fff;font-size:12px}
++  #productGrid .add:disabled{background:#eeeef0;color:#8c9097}
++  #productGrid .card-quantity{height:34px;gap:0;border:1px solid #eef0f3;border-radius:9px;background:#fafbfc;overflow:hidden}
++  #productGrid .card-quantity button{width:32px;height:34px;padding:0;background:#f4f5f7;color:#9298a2;font-size:22px}
++  #productGrid .card-quantity button:last-child{border-radius:8px;background:#ff515b;color:#fff}
++  #productGrid .card-quantity b{min-width:28px;text-align:center;color:#333;font-size:14px}
++  #productGrid .product-bottom>.stock-warning{font-size:10px;line-height:14px;color:#9a7560}
++  #productGrid .product-bottom.has-stock-notice{display:grid;grid-template-columns:max-content minmax(0,1fr) max-content;align-items:center}
++  #productGrid .has-stock-notice>.product-price-wrap{grid-column:1;grid-row:1}
++  #productGrid .has-stock-notice>.product-action-wrap{grid-column:3;grid-row:1;margin-left:0}
++  #productGrid .has-stock-notice>.stock-warning{grid-column:2;grid-row:1;min-width:0;margin:0;text-align:right;white-space:normal;overflow-wrap:anywhere}
++  #productGrid .catalog-skeleton{grid-template-columns:minmax(0,1fr)}
++}
++/* Keep the notice immediately left of the purchase control on narrow phones. */
++@media(max-width:430px){
++  #productGrid .has-stock-notice>.product-price-wrap{grid-column:1/-1;grid-row:1}
++  #productGrid .has-stock-notice>.stock-warning{grid-column:1/3;grid-row:2}
++  #productGrid .has-stock-notice>.product-action-wrap{grid-column:3;grid-row:2}
++}
++@media(max-width:360px){
++  #productGrid>.product{grid-template-columns:88px minmax(0,1fr);column-gap:9px}
++  #productGrid .product h3{padding-right:44px}
++  #productGrid .product-tag{max-width:50px;padding-inline:5px}
++  #productGrid .add{padding-inline:7px;font-size:11px}
++  #productGrid .card-quantity button{width:28px}
++}
++

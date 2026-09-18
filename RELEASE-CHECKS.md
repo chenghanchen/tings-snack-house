@@ -29,6 +29,14 @@ node scripts/release-level.mjs --base fc29a0d1448bf4f834e93913a4596b37875fb6e0 -
 
 三项 UI 修改单独组成的范围（上述两脚本及 `styles.css`）按已审核内容判 L1；分类器、指纹白名单、分类回归测试与发布规则的变更本身仍为 L3。CI 仍使用已审核 base 策略作最低门禁，因此规则修正必须先独立审核进入可信基线，后续 UI 发布才可使用新规则，不能用候选策略给自身降级。
 
+### 手机端 UI 误分类修正（独立 L3 基础设施候选）
+
+- HTML 包含既有脚本不等于本次修改了脚本。新增的窄规则只允许 `<style>` 内独占一行的数值尺寸/间距/字号声明变化：height/width（含 min/max）、padding/margin、gap、font-size、line-height。HTML 结构、标签属性、文案、脚本及其配置必须逐字一致（只统一 CRLF/LF）；选择器、URL、字符串、注释、外部导入和无法解释的 CSS 变化不由此规则放行。脚本、模板、SVG/MathML、原始文本区域按不透明内容比较，不能把其中的 `<style>` 字符串当作真实样式。这是保守识别器，不是完整 HTML/CSS 解析器；无法确认时保持 L3。
+- `mobile-header.js` 的 L1 资格基于精确路径、前后已审阅的完整源码 SHA-256 和不变文件模式，仅允许已有文件修改。已审阅职责为：现有菜单/账户/订单查询/购物车入口事件转发、可访问性标签、手机搜索 placeholder、分类栏 DOM 测量与滚动。`Array.from(buttons)` 是 DOM 列表转换，不是 Supabase 数据表访问；代码没有新增网络调用、数据库写入、凭据读取、金额计算或 Storage 操作。
+- 此次 JS 审核基线（统一换行后）：旧版 `b108952a2a59c4580027182ec8234e7f83afb5e78ff8135f91e62091f1c935aa`；手机分类滚动版 `902f8028e24f807bc808063aa320158619aa2ace602e40a8577427a9cd1b976a`。这不是整个文件未来修改的永久豁免。任意新调用、别名/计算属性 API、未知内容、添加/删除/改名或模式变化均回到 L3，必须重新审核，不能仅删除风险关键词后降级。
+- 回归快照为 `tests/fixtures/release-level/mobile-catalog.patch.txt`，相对 `d0efe8d4ac43d17ce4c104388df96a0b05b2bbfa`，只在临时测试仓库应用。它覆盖目前未提交的 `index.html`、`mobile-header.js`、`styles.css` 三项 UI 修改，预期整体 L1；不把这些应用改动混入基础设施提交。
+- 分类器、测试夹具、回归测试与本规范的修正仍是 L3，须独立审核；本地测试通过不表示 CI、production approval 或 Production MATCH 已通过。可信 base gate floor、未知范围最高等级、冻结版本和人工审批门禁保持不变，不能用本次候选规则给自身降级。本修正不授权生产发布。
+
 CI push 自动使用 `github.event.before`；PR 使用基分支 SHA 对 checkout 的合并树做完整 diff。手动核验工作流要求输入前一发布完整 SHA；本地用 `--base` 或 `RELEASE_BASE_SHA`。缺历史、全零 base、非祖先、同一 SHA/空 diff、未知变更均回退 L3；未知范围仍阻止成功封存。操作人不能把未发布的中间提交随意指定为 base 来缩小范围，生产阶段必须沿用准备阶段的同一 base/head。
 
 新报告为 schemaVersion 3，记录等级、每文件理由、base/head、diff 指纹和必需 gate；check/render/finalize 均重算分类以拒绝被篡改或过期的计划。旧 schemaVersion 2 只允许读取已提交历史中的一致封存报告，不能作为新报告继续检查/封存，也不自动迁移。L1 的 `tests` 使用 `--frontend-only`，L2 使用 `--business-only`，L3 保留原 Deno frozen + 完整 unit 检查及单独全部 PGlite suites。CI 仅明确 L1/L2 时才免除高风险 Docker/concurrency job；分类失败不会跳过这些 job。

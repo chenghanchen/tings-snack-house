@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync, copyFileSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -10,6 +11,107 @@ import { productionPrerequisites } from '../scripts/release-live.mjs';
 const base = 'a'.repeat(40), head = 'b'.repeat(40);
 const change = (file, extra = {}) => ({ path: file, status: 'M', before: '', after: '', ...extra });
 const classify = changes => classifyChanges(changes, { base, head });
+// Immutable snapshot of the three uncommitted UI files, not the evolving worktree.
+// Applying this test fixture only touches a disposable local Git repository.
+let mobileFixture;
+function currentMobileUiChanges() {
+  if (mobileFixture) return mobileFixture;
+  const f = gitFixture(), files = ['index.html', 'mobile-header.js', 'styles.css'];
+  const changes = files.map(file => {
+    const before = execFileSync('git', ['show', `d0efe8d4ac43d17ce4c104388df96a0b05b2bbfa:${file}`], { cwd: new URL('..', import.meta.url), encoding: 'utf8' });
+    writeFileSync(path.join(f.root, file), before);
+    return change(file, { before });
+  });
+  f.git('apply', '--unidiff-zero', '--', fileURLToPath(new URL('./fixtures/release-level/mobile-catalog.patch.txt', import.meta.url)));
+  mobileFixture = changes.map(c => ({ ...c, after: readFileSync(path.join(f.root, c.path), 'utf8') }));
+  return mobileFixture;
+}
+
+test('exact current mobile catalog/hero/search/scroll changes together are L1', () => {
+  const changes = currentMobileUiChanges(), plan = classify(changes);
+  assert.match(changes[0].before, /min-height: 560px/);
+  assert.match(changes[0].after, /min-height: 400px/);
+  assert.match(changes[1].after, /Array\.from\(buttons\)/);
+  assert.match(changes[1].after, /filters\.scrollTo/);
+  assert.equal(plan.level, 'L1'); assert.equal(plan.backendChanged, false);
+  assert.deepEqual(plan.files.map(f => f.level), ['L1', 'L1', 'L1']);
+  assert.equal(plan.databaseScope, 'none');
+  for (const gate of ['database', 'supabase', 'productionApproval', 'productionMatch']) assert.ok(!plan.requiredGates.includes(gate));
+  assert.equal(classify(changes.map(c => ({ ...c, before: c.before.replace(/\r?\n/g, '\r\n'), after: c.after.replace(/\r?\n/g, '\r\n') }))).level, 'L1');
+  const f = gitFixture();
+  for (const c of changes) writeFileSync(path.join(f.root, c.path), c.before);
+  const b = f.commit();
+  for (const c of changes) writeFileSync(path.join(f.root, c.path), c.after);
+  assert.equal(detectRelease(f.root, { base: b, head: f.commit() }).level, 'L1');
+});
+
+test('HTML unchanged scripts do not escalate numeric presentation CSS; executable changes do', () => {
+  const before = '<!doctype html><html><head><script src="app.js"></script><script>const buttons = [1];</script><style>\n.hero{\n  min-height: 560px;\n  padding: 60px 8vw;\n}\n</style></head><body><p onclick="openMenu()">Hello</p></body></html>';
+  const after = before.replace('560px', '400px').replace('60px 8vw', '32px 8vw');
+  const ui = change('index.html', { before, after });
+  assert.equal(classify([ui]).level, 'L1');
+  for (const mutated of [
+    after.replace('app.js', 'other.js'), after.replace('[1]', '[2]'),
+    after.replace('openMenu()', 'pay()'), after.replace('Hello', 'Changed'),
+    after.replace('<script src=', '<script nonce="different" src='),
+    after.replace('400px;', 'expression(fetch("/write"));'),
+    after.replace('400px;', '400px; color:red;'),
+    after.replace('</style>', '@import "https://example.test/a.css";</style>'),
+    after.replace('<body>', '<body><form action="/pay">'),
+    after.replace('<style>', '<style media="print">'), after.replace('</style>', ''),
+  ]) assert.equal(classify([{ ...ui, after: mutated }]).level, 'L3', mutated);
+  assert.equal(classify([{ ...ui, status: 'A' }]).level, 'L3');
+  assert.equal(classify([{ ...ui, mode: '100755' }]).level, 'L3');
+});
+
+test('CSS-looking data inside scripts/attributes/comments/raw text cannot bypass HTML gates', () => {
+  for (const before of [
+    '<script>const css = `<style>\npadding: 60px;\n</style>`;</script>',
+    '<div data-html="<style>\npadding: 60px;\n</style>"></div>',
+    '<!-- <style>\npadding: 60px;\n</style> -->',
+    ...['textarea', 'template', 'svg', 'math', 'noscript', 'title'].map(tag => `<${tag}><style>\npadding: 60px;\n</style></${tag}>`),
+    '<style>\n.x{content:"\npadding: 60px;\n";}\n</style>',
+    '<style>\n/*\npadding: 60px;\n*/\n</style>',
+    '<style>\n.x{background:url(\npadding: 60px;\n)}\n</style>',
+  ]) {
+    // An unchanged real script also prevents the legacy plain-text-only HTML rule.
+    const source = before + '<script src="app.js"></script>';
+    assert.equal(classify([change('index.html', { before: source, after: source.replace('60px', '32px') })]).level, 'L3', before);
+  }
+});
+
+test('reviewed UI JS does not confuse Array.from/buttons with backend operations; unknown versions fail closed', () => {
+  const ui = currentMobileUiChanges()[1];
+  assert.equal(classify([ui]).level, 'L1');
+  for (const code of [
+    'supabase.from("orders").insert({id:1});', 'client.from("orders").update({paid:true});',
+    'db["from"]("orders")["delete"]();', 'const {from} = client; from("orders").upsert({id:1});',
+    'supabase.rpc("charge_wallet");', 'supabase.auth.updateUser({password:"test"});',
+    'supabase.storage.from("media").remove(["x"]);', 'fetch("/admin", {method:"POST"});',
+    'const Array = db; Array.from("orders").delete();', 'window.location="https://example.test";',
+    'unknownBusinessOperation();', '// benign but unreviewed future edit',
+  ]) {
+    for (const extra of [{ after: ui.after + '\n' + code }, { before: ui.before + '\n' + code }])
+      assert.equal(classify([{ ...ui, ...extra }]).level, 'L3', code);
+  }
+  for (const extra of [{ status: 'A' }, { status: 'D' }, { mode: '100755' }, { oldMode: '100755' }, { path: 'other-ui.js' }])
+    assert.equal(classify([{ ...ui, ...extra }]).level, 'L3');
+});
+
+test('current mobile UI mixed with sensitive or classifier infrastructure changes remains full L3', () => {
+  const ui = currentMobileUiChanges();
+  for (const file of ['app.js', 'supabase/functions/submit-order/index.ts', 'supabase/functions/admin-media-cleanup/index.ts',
+    'supabase/migrations/new.sql', 'media-deletion-guard-migration.sql', 'auth/rls.sql', 'customer-account.js',
+    'storage-delete.js', 'scripts/deploy.cjs', 'scripts/release-security.mjs', 'scripts/release-level.mjs',
+    'tests/release-level.test.mjs', 'tests/fixtures/release-level/mobile-catalog.patch.txt', 'RELEASE-CHECKS.md',
+    '.github/workflows/release-check.yml', 'unknown.js']) {
+    const high = change(file, { status: 'A', after: ui[1].after });
+    for (const changes of [[...ui, high], [high, ...ui]]) {
+      const p = classify(changes); assert.equal(p.level, 'L3', file); assert.deepEqual(p.requiredGates, FULL_GATES);
+    }
+  }
+  assert.equal(classifyChanges(ui, { base, head, minimumLevel: 'L3' }).level, 'L3');
+});
 function reviewedSuccessUiChanges() {
   const before = execFileSync('git', ['show', 'bc6f03dec64e898da40fa252d2e5e82db71ef45b:scripts/check-success-hero.cjs'], { cwd: new URL('..', import.meta.url), encoding: 'utf8' });
   assert.ok(before.includes('Math.min(350.01, result.available)'));
@@ -89,13 +191,13 @@ test('styles plus allowlisted UI regression support are L1; no unrelated backend
   assert.equal(classify([change('tests/catalog-layout.test.mjs')]).level, 'L3');
 });
 test('ordinary business client logic is L2 with full unit and business smoke coverage', () => {
-  const p = classify([change('mobile-header.js', { after: 'function openMenu() {}' })]);
+  const p = classify([change('activity-announcement.js', { after: 'function openMenu() {}' })]);
   assert.equal(p.level, 'L2'); assert.equal(p.testScope, 'full');
   assert.ok(p.requiredGates.includes('guestCheckout'));
   assert.equal(p.databaseScope, 'none'); assert.ok(!p.requiredGates.includes('supabase'));
 });
 test('mixed changes always use highest risk regardless of order', () => {
-  for (const files of [ ['styles.css', 'mobile-header.js'], ['mobile-header.js', 'styles.css'] ]) assert.equal(classify(files.map(f => change(f))).level, 'L2');
+  for (const files of [ ['styles.css', 'activity-announcement.js'], ['activity-announcement.js', 'styles.css'] ]) assert.equal(classify(files.map(f => change(f))).level, 'L2');
   for (const files of [ ['styles.css', 'app.js'], ['app.js', 'styles.css'] ]) assert.equal(classify(files.map(f => change(f))).level, 'L3');
 });
 test('every financial/auth/permission/deletion/migration/Edge/release-control path is L3', () => {

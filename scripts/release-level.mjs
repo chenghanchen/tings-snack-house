@@ -21,8 +21,75 @@ const reviewedUiSupport = new Map([
 const ordinary = new Set(['mobile-header.js', 'admin-mobile-nav.js', 'footer-contact-overlay.js', 'activity-announcement.js', 'site-appearance.js']);
 const sha = value => /^[a-f0-9]{40}$/.test(value || '');
 const hash = value => createHash('sha256').update(value).digest('hex');
+// Reviewed DOM-only navigation/search/category presentation, not a JS-directory allowlist.
+// Audit: forwards existing navigation events; no network, credentials, prices or storage writes.
+const reviewedUiModules = new Map([
+  ['mobile-header.js', new Set([
+    'b108952a2a59c4580027182ec8234e7f83afb5e78ff8135f91e62091f1c935aa', // existing navigation
+    '902f8028e24f807bc808063aa320158619aa2ace602e40a8577427a9cd1b976a', // mobile placeholder/category scroll
+  ])],
+]);
 const riskPath = /(?:^supabase\/|\.sql$|(?:^|\/)(?:AGENTS\.md|RELEASE[^/]*|EDGE[^/]*|MEDIA[^/]*|P1[^/]*|release[^/]*|package(?:-lock)?\.json|deno\.(?:json|lock)|wrangler[^/]*|_headers|_redirects)$|^\.github\/|(?:auth|identity|wallet|checkout|payment|pricing|order|media-cleanup|storage|rls|permission|edge-depend|edge-bundle|request-body))/i;
 const riskyCode = /(?:supabase|\.rpc\s*\(|\.from\s*\(|\.storage\b|auth|jwt|token|role|permission|price|amount|total|discount|tax|payment|checkout|delete|removeItem)/i;
+
+// Small, intentionally conservative recognizer, not a general HTML/CSS parser.
+// Preserve every byte outside real style bodies, including all executable content.
+function htmlStyleParts(source) {
+  const styles = [];
+  let skeleton = '', offset = 0;
+  while (offset < source.length) {
+    const next = source.indexOf('<', offset);
+    if (next < 0) { skeleton += source.slice(offset); break; }
+    skeleton += source.slice(offset, next);
+    const rest = source.slice(next);
+    const token = /^(?:<!--[\s\S]*?-->|<!doctype[^>]*>|<\/?([a-z][a-z0-9:-]*)\b(?:[^"'<>]|"[^"]*"|'[^']*')*>)/i.exec(rest);
+    if (!token) return null;
+    skeleton += token[0];
+    offset = next + token[0].length;
+    const name = token[1]?.toLowerCase();
+    if (['script', 'style', 'title', 'textarea', 'svg', 'math', 'template', 'noscript', 'xmp', 'iframe', 'noembed', 'noframes'].includes(name) && !token[0].startsWith('</')) {
+      if (/\/\s*>$/.test(token[0])) return null;
+      const closing = new RegExp(`</${name}\\s*>`, 'i').exec(source.slice(offset));
+      if (!closing) return null;
+      const body = source.slice(offset, offset + closing.index);
+      if (!['script', 'style', 'title', 'textarea'].includes(name) && new RegExp(`<${name}\\b`, 'i').test(body)) return null;
+      if (name !== 'style') skeleton += body; // Scripts, foreign content and templates are opaque and immutable.
+      else { styles.push(body); skeleton += '\u0000STYLE\u0000'; }
+      skeleton += closing[0];
+      offset += closing.index + closing[0].length;
+    }
+  }
+  return { skeleton, styles };
+}
+
+function presentationStyleShape(source) {
+  // Mask comments/literals verbatim before recognizing numeric layout declarations.
+  // Changes inside URLs, comments or strings never count as layout changes.
+  let code = '', offset = 0;
+  while (offset < source.length) {
+    const rest = source.slice(offset);
+    const literal = /^(?:\/\*[\s\S]*?\*\/|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*')/.exec(rest);
+    if (literal) { code += `__LITERAL_${hash(literal[0])}__`; offset += literal[0].length; }
+    else {
+      if (rest.startsWith('/*') || /["'\\]/.test(rest[0])) return null;
+      code += rest[0]; offset++;
+    }
+  }
+  if (/@import|expression\s*\(|javascript\s*:|url\s*\((?!\s*__LITERAL_)/i.test(code)) return null;
+  const numeric = '[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:px|rem|em|vh|vw|dvh|%|)';
+  const declaration = new RegExp(`^([ \\t]*(?:(?:min-|max-)?(?:height|width)|padding(?:-(?:top|right|bottom|left|inline|block))?|margin(?:-(?:top|right|bottom|left|inline|block))?|gap|row-gap|column-gap|font-size|line-height)\\s*:\\s*)${numeric}(?:[ \\t]+${numeric}){0,3}([ \\t]*;[ \\t]*)$`, 'gm');
+  return code.replace(declaration, '$1__LAYOUT_VALUE__$2');
+}
+
+function onlyPresentationStylesChanged(before, after) {
+  const a = htmlStyleParts(before), b = htmlStyleParts(after);
+  if (!a || !b || !a.styles.length || a.skeleton !== b.skeleton || a.styles.length !== b.styles.length) return false;
+  return a.styles.every((css, index) => {
+    if (css === b.styles[index]) return true;
+    const shape = presentationStyleShape(css);
+    return shape !== null && shape === presentationStyleShape(b.styles[index]);
+  });
+}
 
 export function classifyFile(change) {
   const { path: file, status, before = '', after = '', mode = '100644', oldMode = '100644' } = change;
@@ -50,10 +117,19 @@ export function classifyFile(change) {
     return answer('L3', 'High-risk business/security/release control', /^supabase\//.test(file) || /\.sql$/.test(file) || /supabase/.test(file));
   if (/^(?:assets|images|fonts)\/[a-zA-Z0-9_./-]+\.(?:png|jpe?g|webp|gif|ico|woff2?|ttf)$/i.test(file)) return answer('L1', 'Passive static asset');
   if (/\.html$/.test(file)) {
+    if (status === 'M' && mode === oldMode && onlyPresentationStylesChanged(before.replace(/\r\n/g, '\n'), after.replace(/\r\n/g, '\n')))
+      return answer('L1', 'Only numeric layout declarations in style blocks changed; scripts and remaining HTML byte-identical');
     // Only text/presentation-attribute edits with identical remaining markup are L1.
     const structure = s => s.replace(/<!--[\s\S]*?-->/g, '').replace(/\s(?:class|style|title|aria-label)=(?:"[^"]*"|'[^']*')/g, '').replace(/>[^<]*</g, '><').trim();
     if (status === 'M' && !/<script|\son\w+\s*=|javascript:/i.test(before + after) && structure(before) === structure(after)) return answer('L1', 'HTML text/presentation only');
     return answer('L3', 'Executable or structurally ambiguous HTML');
+  }
+  if (reviewedUiModules.has(file)) {
+    const expected = reviewedUiModules.get(file);
+    const matches = source => expected.has(hash(source.replace(/\r\n/g, '\n')));
+    return status === 'M' && mode === oldMode && matches(before) && matches(after)
+      ? answer('L1', 'Reviewed DOM-only UI module; both source fingerprints match the audited presentation scope')
+      : answer('L3', 'UI module source/operations not in reviewed scope; unknown JS fails closed');
   }
   if (ordinary.has(file)) {
     if (riskyCode.test(before + after)) return answer('L3', 'Ordinary module contains security/financial/backend operations');
