@@ -57,6 +57,70 @@ const accountRefreshTransition = Object.freeze({
   after: '940c11a79a01bd0979d68fa855a18d5da5b2bfb9feb277f3da9d1c9f6b802093',
 });
 
+// Independent L3-reviewed eligibility, NOT authorization. Only these exact source
+// transitions were audited as presentation/test-only. No keyword-based API detector
+// can safely prove arbitrary account JS harmless. Unknown bytes stay hard L3.
+const overrideEligibility = new Map([
+  ['customer-account.js', ['940c11a79a01bd0979d68fa855a18d5da5b2bfb9feb277f3da9d1c9f6b802093', 'd9bf368da56ecb72d6ad4fbf5d5a80543ceb48f40d4a96a931de955e17b542c6']],
+  ['scripts/check-customer-account.cjs', ['357b8507d6232726a1502fa71b60c1ac84035d1639c15809593e42d688657359', 'a3ea9844dccac416c6f14544afa4f72c1fde493c2d2615940f6a588c64205dd6']],
+]);
+const overridePath = 'release-ui-overrides.json';
+const exactKeys = (v, keys) => v && typeof v === 'object' && !Array.isArray(v) &&
+  JSON.stringify(Object.keys(v).sort()) === JSON.stringify([...keys].sort());
+const digest = v => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v);
+const isoDate = v => typeof v === 'string' && Number.isFinite(Date.parse(v)) && new Date(v).toISOString() === v;
+const overrideRowKeys = ['path', 'beforeSha256', 'afterSha256'];
+function validApproval(a, now = Date.now()) {
+  if (!exactKeys(a, ['id','review','issuedAt','expiresAt','diffFingerprint','files']) ||
+      typeof a.id !== 'string' || !/^[a-z0-9-]{1,80}$/.test(a.id) || typeof a.review !== 'string' || !a.review.trim() || a.review.length > 2000 ||
+      !isoDate(a.issuedAt) || !isoDate(a.expiresAt) || Date.parse(a.issuedAt) > now || Date.parse(a.expiresAt) <= now ||
+      Date.parse(a.expiresAt) <= Date.parse(a.issuedAt) || Date.parse(a.expiresAt) - Date.parse(a.issuedAt) > 7 * 86400000 ||
+      !digest(a.diffFingerprint) || !Array.isArray(a.files) || !a.files.length || a.files.length > overrideEligibility.size) return false;
+  const seen = new Set();
+  return a.files.every(row => {
+    if (!exactKeys(row, overrideRowKeys) || seen.has(row.path)) return false;
+    seen.add(row.path);
+    const pair = overrideEligibility.get(row.path);
+    return pair && row.beforeSha256 === pair[0] && row.afterSha256 === pair[1];
+  });
+}
+function applyTrustedOverride(plan, changes, git, base, target) {
+  // Read only a regular file in the immutable trusted base, never from the worktree,
+  // an environment JSON/path, CLI override, or the candidate's approval file.
+  const entry = git('ls-tree', base, '--', overridePath);
+  if (!entry) return plan;
+  const reject = reason => ({ ...plan, override: { status: 'REJECTED', reason, sourceBase: base } });
+  try {
+    if (!entry.startsWith('100644 blob ')) return reject('Approval source is not a regular trusted-base file');
+    const raw = git('show', `${base}:${overridePath}`);
+    if (raw.length > 32768) return reject('Oversized approval source');
+    const manifest = JSON.parse(raw);
+    if (!exactKeys(manifest, ['schemaVersion','approvals']) || manifest.schemaVersion !== 1 ||
+        !Array.isArray(manifest.approvals) || !manifest.approvals.length || manifest.approvals.length > 20 ||
+        !manifest.approvals.every(a => validApproval(a)) || new Set(manifest.approvals.map(a => a.id)).size !== manifest.approvals.length)
+      return reject('Malformed, expired, future-dated or ineligible approval');
+    if (plan.uncertainty || plan.level !== 'L3' || plan.minimumLevel === 'L3' || plan.backendChanged ||
+        changes.some(c => c.path === overridePath) || git('show', `${target}:${overridePath}`) !== raw)
+      return reject('Uncertain range, trusted L3 floor, hard backend change or modified approval source');
+    const matches = manifest.approvals.filter(a => a.diffFingerprint === plan.diffFingerprint);
+    if (matches.length !== 1) return reject('Complete diff fingerprint must match exactly one approval');
+    const approval = matches[0], high = plan.files.filter(f => f.level === 'L3');
+    if (high.length !== approval.files.length) return reject('Unapproved or hard L3 file in complete diff');
+    for (const f of high) {
+      const c = changes.find(c => c.path === f.path), row = approval.files.find(r => r.path === f.path);
+      if (!row || !overrideEligibility.has(f.path) || c.status !== 'M' || c.mode !== '100644' || c.oldMode !== '100644' ||
+          normalizedHash(c.before) !== row.beforeSha256 || normalizedHash(c.after) !== row.afterSha256)
+        return reject('Hard L3, unknown bytes, file mode or source fingerprint mismatch');
+    }
+    const files = plan.files.map(f => f.level === 'L3' ? { ...f, level: 'L1', automaticLevel: 'L3',
+      reason: `Exact manually approved presentation transition (${approval.id}); automatic L3 retained in audit` } : f);
+    const level = files.reduce((max, f) => f.level > max ? f.level : max, plan.minimumLevel);
+    return { ...plan, files, level, databaseScope: 'none', testScope: level === 'L1' ? 'frontend' : 'full',
+      requiredGates: level === 'L1' ? BASE_GATES : [...BASE_GATES, 'guestCheckout'],
+      override: { status: 'APPLIED', sourceBase: base, sourceSha256: normalizedHash(raw), approval } };
+  } catch { return reject('Unreadable or malformed trusted approval'); }
+}
+
 // Recognize actual HTML tags, never matching resource-like strings inside scripts,
 // comments, styles, templates, or foreign/raw-text content. Unknown syntax fails closed.
 function resourceParts(source) {
@@ -321,14 +385,27 @@ export function detectRelease(root, { base, head = 'HEAD', minimumLevel } = {}) 
         after: status === 'D' ? '' : binary ? git('rev-parse', `${target}:${file}`).trim() : blob(target, file) });
     }
     const resourceVersions = checkResourceVersions(git, base, target, changes);
-    return { ...classifyChanges(changes, { base, head: target, minimumLevel,
-      uncertainty: resourceVersions.status === 'FAIL' ? `Cache/version release blocked: ${resourceVersions.problems.join('; ')}` : null }), resourceVersions };
+    const automatic = classifyChanges(changes, { base, head: target, minimumLevel,
+      uncertainty: resourceVersions.status === 'FAIL' ? `Cache/version release blocked: ${resourceVersions.problems.join('; ')}` : null });
+    return { ...applyTrustedOverride(automatic, changes, git, base, target), resourceVersions };
   } catch {
     return classifyChanges([], { base: sha(base) ? base : null, head: target || null, minimumLevel, uncertainty: 'Cannot establish complete ancestor diff (missing/invalid base, shallow history, binary/oversized/unknown diff)' });
   }
 }
 
 export function validateClassification(value) {
+  if (value?.override) {
+    const o = value.override;
+    if (o.status === 'APPLIED') {
+      if (!exactKeys(o, ['status','sourceBase','sourceSha256','approval']) || o.sourceBase !== value.base ||
+          !digest(o.sourceSha256) || !validApproval(o.approval) || o.approval.diffFingerprint !== value.diffFingerprint ||
+          value.minimumLevel === 'L3' || value.backendChanged || value.uncertainty || value.level === 'L3' ||
+          value.files.filter(f => f.automaticLevel === 'L3').length !== o.approval.files.length ||
+          !o.approval.files.every(r => value.files.some(f => f.path === r.path && f.automaticLevel === 'L3' && f.level === 'L1')))
+        throw Error('Invalid or expired manual override evidence');
+    } else if (o.status !== 'REJECTED' || !exactKeys(o, ['status','reason','sourceBase']) || o.sourceBase !== value.base || !o.reason || value.files?.some(f => f.automaticLevel))
+      throw Error('Invalid manual override rejection');
+  } else if (value?.files?.some(f => f.automaticLevel)) throw Error('Missing manual override evidence');
   if (value?.resourceVersions?.status === 'FAIL') throw Error(`Cache/version release blocked: ${value.resourceVersions.problems.join('; ')}`);
   if (value?.resourceVersions && !['PASS', 'NOT_REQUIRED'].includes(value.resourceVersions.status)) throw Error('Invalid resource-version evidence');
   if (value?.resourceVersions?.status === 'PASS' &&

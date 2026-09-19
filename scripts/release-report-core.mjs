@@ -91,6 +91,10 @@ export function renderReport(report) {
   return `## ${report.createdAt.slice(0, 10)} · ${report.version.slice(0, 7)} · ${inline(report.title)}\n\n` +
     `**${status}${status === 'RELEASE SUCCESS' ? ' ✓' : status === 'RELEASE FAILED' ? ' ✕' : ''}**\n\nVersion: \`${report.version}\`\n\nBranch: \`${inline(report.branch)}\`\n\n` +
     (report.schemaVersion === 3 ? `Level: **${report.classification.level}**; Base: \`${report.classification.base || 'UNKNOWN'}\`; Diff: \`${report.classification.diffFingerprint}\`\n\n` : '') +
+    (report.classification?.override ? `Manual override: **${report.classification.override.status}**; ` +
+      (report.classification.override.status === 'APPLIED'
+        ? `ID: ${inline(report.classification.override.approval.id)}; trusted base: \`${report.classification.override.sourceBase}\`; expires: ${inline(report.classification.override.approval.expiresAt)}; original file levels retained in JSON.`
+        : inline(report.classification.override.reason)) + '\n\n' : '') +
     `Updated: ${report.updatedAt}\n\n| Check | Result | Evidence | Checked at |\n| --- | --- | --- | --- |\n` +
     Object.entries(reportGates(report)).map(([key, label]) => {
       const check = report.checks[key];

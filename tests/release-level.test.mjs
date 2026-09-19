@@ -479,6 +479,10 @@ test('actual production HTML version-only proposal is L1 only after both hashes 
     mkdirSync(path.dirname(path.join(f.root, file)), { recursive: true });
     writeFileSync(path.join(f.root, file), readFileSync(new URL('../' + file, import.meta.url)));
   }
+  // The published HTML may already use correct content hashes. Seed an actual
+  // stale-version proposal in the disposable fixture, not an empty release diff.
+  const htmlPath = path.join(f.root, 'index.html');
+  writeFileSync(htmlPath, readFileSync(htmlPath, 'utf8').replace(/styles\.css\?v=[a-zA-Z0-9._-]+/, 'styles.css?v=legacy-fixture'));
   const b = f.commit({ syncVersions: false }), h = f.commit();
   const p = detectRelease(f.root, { base: b, head: h });
   assert.equal(p.resourceVersions.status, 'PASS', JSON.stringify(p.resourceVersions));

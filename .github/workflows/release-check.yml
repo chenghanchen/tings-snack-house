@@ -3,7 +3,7 @@ name: Release checks
 on:
   pull_request:
   push:
-    branches: [main, fix/media-guard-body-limits-locks, tooling/release-levels]
+    branches: [main, fix/media-guard-body-limits-locks, tooling/release-levels, tooling/release-ui-override]
   workflow_dispatch:
     inputs:
       base:

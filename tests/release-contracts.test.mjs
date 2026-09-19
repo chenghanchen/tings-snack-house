@@ -503,6 +503,8 @@ test("首屏快照：优先一次只读 RPC，异常时保留旧请求回退", a
 });
 
 function storefrontStateFactory(app) {
+  // Worktrees checked out on Windows may use CRLF; evaluate the same source.
+  app = app.replace(/\r\n/g, "\n");
   const start = app.indexOf("function createStorefrontSharedState()");
   const end = app.indexOf("\n\nconst storefrontShared", start);
   assert.ok(start >= 0 && end > start, "应能提取前台共享状态实现");

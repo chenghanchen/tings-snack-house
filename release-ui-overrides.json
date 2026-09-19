@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "approvals": [
+    {
+      "id": "account-details-back-ui-20260919",
+      "review": "User-authorized manual scope review on 2026-09-19; exact DOM text/status removal and offline layout assertions only. See docs/release-ui-override.md. Not a production approval.",
+      "issuedAt": "2026-09-19T05:10:12.000Z",
+      "expiresAt": "2026-09-26T05:10:12.000Z",
+      "diffFingerprint": "9ca24fd126b8b8cfe948ddb3b10d91b1115ea71cbab1f3da1b027b0a0e12a3d7",
+      "files": [
+        {
+          "path": "customer-account.js",
+          "beforeSha256": "940c11a79a01bd0979d68fa855a18d5da5b2bfb9feb277f3da9d1c9f6b802093",
+          "afterSha256": "d9bf368da56ecb72d6ad4fbf5d5a80543ceb48f40d4a96a931de955e17b542c6"
+        },
+        {
+          "path": "scripts/check-customer-account.cjs",
+          "beforeSha256": "357b8507d6232726a1502fa71b60c1ac84035d1639c15809593e42d688657359",
+          "afterSha256": "a3ea9844dccac416c6f14544afa4f72c1fde493c2d2615940f6a588c64205dd6"
+        }
+      ]
+    }
+  ]
+}
