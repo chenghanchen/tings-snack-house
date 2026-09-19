@@ -516,8 +516,17 @@ function mockSdk() {
     assert.equal(await page.locator('#customerAccountBack').isVisible(),true);
     assert.equal(await page.locator('#customerAccountBack').getAttribute('aria-label'),'返回商店');
     assert.equal(await page.locator('#customerOrderRefresh').isVisible(),false);
-    for (const width of [320,375,390,780,1100,1710]) {
+    const assertAccountBack = async (view,width) => {
+      const style=await page.locator('#customerAccountBack').evaluate(el=>{
+        const s=getComputedStyle(el),r=el.getBoundingClientRect(),title=document.querySelector('#customerAccountTitle').getBoundingClientRect();
+        return {width:r.width,height:r.height,fontSize:s.fontSize,padding:[s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft],
+          clear:r.left>=title.right,clickable:document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===el};
+      });
+      assert.deepEqual(style,{width:50,height:40,fontSize:'15px',padding:['0px','0px','0px','0px'],clear:true,clickable:true},`${view} back at ${width}px`);
+    };
+    for (const width of [320,375,390,780,781,782,1100,1710]) {
       await page.setViewportSize({width,height:844});
+      await assertAccountBack('home',width);
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
       const homeStyle=await page.evaluate(()=>{
         const root=document.querySelector('#customerAccountDialog'),heading=root.querySelector('.customer-account-heading'),close=root.querySelector('#customerAccountBack');
@@ -540,6 +549,12 @@ function mockSdk() {
       await page.waitForFunction(id=>document.getElementById(id).getAttribute('aria-busy')==='false',panel);
       assert.doesNotMatch(await page.textContent(`#${panel}`),/尚未接入|绑定手机号/);
       assert.equal(await page.locator('#customerHomePanel').isVisible(),false);
+      for(const width of [320,390,780,781,782,1710]){
+        await page.setViewportSize({width,height:844});
+        await assertAccountBack(view,width);
+        assert.equal(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth),true,`${view} overflow at ${width}px`);
+      }
+      await page.setViewportSize({width:390,height:844});
       await page.click('#customerAccountBack');
       assert.equal(await page.locator(`[data-account-tab=${view}]`).evaluate(el=>el===document.activeElement),true);
     }
@@ -926,6 +941,9 @@ function mockSdk() {
     await page.click('#customerAccountBack');await page.click('[data-account-tab=details]');
     await page.waitForFunction(()=>!document.querySelector('#customerDetailsStatus').textContent.includes('正在'));
     assert.equal(await page.locator('#customerDiscardDetails, #customerReloadDetails, #customerDetailsForm > small').count(),0);
+    assert.equal(await page.locator('#customerDetailsPanel').getByText('默认资料会自动填写结算页的空白项。',{exact:false}).count(),0);
+    assert.equal(await page.textContent('#customerDetailsStatus'),'');
+    assert.equal(await page.locator('#customerDetailsStatus').isVisible(),false);
     assert.equal(await page.locator('#customerSaveDetails').isDisabled(),true);
     assert.equal(await page.textContent('#customerSaveDetails'),'保存资料');
     assert.match(await page.locator('#customerIdentityEmail').locator('..').textContent(),/不可更改/);
@@ -943,9 +961,17 @@ function mockSdk() {
     await page.waitForFunction(()=>document.querySelector('#customerAccountMessage').textContent.includes('已保存'));
     assert.equal(await page.textContent('#customerSaveDetails'),'已保存');
     assert.equal(await page.locator('#customerSaveDetails').isDisabled(),true);
-    for (const width of [320,390,780,1100]) {
+    for (const width of [320,390,780,781,782,1100,1723]) {
       await page.setViewportSize({width,height:844});
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+      const detailsBack=await page.locator('#customerAccountBack').evaluate(el=>{
+        const s=getComputedStyle(el),r=el.getBoundingClientRect(),title=document.querySelector('#customerAccountTitle').getBoundingClientRect();
+        return {width:r.width,height:r.height,fontSize:s.fontSize,padding:[s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft],
+          clear:r.left>=title.right,clickable:document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===el};
+      });
+      assert.deepEqual(detailsBack,{width:50,height:40,fontSize:'15px',padding:['0px','0px','0px','0px'],clear:true,clickable:true},`details back at ${width}px`);
+      assert.equal(await page.locator('#customerDetailsStatus').isVisible(),false);
+      if(process.env.TINGS_ACCOUNT_SCREENSHOT && [390,1723].includes(width))await page.locator('#customerAccountDialog').screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-details-${width}.png`)});
       const spacing=await page.locator('#customerDetailsForm').evaluate(form=>{
         const label=name=>form.querySelector(`[name="${name}"]`).closest('label');
         const margin=node=>[getComputedStyle(node).marginTop,getComputedStyle(node).marginBottom];
@@ -1108,6 +1134,7 @@ function mockSdk() {
     await page.waitForFunction(()=>document.querySelector('#customerOrders').textContent.includes('TSH-260912-EE019'));
     for (const width of [320,360,375,390,414,768,780,781,782,1100,1710]) {
       await page.setViewportSize({width,height:1180});
+      await assertAccountBack('orders',width);
       const heading=await page.evaluate(()=>{
         const title=document.querySelector('#customerAccountTitle').getBoundingClientRect();
         const back=document.querySelector('#customerAccountBack'),r=back.getBoundingClientRect();
@@ -1209,6 +1236,8 @@ function mockSdk() {
     await page.evaluate(()=>{__accountTest.delayDetails=true});
     await page.click('[data-account-tab=details]');
     await page.waitForFunction(()=>typeof __accountTest.resolveDetails==='function');
+    assert.equal(await page.locator('#customerDetailsStatus').isVisible(),true);
+    assert.match(await page.textContent('#customerDetailsStatus'),/正在同步/);
     await page.fill('#customerDetailsForm [name=full_name]','正在编辑的姓名');
     await page.evaluate(()=>{__accountTest.delayDetails=false;__accountTest.resolveDetails()});
     await page.waitForFunction(()=>!document.querySelector('#customerSaveDetails').disabled);
@@ -1256,7 +1285,7 @@ function mockSdk() {
     await page.waitForFunction(()=>document.querySelector('#customerAccountMessage').textContent.includes('暂时无法加载'));
     await page.click('#customerAccountBack');
     await page.evaluate(()=>{__accountTest.detailsError=false});await page.click('[data-account-tab=details]');
-    await page.waitForFunction(()=>document.querySelector('#customerDetailsStatus').textContent==='资料已同步');
+    await page.waitForFunction(()=>document.querySelector('#customerDetailsStatus').textContent==='' && document.querySelector('#customerSaveDetails').disabled);
     assert.equal(await page.inputValue('#customerDetailsForm [name=full_name]'),'Later draft');
     // Discard during a slow read must not resurrect the abandoned edit or cancel default-address loading.
     await page.click('#customerAccountBack');
@@ -1266,7 +1295,7 @@ function mockSdk() {
     await page.fill('#customerDetailsForm [name=full_name]','Abandoned during read');
     page.once('dialog',dialog=>dialog.accept());await page.click('#customerAccountBack');
     await page.evaluate(()=>{__accountTest.delayDetails=false;__accountTest.resolveDetails()});
-    await page.waitForFunction(()=>document.querySelector('#customerDetailsStatus').textContent==='资料已同步');
+    await page.waitForFunction(()=>document.querySelector('#customerDetailsStatus').textContent==='' && document.querySelector('#customerSaveDetails').disabled);
     assert.equal(await page.inputValue('#customerDetailsForm [name=full_name]'),'Later draft');
     await page.click('[data-account-tab=details]');
     await page.click('#customerAccountBack');await page.click('[data-account-tab=orders]');

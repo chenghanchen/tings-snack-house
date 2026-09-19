@@ -65,7 +65,7 @@
         <div class="customer-pagination"><button type="button" id="customerOrdersPrev">上一页</button>
           <span id="customerOrdersPage"></span><button type="button" id="customerOrdersNext">下一页</button></div>
       </section>
-      <section id="customerDetailsPanel" data-account-panel="details" hidden><p class="customer-muted">默认资料会自动填写结算页的空白项。结算时临时修改地址不会覆盖这里的默认资料，也不会修改旧订单。</p>
+      <section id="customerDetailsPanel" data-account-panel="details" hidden>
         <p id="customerDetailsStatus" role="status" class="customer-muted"></p>
         <form id="customerDetailsForm">
           <label>姓名<input name="full_name" autocomplete="name" maxlength="80"></label>
@@ -135,7 +135,7 @@
   const detailsDirty = () => Object.entries(detailValues()).some(([name,value]) => value !== (details?.[name] || ''));
   function updateDetailsStatus() {
     const dirty = detailsDirty();
-    $('#customerDetailsStatus').textContent = detailsBusy ? (detailsSaving ? '正在保存资料…' : '正在同步资料…') : dirty ? '' : details ? '资料已同步' : '资料尚未加载';
+    $('#customerDetailsStatus').textContent = detailsBusy ? (detailsSaving ? '正在保存资料…' : '正在同步资料…') : dirty || details ? '' : '资料尚未加载';
     const submit = $('#customerSaveDetails');
     submit.disabled = detailsBusy || !session || !details || authExpired || !dirty;
     submit.textContent = detailsSaving ? '正在保存…' : detailsSaved && !dirty ? '已保存' : '保存资料';

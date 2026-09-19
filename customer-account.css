@@ -29,6 +29,8 @@
 #customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerHomePanel:not([hidden]))>.customer-account-heading{margin-top:-20px}
 @media(max-width:780px){#customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerHomePanel:not([hidden]))>.customer-account-heading{margin-top:-6px}}
 #customerAccountBack{margin:0;flex:none;white-space:nowrap}
+/* All signed-in account views share one compact back control on desktop and mobile. */
+#customerAccountDialog:has(#customerSignedIn:not([hidden])) #customerAccountBack{font-size:15px;padding:0;width:50px;height:40px;min-height:40px}
 #customerAccountEmail{margin:0 0 16px;font-size:14px;color:#000000}
 #customerAccountMessage:empty{display:none}
 .customer-feature-note{margin:12px 0;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--cream);line-height:1.7;font-size:14px}
@@ -54,7 +56,7 @@
 .customer-account-heading:has(#customerOrderRefresh:not([hidden])) .customer-account-title-row,
 .customer-account-heading #customerOrderRefresh:not([hidden]){display:contents}
 .customer-account-heading:has(#customerOrderRefresh:not([hidden])) h2{font-size:18px;white-space:nowrap}
-.customer-account-heading:has(#customerOrderRefresh:not([hidden])) #customerAccountBack{grid-column:3;grid-row:1;padding:0 8px;font-size:13px}
+.customer-account-heading:has(#customerOrderRefresh:not([hidden])) #customerAccountBack{grid-column:3;grid-row:1}
 @media(max-width:780px){
   .customer-account-heading:has(#customerOrderRefresh:not([hidden])){grid-template-columns:minmax(0,1fr) auto auto;gap:8px}
   .customer-account-heading:has(#customerOrderRefresh:not([hidden])) #customerAccountBack{grid-column:3}
@@ -92,6 +94,7 @@
 #customerDetailsForm input{margin-top:0}
 #customerAccountDialog #customerDetailsForm textarea[name="address"]{height:44px;min-height:44px;resize:vertical}
 #customerDetailsStatus{margin-top:0;margin-bottom:0}
+#customerDetailsStatus:empty{display:none}
 /* Coupon view only: preserve horizontal padding and the other account views. */
 #customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerCouponsPanel:not([hidden])){padding-top:20px;padding-bottom:20px}
 /* Rewards view only: match the compact feature panels without changing their width. */
