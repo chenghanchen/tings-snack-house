@@ -28,7 +28,7 @@
   // This template contains only application-owned text, never remote data.
   dialog.innerHTML = `
     <div class="customer-account-heading"><div class="customer-account-title-row"><h2 id="customerAccountTitle" tabindex="-1">登录 / 注册</h2>
-      <div id="customerOrderRefresh" class="customer-order-refresh" hidden><button type="button" id="customerRefreshOrders">刷新订单</button><span id="customerOrderUpdated" class="customer-muted" aria-live="polite"></span></div>
+      <div id="customerOrderRefresh" class="customer-order-refresh" hidden><button type="button" id="customerRefreshOrders" aria-busy="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/></svg><span>刷新订单</span></button></div>
       </div>
       <button type="button" id="customerAccountBack" aria-label="返回商店">返回</button></div>
     <p id="customerAccountMessage" role="status" aria-live="polite"></p>
@@ -188,9 +188,10 @@
       authExpired = false; $('#customerReauthenticate').hidden = true;
       if (session) authBlocked = false;
       $('#customerOrderSearch').value = ''; $('#customerOrderFilter').value = 'all';
-      $('#customerOrderUpdated').textContent = ''; $('#customerOrdersPage').textContent = '';
+      $('#customerOrdersPage').textContent = '';
       $('#customerOrders').replaceChildren();
       $('#customerOrders').setAttribute('aria-busy','false');
+      setOrderRefreshBusy(false);
       showAccountView('home');
       message('');
     }
@@ -486,10 +487,16 @@
   }
   $('#customerOrderSearch').oninput = renderOrders;
   $('#customerOrderFilter').onchange = renderOrders;
+  function setOrderRefreshBusy(busy) {
+    const refresh = $('#customerRefreshOrders');
+    refresh.disabled = busy;
+    refresh.setAttribute('aria-busy', String(busy));
+  }
   async function loadOrders() {
     if (!session) return;
     const stamp = epoch, request = ++orderRequest;
     const list = $('#customerOrders'); orderRows = []; ordersLoaded = false; list.textContent = '正在加载订单…'; list.setAttribute('aria-busy','true');
+    setOrderRefreshBusy(true);
     $('#customerOrderSearch').disabled = true; $('#customerOrderFilter').disabled = true;
     $('#customerOrdersPrev').disabled = true; $('#customerOrdersNext').disabled = true;
     try {
@@ -497,14 +504,13 @@
       if (error || !Array.isArray(data)) throw error || new Error('Invalid orders');
       if (stamp !== epoch || request !== orderRequest) return;
       orderRows = data; ordersLoaded = true; renderOrders();
-      $('#customerOrderUpdated').textContent = `更新于 ${new Date().toLocaleTimeString('zh-CN')}`;
       $('#customerOrdersPage').textContent = `第 ${offset / 20 + 1} 页`;
       $('#customerOrdersPrev').disabled = offset === 0;
       $('#customerOrdersNext').disabled = data.length < 20;
-    } catch (error) { if (stamp === epoch && request === orderRequest) { list.textContent = accountError(error,'订单暂时无法加载，请检查网络后点击“刷新订单”重试。'); $('#customerOrdersPrev').disabled = offset === 0; $('#customerOrderUpdated').textContent = authExpired ? '登录已过期' : '加载失败'; } }
-    finally { if (stamp === epoch && request === orderRequest) { list.setAttribute('aria-busy','false'); $('#customerOrderSearch').disabled = !ordersLoaded; $('#customerOrderFilter').disabled = !ordersLoaded; } }
+    } catch (error) { if (stamp === epoch && request === orderRequest) { list.textContent = accountError(error,'订单暂时无法加载，请检查网络后点击“刷新订单”重试。'); $('#customerOrdersPrev').disabled = offset === 0; } }
+    finally { if (stamp === epoch && request === orderRequest) { list.setAttribute('aria-busy','false'); setOrderRefreshBusy(false); $('#customerOrderSearch').disabled = !ordersLoaded; $('#customerOrderFilter').disabled = !ordersLoaded; } }
   }
-  $('#customerRefreshOrders').onclick = () => { offset = 0; void loadOrders(); };
+  $('#customerRefreshOrders').onclick = () => { if ($('#customerRefreshOrders').disabled) return; offset = 0; void loadOrders(); };
   $('#customerOrdersPrev').onclick = () => { offset = Math.max(0, offset - 20); void loadOrders(); };
   $('#customerOrdersNext').onclick = () => { offset += 20; void loadOrders(); };
 
