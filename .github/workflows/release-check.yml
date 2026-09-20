@@ -99,6 +99,8 @@ jobs:
       - name: Install test dependencies
         if: always()
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install offline Chromium
+        run: npx --no-install playwright install --with-deps chromium
       - name: Run release checks
         if: always()
         run: node scripts/release-report.mjs check --version HEAD --gate tests
@@ -116,7 +118,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-preflight-${{ github.sha }}
-          path: .build/releases/${{ github.sha }}/
+          path: |
+            .build/releases/${{ github.sha }}/
+            .build/browser-baseline/
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30

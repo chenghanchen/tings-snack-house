@@ -2,7 +2,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const {chromium} = require(process.env.TINGS_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 function mockSdk() {
   const state = window.__accountTest = {calls:[], clients:[], profile:{}, delayed:false, expired:false};
@@ -90,10 +89,10 @@ function mockSdk() {
     };
   }};
 }
-(async()=>{
-  const browser=await chromium.launch({channel:process.env.TINGS_BROWSER_CHANNEL || 'msedge',headless:true});
+module.exports = async function checkAccount(browser, {mode='account', width=390}={}) {
+  const responsiveWidths=list=>require('./browser/policy.cjs').matrixFor(width,list);
   try {
-    const page=await browser.newPage({viewport:{width:390,height:844}});
+    const page=await browser.newPage({viewport:{width,height:1180}, offlineSdk:mockSdk});
     const errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     page.on('console',entry=>{if(entry.type()==='error')errors.push(entry.text())});
@@ -107,7 +106,7 @@ function mockSdk() {
       await page.click('#customerAccountBack');
     }
     async function checkCheckoutLayout(phase) {
-      for (const width of [320,390,780,1100,1710]) {
+      for (const width of responsiveWidths([320,390,780,1100,1710])) {
         await page.setViewportSize({width,height:1180});
         for (const fulfillment of ['delivery','pickup']) {
           await page.selectOption('#fulfillment',fulfillment);
@@ -143,20 +142,9 @@ function mockSdk() {
       await page.locator('#orderDialog').evaluate(el=>{el.scrollTop=0});
       if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-checkout-${phase}.png`)});
     }
-    await page.route('**/*',route=>{
-      const url=new URL(route.request().url());
-      if(['localhost','account-public.test'].includes(url.hostname)){
-        const file=path.resolve(root,decodeURIComponent(url.pathname==='/'?'index.html':url.pathname.slice(1)));
-        if(!file.startsWith(root+path.sep)||!fs.existsSync(file))return route.fulfill({status:404,body:''});
-        return route.fulfill({body:fs.readFileSync(file),contentType:{'.html':'text/html; charset=utf-8','.js':'application/javascript','.css':'text/css','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml'}[path.extname(file)]||'text/plain'});
-      }
-      if(url.hostname==='cdn.jsdelivr.net'&&url.pathname.includes('supabase-js'))
-        return route.fulfill({contentType:'application/javascript',body:`(${mockSdk.toString()})()`});
-      return route.fulfill({status:200,body:''});
-    });
     await page.goto('http://localhost/');
     await page.waitForSelector('#productGrid .product');
-    if (process.env.TINGS_ACCOUNT_CHECK === 'order-refresh') {
+    if (mode === 'order-refresh') {
       await require('./check-order-refresh.cjs')(page, errors);
       return;
     }
@@ -171,7 +159,7 @@ function mockSdk() {
     for(const icon of ['shield','truck','service','gift']){
       assert.equal(await page.evaluate(async name=>{const img=new Image();img.src=`footer-benefit-${name}.svg`;try{await img.decode();return img.naturalWidth>0}catch{return false}},icon),true,`${icon} footer icon decodes`);
     }
-    for(const width of [320,360,390,430,600,780,781,1100,1710]){
+    for(const width of responsiveWidths([320,360,390,430,600,780,781,1100,1710])){
       await page.setViewportSize({width,height:1000});
       const benefits=await page.locator('#story .ft-benefits').evaluate(root=>{
         const sections=[...root.children],boxes=sections.map(el=>el.getBoundingClientRect());
@@ -203,7 +191,7 @@ function mockSdk() {
     await page.evaluate(()=>TingsStorefront.publishCampaigns([{id:'promo',active:true,status:'published',kind:'product_discount',discount_kind:'percent',amount:10}]));
     assert.equal(await page.locator('.activity-card:nth-child(2) h2').textContent(),'限定促销');
     assert.equal(await page.locator('#activityPromotionOffer').textContent(),'10% OFF');
-    for(const width of [320,390,600,780,781,1100,1710]){
+    for(const width of responsiveWidths([320,390,600,780,781,1100,1710])){
       await page.setViewportSize({width,height:1000});
       await page.locator('.activity-announcement').scrollIntoViewIfNeeded();
       await page.locator('.activity-announcement__cards').evaluate(el=>{el.scrollLeft=0});
@@ -252,7 +240,7 @@ function mockSdk() {
       {active:true,kind:'category_discount',discount_kind:'percent',amount:15,category_names:['零食'],customer_scope:'new'},
       {active:true,kind:'product_discount',discount_kind:'fixed',amount:1}
     ]));
-    for(const width of [320,390,1100,1710]){
+    for(const width of responsiveWidths([320,390,1100,1710])){
       await page.setViewportSize({width,height:1000});
       await page.locator('#activityPromotionCard').scrollIntoViewIfNeeded();
       assert.ok(await page.locator('#activityPromotionCard').evaluate(card=>{
@@ -292,7 +280,7 @@ function mockSdk() {
     assert.equal(await page.locator('#productGrid .product').count(),1);
     await page.click('#filters [data-filter="全部"]');
     await page.evaluate(()=>scrollTo(0,0));
-    for(const width of [320,360,375,390,430,580,581,600,780,781,1000,1100,1710]){
+    for(const width of responsiveWidths([320,360,375,390,430,580,581,600,780,781,1000,1100,1710])){
       await page.setViewportSize({width,height:844});
       const boxes=await page.locator('.site-header').evaluate(header=>[...header.children]
         .filter(el=>getComputedStyle(el).display!=='none').map(el=>{
@@ -351,7 +339,7 @@ function mockSdk() {
     assert.equal(await page.locator('#mobileHeaderMenu').isVisible(),false);
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#mobileMenuToggle').evaluate(el=>el===document.activeElement),true);
-    for(const width of [320,350,390,600,780]){
+    for(const width of responsiveWidths([320,350,390,600,780])){
       await page.setViewportSize({width,height:844});
       await page.click('#mobileMenuToggle');await page.click('#mobileLookupEntry');
       const layout=await page.locator('#orderLookupDialog').evaluate(dialog=>{
@@ -375,7 +363,7 @@ function mockSdk() {
     await page.click('#productGrid .add');
     await page.waitForFunction(()=>document.querySelector('#openCart').getAttribute('aria-label').includes('1 件商品'));
     await page.click('#openCart');
-    for(const width of [320,390,780,1100,1710]){
+    for(const width of responsiveWidths([320,390,780,1100,1710])){
       await page.setViewportSize({width,height:1180});
       await page.locator('#cart').evaluate(el=>Promise.all(el.getAnimations().map(animation=>animation.finished)));
       const cartLayout=await page.locator('#cart').evaluate(cart=>{
@@ -411,14 +399,14 @@ function mockSdk() {
       settings.content.storeSettings.delivery.minDelivery=30;
       document.querySelector('#fulfillment').dispatchEvent(new Event('change',{bubbles:true}));
     });
-    await page.waitForTimeout(0);
+    await page.waitForFunction(()=>document.querySelector('#fulfillment').value==='delivery');
     const submissionsBeforeMinimumCheck=await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='submit-order').length);
     await page.evaluate(()=>document.querySelector('#orderForm').requestSubmit());
     await page.waitForSelector('#checkoutOrderError:not([hidden])');
     assert.equal(await page.textContent('#checkoutOrderErrorTitle'),'🚗 还差 $25.00 即可配送');
     assert.equal(await page.textContent('#checkoutOrderErrorDetail'),'配送订单商品小计最低 $30.00，当前商品小计 $5.00。');
     assert.equal(await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='submit-order').length),submissionsBeforeMinimumCheck);
-    for(const width of [320,390,780,1100,1710]){
+    for(const width of responsiveWidths([320,390,780,1100,1710])){
       await page.setViewportSize({width,height:1180});
       const errorLayout=await page.locator('#checkoutOrderError').evaluate(error=>{
         const dialog=error.closest('dialog'),buttons=[...error.querySelectorAll('button')],bounds=error.getBoundingClientRect();
@@ -483,7 +471,7 @@ function mockSdk() {
       assert.equal(await page.locator(selector).evaluate(el=>el.hidden),true);
       assert.equal(await page.locator(selector).evaluate(el=>getComputedStyle(el).display),'none');
     }
-    for(const width of [781,1000,1100,1710]){
+    for(const width of responsiveWidths([781,1000,1100,1710])){
       await page.setViewportSize({width,height:844});
       assert.ok(await page.locator('.site-header').evaluate(header=>{
         const boxes=[...header.children].filter(el=>getComputedStyle(el).display!=='none').map(el=>el.getBoundingClientRect());
@@ -524,7 +512,7 @@ function mockSdk() {
       });
       assert.deepEqual(style,{width:50,height:40,fontSize:'15px',padding:['0px','0px','0px','0px'],clear:true,clickable:true},`${view} back at ${width}px`);
     };
-    for (const width of [320,375,390,780,781,782,1100,1710]) {
+    for (const width of responsiveWidths([320,375,390,780,781,782,1100,1710])) {
       await page.setViewportSize({width,height:844});
       await assertAccountBack('home',width);
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
@@ -549,7 +537,7 @@ function mockSdk() {
       await page.waitForFunction(id=>document.getElementById(id).getAttribute('aria-busy')==='false',panel);
       assert.doesNotMatch(await page.textContent(`#${panel}`),/尚未接入|绑定手机号/);
       assert.equal(await page.locator('#customerHomePanel').isVisible(),false);
-      for(const width of [320,390,780,781,782,1710]){
+      for(const width of responsiveWidths([320,390,780,781,782,1710])){
         await page.setViewportSize({width,height:844});
         await assertAccountBack(view,width);
         assert.equal(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth),true,`${view} overflow at ${width}px`);
@@ -580,7 +568,7 @@ function mockSdk() {
     assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card small').allTextContents(),Array(3).fill('限用一次，不可与其他优惠券叠加使用'));
     assert.match(await page.textContent('#customerCouponsPanel'),/满 \$35\.00 可用/);
     assert.equal(await page.locator('#customerCouponsPanel>button').count(),0);
-    for(const width of [320,390,780,781,1710]){
+    for(const width of responsiveWidths([320,390,780,781,1710])){
       await page.setViewportSize({width,height:1000});
       const layout=await page.evaluate(()=>{
         const root=document.querySelector('#customerAccountDialog'),title=document.querySelector('#customerAccountTitle'),back=document.querySelector('#customerAccountBack');
@@ -624,7 +612,7 @@ function mockSdk() {
     assert.deepEqual(await capCard.evaluate(el=>{const s=getComputedStyle(el.querySelector('button'));return [getComputedStyle(el).backgroundColor,s.backgroundColor,s.color]}),['rgb(255, 204, 204)','rgb(255, 26, 26)','rgb(255, 255, 255)']);
     assert.equal(await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='claim_customer_coupon').length),2);
     assert.match(await page.locator('#customerCouponsPanel [data-code="CLAIM-SHIP"]').textContent(),/店铺当前配送区域/);
-    for(const width of [320,390,780,1710]){
+    for(const width of responsiveWidths([320,390,780,1710])){
       await page.setViewportSize({width,height:1000});
       assert.ok(await page.locator('#customerCouponsPanel').evaluate(el=>[...el.querySelectorAll('.customer-coupon-card')].every(c=>c.scrollWidth<=c.clientWidth+1)));
     }
@@ -688,7 +676,7 @@ function mockSdk() {
     assert.equal(await page.evaluate(()=>__accountTest.sharePayload),null,'WeChat must not call native share');
     assert.equal(await page.evaluate(()=>__accountTest.copiedCode),'unchanged','guide must not copy without permission');
     assert.equal(await page.evaluate(()=>document.activeElement.textContent),'我知道了');
-    for(const width of [320,390,780]){
+    for(const width of responsiveWidths([320,390,780])){
       await page.setViewportSize({width,height:844});
       assert.ok(await wechatGuide.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
       assert.ok(await page.locator('.referral-guide-arrow').evaluate(el=>{const b=el.getBoundingClientRect();return b.top<60&&b.right>innerWidth-50&&b.bottom<150;}));
@@ -729,7 +717,7 @@ function mockSdk() {
     await page.getByRole('button',{name:'复制推荐码',exact:true}).click();
     assert.match(await page.textContent('.referral-action-status'),/手动复制/);
     await page.click('.referral-earned>summary');
-    for(const width of [320,390,780,1710]){
+    for(const width of responsiveWidths([320,390,780,1710])){
       await page.setViewportSize({width,height:844});
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
       assert.ok(await page.locator('.referral-code-row').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
@@ -785,7 +773,7 @@ function mockSdk() {
     assert.equal(await page.textContent('#customerWalletCheckout legend>span'),'优惠券');
     assert.equal(await page.textContent('#customerWalletCheckout legend>small'),'每单限用一张；推荐奖励与优惠券不能叠加。');
     assert.equal(await page.locator('#customerWalletCheckout>small').count(),0);
-    for(const width of [320,390,780,1710]){
+    for(const width of responsiveWidths([320,390,780,1710])){
       await page.setViewportSize({width,height:1000});
       const layout=await page.evaluate(()=>{
         const root=document.querySelector('#customerWalletCheckout'),field=root.querySelector('fieldset'),legend=root.querySelector('legend'),summary=root.querySelector('summary'),note=document.querySelector('#orderNoteCount'),cards=[...field.querySelectorAll(':scope>.customer-coupon-card')];
@@ -863,7 +851,7 @@ function mockSdk() {
     assert.equal(await availableToggle.isVisible(),false);
     await page.check('#customerWalletCheckout input[value=""]');
     assert.equal(await page.locator('#customerWalletCheckout>fieldset>.customer-coupon-card:visible').count(),0);
-    for(const width of [320,390,780,781,1710]){
+    for(const width of responsiveWidths([320,390,780,781,1710])){
       await page.setViewportSize({width,height:1000});
       const collapsedLayout=await page.evaluate(()=>{
         const root=document.querySelector('#customerWalletCheckout'),toggle=root.querySelector('.customer-coupon-toggle'),summary=root.querySelector('summary'),promo=document.querySelector('#promotionChoice>label');
@@ -912,8 +900,7 @@ function mockSdk() {
     assert.equal(await page.getAttribute('#customerRefreshOrders','aria-busy'),'true');
     assert.equal(await page.locator('#customerRefreshOrders svg').evaluate(el=>getComputedStyle(el).animationIterationCount),'infinite');
     const spinning = await page.locator('#customerRefreshOrders svg').evaluate(el=>getComputedStyle(el).transform);
-    await page.waitForTimeout(90);
-    assert.notEqual(await page.locator('#customerRefreshOrders svg').evaluate(el=>getComputedStyle(el).transform),spinning);
+    await page.waitForFunction(old=>getComputedStyle(document.querySelector('#customerRefreshOrders svg')).transform!==old,spinning);
     await page.evaluate(()=>{for(let i=0;i<8;i++)document.querySelector('#customerRefreshOrders').click()});
     assert.equal(await refreshCount(),callsBeforeRefresh+1,'rapid clicks must not issue duplicate order requests');
     await page.emulateMedia({reducedMotion:'reduce'});
@@ -961,7 +948,7 @@ function mockSdk() {
     await page.waitForFunction(()=>document.querySelector('#customerAccountMessage').textContent.includes('已保存'));
     assert.equal(await page.textContent('#customerSaveDetails'),'已保存');
     assert.equal(await page.locator('#customerSaveDetails').isDisabled(),true);
-    for (const width of [320,390,780,781,782,1100,1723]) {
+    for (const width of responsiveWidths([320,390,780,781,782,1100,1723])) {
       await page.setViewportSize({width,height:844});
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
       const detailsBack=await page.locator('#customerAccountBack').evaluate(el=>{
@@ -1038,7 +1025,7 @@ function mockSdk() {
     });
     assert.deepEqual(successLayout,{dialogPadding:['20px','20px'],heroPadding:['0px','0px'],referralSize:'17px',codeSize:'16px',
       radius:'15px',close:[50,50],labelWidth:80,addressWidth:330,orderNumberSize:'15px',overflow:false});
-    for(const width of [320,390,780]){
+    for(const width of responsiveWidths([320,390,780])){
       await page.setViewportSize({width,height:844});
       const mobileSuccessLayout=await page.evaluate(()=>{
         const dialog=document.querySelector('#orderDialog'),close=document.querySelector('#closeDialog').getBoundingClientRect(),
@@ -1132,7 +1119,7 @@ function mockSdk() {
     assert.equal(await page.locator('#customerHomePanel').isVisible(),true);
     await page.click('[data-account-tab=orders]');
     await page.waitForFunction(()=>document.querySelector('#customerOrders').textContent.includes('TSH-260912-EE019'));
-    for (const width of [320,360,375,390,414,768,780,781,782,1100,1710]) {
+    for (const width of responsiveWidths([320,360,375,390,414,768,780,781,782,1100,1710])) {
       await page.setViewportSize({width,height:1180});
       await assertAccountBack('orders',width);
       const heading=await page.evaluate(()=>{
@@ -1196,7 +1183,7 @@ function mockSdk() {
     assert.equal(await page.locator('#customerOrders .lookup-actions > button').textContent(),'再次购买');
     await page.fill('#customerOrderSearch','找不到');assert.equal(await page.locator('#customerOrders .lookup-order-card').count(),0);
     assert.equal(await page.textContent('#customerOrders'),'没有符合条件的订单。');
-    for (const width of [320,390,780,1100,1710]) {
+    for (const width of responsiveWidths([320,390,780,1100,1710])) {
       await page.setViewportSize({width,height:844});
       const empty=await page.locator('.customer-orders-no-match').evaluate(el=>{
         const s=getComputedStyle(el),r=el.getBoundingClientRect(),parent=el.parentElement.getBoundingClientRect(),ps=getComputedStyle(el.parentElement);
@@ -1343,7 +1330,7 @@ function mockSdk() {
       guestHost.replaceChildren();return failures;
     });
     assert.deepEqual(gestureFailures,[]);
-    for(const width of [320,390,780,1100]){
+    for(const width of responsiveWidths([320,390,780,1100])){
       await page.setViewportSize({width,height:844});
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
       const differences = await page.evaluate(()=>{
@@ -1443,4 +1430,6 @@ function mockSdk() {
     assert.deepEqual(errors,[]);
     console.log('PASS: responsive account UI; OTP; owner isolation; profile save/autofill/dirty edits; checkout; cancellation; XSS; session races; reorder price changes/stock/confirmation/cart preservation; hosted account entry with anonymous guest checkout.');
   } finally {await browser.close()}
-})().catch(error=>{console.error(error);process.exitCode=1});
+};
+module.exports.mockSdk=mockSdk;
+if(require.main===module) require('./check-browser-baseline.cjs').run().catch(error=>{console.error(error);process.exitCode=1});
