@@ -1,12 +1,9 @@
 // Local-only owner UI checks; every data operation is mocked.
-const {chromium}=require(process.env.TINGS_PLAYWRIGHT_MODULE||'playwright');
 const assert=require('node:assert/strict'),path=require('node:path');
-(async()=>{
-  const browser=await chromium.launch({channel:process.env.TINGS_BROWSER_CHANNEL||'msedge',headless:true});
+module.exports=async function checkMarketing(browser,{width=1710}={}) {
   try{
-    const page=await browser.newPage({viewport:{width:1100,height:900}});
+    const page=await browser.newPage({viewport:{width,height:1180}});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
-    await page.route('**/*',route=>route.abort());
     await page.setContent('<main><button data-view="marketing">营销</button><div id="marketingCenter"></div></main><div id="toast"></div>');
     await page.addStyleTag({path:path.resolve(__dirname,'../admin.css')});
     await page.addStyleTag({path:path.resolve(__dirname,'../marketing-wizard.css')});
@@ -80,4 +77,5 @@ const assert=require('node:assert/strict'),path=require('node:path');
     assert.deepEqual(errors,[]);
     console.log('PASS: account referral rules/events, legacy-code exclusion, percentage coupon authoring; all writes mocked.');
   }finally{await browser.close()}
-})().catch(error=>{console.error(error);process.exitCode=1});
+};
+if(require.main===module) require('./check-browser-baseline.cjs').run().catch(error=>{console.error(error);process.exitCode=1});

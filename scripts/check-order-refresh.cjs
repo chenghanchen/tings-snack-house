@@ -26,8 +26,7 @@ module.exports = async (page, errors) => {
   assert.equal(await button.getAttribute('aria-busy'),'true');
   assert.equal(await icon.evaluate(el=>getComputedStyle(el).animationIterationCount),'infinite');
   const transform=await icon.evaluate(el=>getComputedStyle(el).transform);
-  await page.waitForTimeout(90);
-  assert.notEqual(await icon.evaluate(el=>getComputedStyle(el).transform),transform);
+  await page.waitForFunction(old=>getComputedStyle(document.querySelector('#customerRefreshOrders svg')).transform!==old,transform);
   await page.evaluate(()=>{for(let i=0;i<10;i++)document.querySelector('#customerRefreshOrders').click()});
   assert.equal(await count(),before+1);
   await page.emulateMedia({reducedMotion:'reduce'});
@@ -45,7 +44,7 @@ module.exports = async (page, errors) => {
   await page.waitForSelector('#customerOrders .lookup-order-card');
   await idle();
   await page.mouse.move(0,0);
-  for (const width of [320,360,375,390,414,768,780,781,782,1100,1710]) {
+  for (const width of require('./browser/policy.cjs').WIDTHS.filter(w=>(w<=780)===(page.viewportSize().width<=780))) {
     await page.setViewportSize({width,height:844});
     const layout=await page.evaluate(()=>{
       const rect=id=>document.getElementById(id).getBoundingClientRect();
@@ -81,5 +80,5 @@ module.exports = async (page, errors) => {
   await idle();
   assert.equal(await page.locator('#customerOrderRefresh').isVisible(),false);
   assert.deepEqual(errors,[]);
-  console.log('PASS order refresh: one request; rapid-click lock; busy animation/start/stop; failure/retry; no timestamp; session reset; reduced motion; search/filter/back; 11 responsive widths; no page errors.');
+  console.log('PASS order refresh: one request; rapid-click lock; busy animation/start/stop; failure/retry; no timestamp; session reset; reduced motion; search/filter/back; mobile/desktop layout matrix; no page errors.');
 };
