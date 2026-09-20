@@ -27,7 +27,6 @@ const reviewedUiSupport = new Map([
     '62001c564682372689e6f86ad457d00b19d495ba74995a7ffa4f1e6d7ac2576d', // offline layout/close-hit-area fixture
   ])],
 ]);
-const ordinary = new Set(['mobile-header.js', 'admin-mobile-nav.js', 'footer-contact-overlay.js', 'activity-announcement.js', 'site-appearance.js']);
 const sha = value => /^[a-f0-9]{40}$/.test(value || '');
 const hash = value => createHash('sha256').update(value).digest('hex');
 // Reviewed DOM-only navigation/search/category presentation, not a JS-directory allowlist.
@@ -39,7 +38,124 @@ const reviewedUiModules = new Map([
   ])],
 ]);
 const riskPath = /(?:^supabase\/|\.sql$|(?:^|\/)(?:AGENTS\.md|RELEASE[^/]*|EDGE[^/]*|MEDIA[^/]*|P1[^/]*|release[^/]*|package(?:-lock)?\.json|deno\.(?:json|lock)|wrangler[^/]*|_headers|_redirects)$|^\.github\/|(?:auth|identity|wallet|checkout|payment|pricing|order|media-cleanup|storage|rls|permission|edge-depend|edge-bundle|request-body))/i;
-const riskyCode = /(?:supabase|\.rpc\s*\(|\.from\s*\(|\.storage\b|auth|jwt|token|role|permission|price|amount|total|discount|tax|payment|checkout|delete|removeItem)/i;
+
+// Ordinary JS/TS: positive source transformations, NOT filename + absence of words.
+// The grammar below admits only five presentation defaults in the existing module.
+// The seal authenticates the UNCHANGED surrounding executable code (including its
+// registration callback); it is not an allowlist of arbitrary before/after hashes.
+// New calls, imports, strings, comments, selectors or shadowing break the seal.
+const appearanceDefaults = /  const def = \{\n    cardStyle: "(japanese|cute|clean|classic)",\n    imageFit: "(contain|cover)",\n    desktopCols: ([2-6]),\n    mobileCols: ([12]),\n    showDescription: (true|false),\n  \};/g;
+const appearanceContext = '2b0ff014f4506b34890054f3975552c349f24369af0bbbd7b0e5cc8f95729fa5';
+function presentationDefaultsOnly(change) {
+  if (change.path !== 'site-appearance.js' || change.status !== 'M' ||
+      (change.mode || '100644') !== '100644' || (change.oldMode || '100644') !== '100644') return false;
+  const shape = source => {
+    const normalized = source.replace(/\r\n/g, '\n');
+    if ([...normalized.matchAll(appearanceDefaults)].length !== 1) return null;
+    return hash(normalized.replace(appearanceDefaults, '/* reviewed presentation defaults */'));
+  };
+  return change.before !== change.after && shape(change.before || '') === appearanceContext &&
+    shape(change.after || '') === appearanceContext;
+}
+
+// This lexer is ONLY for diagnostic evidence, never a general JS safety proof.
+// Unsupported syntax remains opaque. No eval, imports, dependency resolution or
+// execution of candidate code. Positive rules separately consume the full source.
+function capabilityTokens(source) {
+  const tokens = []; let opaque = false;
+  if (source.length > 262144) return { opaque: true, text: '<oversized-source>' };
+  for (let i = 0; i < source.length;) {
+    const rest = source.slice(i);
+    const skip = /^(?:\s+|\/\/[^\r\n\u2028\u2029]*|\/\*[\s\S]*?\*\/)/.exec(rest);
+    if (skip) { i += skip[0].length; continue; }
+    if (source[i] === '`') {
+      // Do not mistake template text for executable API evidence. Interpolation
+      // is deliberately opaque (and cannot pass a positive source proof).
+      opaque = true; i++;
+      while (i < source.length && source[i] !== '`') { if (source[i] === '\\') i++; i++; }
+      if (i < source.length) i++;
+      tokens.push({ kind: 'punct', value: '<opaque-template>' }); continue;
+    }
+    const quoted = /^(?:"(?:[^"\\\r\n]|\\.)*"|'(?:[^'\\\r\n]|\\.)*')/.exec(rest);
+    if (quoted) {
+      const raw = quoted[0]; let value;
+      try {
+        // Single quoted strings without escapes are enough for the diagnostic
+        // subset; other escapes are opaque, not silently decoded or trusted.
+        if (raw[0] === '"') value = JSON.parse(raw);
+        else if (!raw.includes('\\')) value = raw.slice(1, -1);
+        else throw Error('Opaque string');
+      } catch { opaque = true; value = null; }
+      tokens.push({ kind: 'string', value }); i += raw.length; continue;
+    }
+    const word = /^[A-Za-z_$][\w$]*|^\d+(?:\.\d+)?/.exec(rest);
+    if (word) { tokens.push({ kind: 'word', value: word[0] }); i += word[0].length; continue; }
+    // Templates/regex/escaped identifiers/JSX are not understood by this lexer.
+    if ('`\\/'.includes(source[i])) opaque = true;
+    tokens.push({ kind: 'punct', value: source[i++] });
+  }
+  // Resolve only literal-string concatenation, then literal member access.
+  // Remaining computed properties/aliases are possible capabilities, never safe.
+  for (let i = 0; i + 2 < tokens.length;) {
+    if (tokens[i].kind === 'string' && tokens[i].value !== null && tokens[i+1].value === '+' &&
+        tokens[i+2].kind === 'string' && tokens[i+2].value !== null) {
+      tokens.splice(i, 3, { kind: 'string', value: tokens[i].value + tokens[i+2].value });
+    } else i++;
+  }
+  for (let i = 0; i + 2 < tokens.length; i++) {
+    if (tokens[i].value === '[' && tokens[i+1].kind === 'string' &&
+        /^[A-Za-z_$][\w$]*$/.test(tokens[i+1].value || '') && tokens[i+2].value === ']')
+      tokens.splice(i, 3, { kind: 'punct', value: '.' }, { kind: 'word', value: tokens[i+1].value });
+  }
+  // Nontrivial string contents cannot masquerade as executable code in the
+  // diagnostic regexes. Keep only simple literal values needed for methods/DOM.
+  return { opaque, text: tokens.map(t => t.kind === 'string'
+    ? JSON.stringify(/^[A-Za-z0-9_./:#-]*$/.test(t.value || '') ? t.value : '<literal>') : t.value).join(' ') };
+}
+
+function backendEvidence(source) {
+  const { text, opaque } = capabilityTokens(source);
+  // Recognized API shapes are static evidence, not proof a request ran or that an
+  // arbitrary receiver actually is a Supabase client. Neither finding grants L1/L2.
+  const tableWrite = /\.\s*from\s*\([^;]*?\)\s*\.\s*(?:insert|update|upsert|delete)\s*\(/;
+  const rpc = /\.\s*rpc\s*(?:\(|,|\))/;
+  const storage = /\.\s*storage\b[\s\S]*?\.\s*(?:remove|upload|update|move|copy|createBucket|deleteBucket|emptyBucket)\s*\(/;
+  const auth = /\.\s*auth\s*\.\s*(?:\w+\s*\.\s*)?(?:updateUser|signUp|signInWith\w+|signOut|setSession|refreshSession|resetPasswordForEmail|createUser|deleteUser|updateUserById|inviteUserByEmail)\s*\(/;
+  const edge = /\.\s*functions\s*\.\s*invoke\s*\(/;
+  const networkWrite = /\b(?:fetch|axios|request|sendBeacon)\s*(?:\.|\()[\s\S]*?(?:"(?:POST|PUT|PATCH|DELETE)"|\.\s*(?:post|put|patch|delete)\s*\()/i;
+  const directNetworkWrite = /\b(?:axios\s*\.\s*(?:post|put|patch|delete)|navigator\s*\.\s*sendBeacon)\s*\(/;
+  const xhrWrite = /\.\s*open\s*\(\s*"(?:POST|PUT|PATCH|DELETE)"/;
+  const aliasTable = /\{\s*from\s*:\s*(\w+)\s*\}\s*=/.exec(text);
+  const aliasedWrite = aliasTable && new RegExp(`\\b${aliasTable[1]}\\s*\\([^;]*?\\)\\s*\\.\\s*(?:insert|update|upsert|delete)\\s*\\(`).test(text);
+  if ([tableWrite, rpc, storage, auth, edge, networkWrite, directNetworkWrite, xhrWrite].some(r => r.test(text)) || aliasedWrite)
+    return { kind: 'recognized', detail: 'Recognized backend API/write shape (static evidence, not runtime execution)' };
+  // A small complete language can prove no external capability even when a file
+  // is not eligible for L1/L2: literal local declarations, or direct presentation
+  // statements with no calls except the specified native DOM operation. It does
+  // NOT admit callbacks, aliases, getters, imports, event dispatch or HTML/URLs.
+  const literal = '(?:[0-9()*+%<>=!?:.\\s-]+|true|false|"[^"\\\\]*")';
+  const local = new RegExp(`^(?:const [A-Za-z_$][\\w$]* = ${literal} ;\\s*)+$`);
+  const dom = /^(?:document \. querySelector \( "#[A-Za-z][\w-]*" \) (?:\? \.)?\s*\.?\s*(?:textContent = "[^"\\]*"|classList \. (?:add|remove|toggle) \( "[A-Za-z][\w-]*" \)) ;\s*)+$/;
+  if (!opaque && (!text.trim() || local.test(text) || dom.test(text)))
+    return { kind: 'none', detail: 'Complete limited literal/DOM language has no backend capability' };
+  return { kind: 'possible', detail: 'Unresolved executable scope; backend capability cannot be excluded' };
+}
+
+function classifyOrdinaryScript(change) {
+  const before = change.before || '', after = change.after || '';
+  const evidence = [backendEvidence(before), backendEvidence(after)];
+  const recognized = evidence.find(e => e.kind === 'recognized');
+  const result = (level, rule, e) => ({ path: change.path, status: change.status, level,
+    classificationBranch: 'ordinary-js-ts', rule, backend: e.kind !== 'none', backendEvidence: e.kind,
+    reason: `${rule}: ${e.detail}` });
+  // ORDER IS SECURITY-SENSITIVE: explicit L3, positive proof, default L3.
+  if (recognized) return result('L3', 'backend-api-shape', recognized);
+  if (presentationDefaultsOnly(change)) return result('L2', 'presentation-defaults-transition', {
+    kind: 'none', detail: 'Only finite presentation defaults changed; audited executable context unchanged',
+  });
+  const unknown = evidence.find(e => e.kind === 'possible') || evidence[0];
+  return result('L3', 'no-positive-source-proof', unknown);
+}
 
 // Release policy, not an application manifest. Expanding this map is L3 review.
 // Keep this module self-contained: CI executes a copy from the trusted base tree.
@@ -339,10 +455,7 @@ export function classifyFile(change) {
       ? answer('L1', 'Reviewed DOM-only UI module; both source fingerprints match the audited presentation scope')
       : answer('L3', 'UI module source/operations not in reviewed scope; unknown JS fails closed');
   }
-  if (ordinary.has(file)) {
-    if (riskyCode.test(before + after)) return answer('L3', 'Ordinary module contains security/financial/backend operations');
-    return answer('L2', 'Allowlisted ordinary client logic');
-  }
+  if (/\.(?:[cm]?js|[cm]?ts|jsx|tsx)$/i.test(file)) return classifyOrdinaryScript(change);
   if (/^docs\/[a-zA-Z0-9_/-]+\.md$/.test(file) || file === 'README.md') return answer('L1', 'Documentation only');
   return answer('L3', 'Unclassified file: full gates required');
 }

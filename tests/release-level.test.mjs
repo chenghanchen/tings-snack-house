@@ -11,6 +11,11 @@ import { productionPrerequisites } from '../scripts/release-live.mjs';
 const base = 'a'.repeat(40), head = 'b'.repeat(40);
 const change = (file, extra = {}) => ({ path: file, status: 'M', before: '', after: '', ...extra });
 const classify = changes => classifyChanges(changes, { base, head });
+const appearanceSource = readFileSync(new URL('./fixtures/release-level/ordinary-appearance.js.txt', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const appearanceChange = () => change('site-appearance.js', {
+  before: appearanceSource, after: appearanceSource.replace('desktopCols: 4', 'desktopCols: 5'),
+});
+const capabilityFixtures = JSON.parse(readFileSync(new URL('./fixtures/release-level/ordinary-capabilities.json', import.meta.url), 'utf8'));
 // Immutable snapshot of the three uncommitted UI files, not the evolving worktree.
 // Applying this test fixture only touches a disposable local Git repository.
 let mobileFixture;
@@ -193,13 +198,15 @@ test('styles plus allowlisted UI regression support are L1; no unrelated backend
   assert.equal(classify([change('tests/catalog-layout.test.mjs')]).level, 'L3');
 });
 test('ordinary business client logic is L2 with full unit and business smoke coverage', () => {
-  const p = classify([change('activity-announcement.js', { after: 'function openMenu() {}' })]);
+  const p = classify([appearanceChange()]);
   assert.equal(p.level, 'L2'); assert.equal(p.testScope, 'full');
+  assert.equal(p.files[0].classificationBranch, 'ordinary-js-ts');
+  assert.equal(p.files[0].rule, 'presentation-defaults-transition');
   assert.ok(p.requiredGates.includes('guestCheckout'));
   assert.equal(p.databaseScope, 'none'); assert.ok(!p.requiredGates.includes('supabase'));
 });
 test('mixed changes always use highest risk regardless of order', () => {
-  for (const files of [ ['styles.css', 'activity-announcement.js'], ['activity-announcement.js', 'styles.css'] ]) assert.equal(classify(files.map(f => change(f))).level, 'L2');
+  for (const files of [[change('styles.css'), appearanceChange()], [appearanceChange(), change('styles.css')]]) assert.equal(classify(files).level, 'L2');
   for (const files of [ ['styles.css', 'app.js'], ['app.js', 'styles.css'] ]) assert.equal(classify(files.map(f => change(f))).level, 'L3');
 });
 test('every financial/auth/permission/deletion/migration/Edge/release-control path is L3', () => {
@@ -212,7 +219,158 @@ test('every financial/auth/permission/deletion/migration/Edge/release-control pa
   }
 });
 test('ordinary module with backend or sensitive code escalates; no keyword-only downgrade', () => {
-  for (const after of ['supabase.rpc("x")', 'price = 2', 'auth.role = "admin"', 'delete object.x']) assert.equal(classify([change('mobile-header.js', { after })]).level, 'L3');
+  for (const after of ['supabase.rpc("x")', 'price = 2', 'auth.role = "admin"', 'delete object.x']) {
+    const p = classify([change('site-appearance.js', { after })]);
+    assert.equal(p.level, 'L3'); assert.equal(p.files[0].classificationBranch, 'ordinary-js-ts');
+  }
+});
+
+// Each escape must actually exercise the ordinary branch on JS AND TS. These
+// fixtures are text only: never imported/evaluated, no external calls are made.
+for (const fixture of capabilityFixtures) test(`ordinary capability rejection: ${fixture.name}`, () => {
+  for (const file of ['site-appearance.js', 'site-appearance.ts']) {
+    for (const source of [fixture.code, appearanceSource + '\n' + fixture.code]) {
+      for (const [before, after] of [[appearanceSource, source], [source, appearanceSource]]) {
+        const p = classify([change(file, { before, after })]);
+        assert.equal(p.files[0].classificationBranch, 'ordinary-js-ts', fixture.name);
+        assert.equal(p.level, 'L3'); assert.deepEqual(p.requiredGates, FULL_GATES);
+        assert.equal(p.backendChanged, true); assert.equal(p.files[0].backend, true);
+        assert.equal(p.files[0].backendEvidence, fixture.evidence);
+        assert.equal(p.files[0].rule, fixture.evidence === 'recognized' ? 'backend-api-shape' : 'no-positive-source-proof');
+        assert.equal(p.databaseScope, 'all'); assert.equal(p.override, undefined);
+      }
+    }
+  }
+});
+
+test('ordinary positive proof is a finite defaults transformation, not a fixed target hash', () => {
+  // This immutable fixture is the real shipped presentation module, not a stub
+  // selected merely because it avoids the former blacklist.
+  assert.equal(appearanceSource, readFileSync(new URL('../site-appearance.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n'));
+  for (const [from, to] of [
+    ['desktopCols: 4', 'desktopCols: 6'], ['mobileCols: 2', 'mobileCols: 1'],
+    ['cardStyle: "japanese"', 'cardStyle: "clean"'], ['imageFit: "contain"', 'imageFit: "cover"'],
+    ['showDescription: true', 'showDescription: false'],
+  ]) {
+    const after = appearanceSource.replace(from, to);
+    for (const [b, a] of [[appearanceSource, after], [after, appearanceSource]]) {
+      const p = classify([change('site-appearance.js', { before: b, after: a })]);
+      assert.equal(p.level, 'L2'); assert.equal(p.backendChanged, false);
+      assert.equal(p.files[0].classificationBranch, 'ordinary-js-ts');
+      assert.equal(p.files[0].backendEvidence, 'none');
+      assert.equal(p.files[0].rule, 'presentation-defaults-transition');
+    }
+  }
+  const combined = appearanceSource.replace('desktopCols: 4', 'desktopCols: 3').replace('mobileCols: 2', 'mobileCols: 1');
+  assert.equal(classify([change('site-appearance.js', { before: appearanceSource, after: combined.replace(/\n/g, '\r\n') })]).level, 'L2');
+});
+
+test('ordinary positive proof rejects invalid values, extra edits and untrusted context on either side', () => {
+  for (const altered of [
+    appearanceSource.replace('desktopCols: 4', 'desktopCols: 99'),
+    appearanceSource.replace('desktopCols: 4', 'desktopCols: compute()'),
+    appearanceSource.replace('mobileCols: 2', 'mobileCols: 0'),
+    appearanceSource.replace('"contain"', '"url(https://example.test)"'),
+    appearanceSource.replace('const def =', 'const def2 ='),
+    appearanceSource.replace('registerSiteAppearance(apply)', 'registerSiteAppearance(save)'),
+    appearanceSource.replace('document.body.dataset.cardStyle', 'bridge.style'),
+    appearanceSource.replace('const def = {', 'const def = {\n    extra: 1,'),
+    appearanceSource + '\n// new unreviewed context',
+    'const document = client;\n' + appearanceSource,
+  ]) for (const [before, after] of [[appearanceSource, altered], [altered, appearanceSource]]) {
+    const p = classify([change('site-appearance.js', { before, after })]);
+    assert.equal(p.level, 'L3'); assert.equal(p.files[0].classificationBranch, 'ordinary-js-ts');
+  }
+});
+
+test('ordinary positive proof cannot authorize new, renamed, executable or unchanged files', () => {
+  for (const extra of [{ status: 'A' }, { path: 'another-ui.js' }, { path: 'site-appearance.ts' },
+    { mode: '100755' }, { oldMode: '100755' }, { before: appearanceSource, after: appearanceSource }]) {
+    const p = classify([{ ...appearanceChange(), ...extra }]);
+    assert.equal(p.files[0].classificationBranch, 'ordinary-js-ts'); assert.equal(p.level, 'L3');
+  }
+});
+
+test('ordinary no-keyword code never becomes L2 without a positive transition', () => {
+  for (const file of ['admin-mobile-nav.js', 'footer-contact-overlay.js', 'activity-announcement.js', 'site-appearance.js', 'widget.ts']) {
+    for (const after of ['', 'function openMenu() {}', 'const count = 2;', 'run();', 'const table = bridge;',
+      'document.querySelector("#banner").textContent="welcome";']) {
+      const p = classify([change(file, { after })]);
+      assert.equal(p.files[0].classificationBranch, 'ordinary-js-ts');
+      assert.equal(p.files[0].rule, 'no-positive-source-proof'); assert.equal(p.level, 'L3');
+    }
+  }
+});
+
+test('ordinary L3 without backend capability is not described as a confirmed backend call', () => {
+  for (const after of ['const count = 2;', 'const width = (400 + 20) * 2;', 'document.querySelector("#banner").textContent="welcome";',
+    'document.querySelector("#menu")?.classList.toggle("open");',
+    'const caption = "supabase rpc buttons Array.from";',
+    'const caption = "client.rpc(1); fetch(x, {method: POST})";']) {
+    for (const file of ['site-appearance.js', 'widget.ts']) {
+      const p = classify([change(file, { before: 'const count = 1;', after })]);
+      assert.equal(p.files[0].classificationBranch, 'ordinary-js-ts'); assert.equal(p.level, 'L3');
+      assert.equal(p.backendChanged, false); assert.equal(p.files[0].backendEvidence, 'none');
+      assert.deepEqual(p.requiredGates, FULL_GATES);
+    }
+  }
+});
+
+test('ordinary diagnostic strings/comments/templates cannot impersonate confirmed API calls', () => {
+  for (const after of ['// client.rpc("x");\nconst label = "OK";',
+    '/* client.storage.from("x").remove([]); */\nconst label = "OK";',
+    'const label = `client.rpc("x")`;', 'const label = `${client.rpc("x")}`;']) {
+    const p = classify([change('site-appearance.js', { after })]);
+    assert.equal(p.files[0].classificationBranch, 'ordinary-js-ts'); assert.equal(p.level, 'L3');
+    assert.notEqual(p.files[0].backendEvidence, 'recognized');
+    assert.equal(p.backendChanged, after.includes('`'));
+  }
+  for (const newline of ['\r', '\n', '\u2028', '\u2029']) {
+    const p = classify([change('site-appearance.js', { after: `// caption${newline}client.rpc("write");` })]);
+    assert.equal(p.files[0].classificationBranch, 'ordinary-js-ts');
+    assert.equal(p.level, 'L3'); assert.equal(p.backendChanged, true);
+    assert.equal(p.files[0].backendEvidence, 'recognized');
+  }
+});
+
+test('ordinary unresolved receivers, callbacks and strings cannot claim no backend capability', () => {
+  for (const after of ['const x = object.value;', 'const x = source[index];', 'const x = getValue();',
+    'document.querySelector("#menu").click();', 'document.querySelector("#menu").innerHTML=html;',
+    'document.addEventListener("click", handler);', 'window.location=url;', 'new Worker(url);',
+    'const x = `${save()}`;', 'const x = /opaque/.test(value);']) {
+    const p = classify([change('site-appearance.js', { after })]);
+    assert.equal(p.files[0].classificationBranch, 'ordinary-js-ts'); assert.equal(p.level, 'L3');
+    assert.equal(p.backendChanged, true); assert.equal(p.files[0].backendEvidence, 'possible');
+  }
+});
+
+test('ordinary positive transition mixed with backend or hard L3 never removes full gates', () => {
+  for (const extra of [change('site-appearance.ts', { after: 'client.rpc("x");' }),
+    change('supabase/migrations/new.sql'), change('supabase/functions/x/index.ts'), change('auth/rls.sql'),
+    change('payment.js'), change('storage-delete.js'), change('scripts/release-level.mjs'), change('scripts/deploy.cjs')]) {
+    for (const changes of [[appearanceChange(), extra], [extra, appearanceChange()]]) {
+      const p = classify(changes); assert.equal(p.level, 'L3'); assert.deepEqual(p.requiredGates, FULL_GATES);
+    }
+  }
+});
+
+test('ordinary complete Git ranges preserve positive proof, reject escapes and respect trusted floor', () => {
+  const f = gitFixture(), sourcePath = path.join(f.root, 'site-appearance.js');
+  writeFileSync(sourcePath, appearanceSource); const b = f.commit();
+  writeFileSync(sourcePath, appearanceChange().after); const uiHead = f.commit();
+  const ui = detectRelease(f.root, { base: b, head: uiHead });
+  assert.equal(ui.level, 'L2'); assert.equal(ui.backendChanged, false);
+  assert.equal(ui.files[0].classificationBranch, 'ordinary-js-ts');
+  assert.equal(ui.resourceVersions.status, 'NOT_REQUIRED');
+  assert.equal(detectRelease(f.root, { base: b, head: uiHead, minimumLevel: 'L3' }).level, 'L3');
+  for (const fixture of capabilityFixtures.filter(f => ['computed-concatenated-table-write', 'wrapper-helper'].includes(f.name))) {
+    writeFileSync(sourcePath, appearanceChange().after + '\n' + fixture.code);
+    const p = detectRelease(f.root, { base: b, head: f.commit() });
+    assert.equal(p.level, 'L3'); assert.equal(p.backendChanged, true);
+    assert.equal(p.files[0].classificationBranch, 'ordinary-js-ts');
+    assert.equal(p.files[0].backendEvidence, fixture.evidence);
+    assert.deepEqual(p.requiredGates, FULL_GATES);
+  }
 });
 test('CSS files can be UI even with checkout in filename; active imports escalate', () => {
   assert.equal(classify([change('checkout-layout.css')]).level, 'L1');

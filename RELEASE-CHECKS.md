@@ -15,7 +15,17 @@
 
 所有等级仍需干净且已提交的 Git、main 同步、Release Report 与 Release History。`NOT_REQUIRED` 仅表示与本等级无关，**不是 PASS**；L1 不运行数据库/Edge/Supabase gate，缺 Supabase baseline 不会使 L1 INCOMPLETE。已观察到的明确 FAIL 不会被隐藏。L2 没有数据库依赖时 database 为 NOT_REQUIRED；目前所有 SQL、RLS、Edge Function 修改都直接属于 L3，相关性不明确也升级 L3，不猜测一个过小的数据库测试集合。
 
-当前规则为保守白名单：根目录 CSS、指定被动 assets/images/fonts 格式、无脚本且结构不变的 HTML 文案/展示属性、普通文档，以及已审查的 UI 辅助测试可为 L1。少量普通客户端模块可为 L2；若其中含金额、认证、权限或后端操作则升级 L3。`app.js`/管理员/账户/钱包/订单/营销金额/Storage 删除、所有 SQL 与 `supabase/`、依赖锁、发布工具、工作流和发布规则均 L3。未知 JS、可执行/结构变化的 HTML、CSS 活跃导入、删除、符号链接、子模块、改名的旧路径都不会被低等级白名单掩盖。
+当前规则为保守白名单：根目录 CSS、指定被动 assets/images/fonts 格式、无脚本且结构不变的 HTML 文案/展示属性、普通文档，以及已审查的 UI 辅助测试可为 L1。普通客户端源码只有命中明确、窄范围的可信转换规则才可为 L2，不能依据文件名和未发现危险关键词放行。`app.js`/管理员/账户/钱包/订单/营销金额/Storage 删除、所有 SQL 与 `supabase/`、依赖锁、发布工具、工作流和发布规则均 L3。未知 JS/TS、可执行/结构变化的 HTML、CSS 活跃导入、删除、符号链接、子模块、改名的旧路径都不会被低等级白名单掩盖。
+
+### 普通 JS/TS 的 fail-closed 能力边界（稳定化第 2 阶段）
+
+- 顺序固定为：既有高风险路径/模式规则 → 普通脚本内明确后端 API 形态 L3 → 明确可信的正向源码转换 → 无正向证明默认 L3。既有账户/UI 的精确审核与受控 override 规则不扩充、不改写；新 ordinary 回归须断言 `classificationBranch: ordinary-js-ts`，防止被前置指纹或路径规则拒绝而产生假覆盖。
+- 普通分支覆盖 JS/CJS/MJS/JSX 和 TS/CTS/MTS/TSX；未知 TS 不因扩展名自动获得低等级。删除、重命名旧路径、符号链接、文件模式、硬 L3 路径及多文件最高等级规则仍优先。不存在“允许文件名 + 未命中关键词 = L2”的分支。
+- 当前新增的 L2 正向转换仅限 `site-appearance.js` 的 `def` 展示默认值：`cardStyle` 为 japanese/cute/clean/classic，`imageFit` 为 contain/cover，`desktopCols` 为 2–6，`mobileCols` 为 1–2，`showDescription` 为布尔值。修改前后都须满足这个完整局部语法；其余源码统一 CRLF/LF 后必须保持已审核上下文 SHA-256 `2b0ff014f4506b34890054f3975552c349f24369af0bbbd7b0e5cc8f95729fa5`。这是五个有限数据槽的源码转换，不是任意配置对象、字符串、DOM 或整个目录白名单，也不是只固定某一个目标文件指纹。两个版本均需验证，未知旧代码的删除不降级。
+- 该上下文保留既有 DOM/CSS 渲染与 `registerSiteAppearance` 回调；只允许数据槽变化，不允许新增调用、helper/import、事件、选择器或 HTML。现有注册器位于 `app.js`，仅保存/解析展示回调；其修改本身仍是硬 L3。完整 fixture 用于冻结真实测试输入，不由候选仓库动态生成可信策略。上述展示默认值变更保守归 L2，而非承诺所有纯 UI JS 都自动归 L1。
+- `backendEvidence` 区分 `recognized`（静态识别到后端 API/网络写形态）、`possible`（来源/调用范围不明，不能排除后端能力）、`none`（可信展示转换，或完整受限字面量/直接 DOM 展示语法）。前两者 `backend=true`，后者 false。`recognized` 不表示请求实际执行或接收者运行时已被证实为 Supabase；不能将 possible 描述为已确认后端调用。这个字段只补充普通分支的证据，不是新放行入口。
+- 诊断扫描器只支持有限的词法形式、常量字符串拼接和静态计算属性；alias/helper/动态方法、未解析模板/正则/转义/外部依赖都不能依赖扫描器“未发现”而降级。扫描器不是通用 JS/TS 解析器，更不运行候选代码。未知代码即使 backend=false 也仍为 L3，继续要求完整门禁；不把保守标记用于删除 L3 的核验要求。
+- 测试包括真实展示默认值正例、当前已审核 L1 UI 正例、ordinary JS/TS 计算属性/别名/间接调用/RPC/Storage/Auth/Edge/network write 反例，以及前后任一侧篡改、未知 helper、模式与混合修改。分类器/fixtures/规范的本次修正自身仍是独立 L3 基础设施，不授权提交、合并或部署，不变更可信 base、Cache Version Guard、production approval、冻结版本和 Production MATCH。
 
 操作示例（以下分类命令均只读）：
 
