@@ -19,14 +19,28 @@ permissions:
 
 jobs:
   classify:
+    name: classify
     runs-on: ubuntu-latest
     outputs:
       level: ${{ steps.level.outputs.level }}
+      valid: ${{ steps.level.outputs.valid }}
+      checkout_sha: ${{ steps.checkout-proof.outputs.sha }}
+      checkout_run_id: ${{ steps.checkout-proof.outputs.run_id }}
+      checkout_run_attempt: ${{ steps.checkout-proof.outputs.run_attempt }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
+      - id: checkout-proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual=$(git rev-parse HEAD)
+          test "$actual" = "$GITHUB_SHA"
+          echo "sha=$actual" >> "$GITHUB_OUTPUT"
+          echo "run_id=$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "run_attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -35,16 +49,24 @@ jobs:
         run: |
           # Never let a candidate classifier lower its own review requirements.
           level=L3
+          valid=false
           policy="$RUNNER_TEMP/trusted-release-level.mjs"
           if [[ "$RELEASE_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && git merge-base --is-ancestor "$RELEASE_BASE_SHA" HEAD && git show "$RELEASE_BASE_SHA:scripts/release-level.mjs" > "$policy" 2>/dev/null; then
-            result=$(node "$policy" --root "$GITHUB_WORKSPACE" --base "$RELEASE_BASE_SHA" --head HEAD --format level) || result=L3
-            case "$result" in L1|L2|L3) level="$result" ;; *) level=L3 ;; esac
+            if result=$(node "$policy" --root "$GITHUB_WORKSPACE" --base "$RELEASE_BASE_SHA" --head HEAD --format level); then
+              case "$result" in L1|L2|L3) level="$result"; valid=true ;; esac
+            fi
           fi
           echo "Trusted base policy gate floor: $level"
           echo "level=$level" >> "$GITHUB_OUTPUT"
+          echo "valid=$valid" >> "$GITHUB_OUTPUT"
   test:
     needs: classify
     if: ${{ always() }}
+    name: test
+    outputs:
+      checkout_sha: ${{ steps.checkout-proof.outputs.sha }}
+      checkout_run_id: ${{ steps.checkout-proof.outputs.run_id }}
+      checkout_run_attempt: ${{ steps.checkout-proof.outputs.run_attempt }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -54,6 +76,15 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - id: checkout-proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual=$(git rev-parse HEAD)
+          test "$actual" = "$GITHUB_SHA"
+          echo "sha=$actual" >> "$GITHUB_OUTPUT"
+          echo "run_id=$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "run_attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -93,12 +124,26 @@ jobs:
   edge-bundler:
     needs: classify
     if: ${{ always() && needs.classify.outputs.level != 'L1' && needs.classify.outputs.level != 'L2' }}
+    name: edge-bundler
+    outputs:
+      checkout_sha: ${{ steps.checkout-proof.outputs.sha }}
+      checkout_run_id: ${{ steps.checkout-proof.outputs.run_id }}
+      checkout_run_attempt: ${{ steps.checkout-proof.outputs.run_attempt }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - id: checkout-proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual=$(git rev-parse HEAD)
+          test "$actual" = "$GITHUB_SHA"
+          echo "sha=$actual" >> "$GITHUB_OUTPUT"
+          echo "run_id=$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "run_attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -117,12 +162,26 @@ jobs:
   media-concurrency:
     needs: classify
     if: ${{ always() && needs.classify.outputs.level != 'L1' && needs.classify.outputs.level != 'L2' }}
+    name: media-concurrency
+    outputs:
+      checkout_sha: ${{ steps.checkout-proof.outputs.sha }}
+      checkout_run_id: ${{ steps.checkout-proof.outputs.run_id }}
+      checkout_run_attempt: ${{ steps.checkout-proof.outputs.run_attempt }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - id: checkout-proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual=$(git rev-parse HEAD)
+          test "$actual" = "$GITHUB_SHA"
+          echo "sha=$actual" >> "$GITHUB_OUTPUT"
+          echo "run_id=$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "run_attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -135,3 +194,28 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
+
+  release-gate:
+    name: release-gate
+    needs: [classify, test, edge-bundler, media-concurrency]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify release-gate contract
+        run: node --test tests/release-ci-gate.test.mjs
+      - name: Verify current-attempt release evidence
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_NEEDS_JSON: ${{ toJSON(needs) }}
+        run: node scripts/release-ci-gate.mjs
