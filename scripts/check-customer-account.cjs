@@ -1140,7 +1140,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
         return {color:s.color,background:s.backgroundColor,fontSize:s.fontSize,radius:s.borderRadius,border:s.borderTopColor,
           padding:[s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft],width:Math.round(r.width),height:Math.round(r.height),overflow:button.scrollWidth>button.clientWidth+1};
       });
-      assert.deepEqual(refreshStyle,{color:'rgb(215, 91, 75)',background:'rgb(255, 255, 255)',fontSize:'13px',radius:'8px',border:'rgb(215, 91, 75)',padding:['0px','10px','0px','10px'],width:96,height:36,overflow:false},`refresh button at ${width}px`);
+      assert.deepEqual(refreshStyle,{color:'rgb(215, 91, 75)',background:'rgb(255, 255, 255)',fontSize:'15px',radius:'8px',border:'rgb(215, 91, 75)',padding:['0px','5px','0px','5px'],width:94,height:36,overflow:false},`refresh button at ${width}px`);
       assert.equal(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth),true,`dialog overflow at ${width}px`);
       if(process.env.TINGS_ACCOUNT_SCREENSHOT && [390,1710].includes(width))await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-refresh-${width}.png`)});
       const compactOrders=await page.evaluate(()=>{
@@ -1151,7 +1151,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
           noteBelowEmail:note.getBoundingClientRect().top>=email.getBoundingClientRect().bottom,
           closeInside:close.top>=root.getBoundingClientRect().top+6};
       });
-      assert.deepEqual(compactOrders,{padding:['10px','10px'],margin:['-10px','-10px'],color:'rgb(0, 0, 0)',noteBelowEmail:true,closeInside:true},`compact orders at ${width}px`);
+      assert.deepEqual(compactOrders,{padding:['20px','20px'],margin:['-10px','-10px'],color:'rgb(0, 0, 0)',noteBelowEmail:true,closeInside:true},`compact orders at ${width}px`);
       const layout=await page.evaluate(()=>{
         const card=document.querySelector('#customerOrders .lookup-order-card');
         const copy=card.querySelector('.customer-copy-order'),number=copy.previousElementSibling;
