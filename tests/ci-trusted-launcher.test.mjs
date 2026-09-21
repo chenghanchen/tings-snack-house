@@ -78,14 +78,21 @@ test('real CLI uses the same trusted verdict for candidate gate attack',t=>{
  const eventFile=path.join(f.root,'event.json');writeFileSync(eventFile,JSON.stringify(f.event));
  const code=`globalThis.fetch=async()=>({ok:true,json:async()=>(${JSON.stringify({total_count:5,jobs:f.jobs})}),headers:new Headers()});process.argv=[process.execPath,${JSON.stringify(launcher)},'gate'];await import(${JSON.stringify(pathToFileURL(launcher).href)});`;
  const env={...f.env,GITHUB_EVENT_PATH:eventFile,GITHUB_TOKEN:'fixture',CI_SHADOW_NEEDS:JSON.stringify(f.needs)};
- delete env.GITHUB_OUTPUT;delete env.GITHUB_STEP_SUMMARY;delete env.NODE_OPTIONS;
+ delete env.GITHUB_OUTPUT;delete env.NODE_OPTIONS;
+ env.GITHUB_STEP_SUMMARY=path.join(f.root,'summary.md');
  const r=spawnSync(process.execPath,['--input-type=module','-e',code],{cwd:f.root,env,encoding:'utf8'});
  assert.equal(r.status,1,r.stderr);const verdict=JSON.parse(r.stdout.trim());assert.equal(verdict.trustedSha,f.anchor);
  assert.ok(verdict.errors.some(e=>e.includes('shadow-database')));full(verdict);
+ const summary=readFileSync(env.GITHUB_STEP_SUMMARY,'utf8'),evidence=JSON.parse(summary.split('```json\n')[1].split('\n```')[0]);
+ assert.equal(evidence.bootstrapAnchorSha,f.anchor);assert.equal(evidence.trustedSource,'bootstrap-anchor');
+ assert.equal(evidence.baseSha,f.event.pull_request.base.sha);assert.equal(evidence.headSha,f.env.GITHUB_SHA);
+ assert.equal(evidence.checkoutSha,f.env.GITHUB_SHA);assert.equal(evidence.runId,'123');assert.equal(evidence.attempt,'1');
+ assert.equal(evidence.trustedVerdict,'FAIL');assert.equal(evidence.unionRequirements.database,true);
+ assert.ok(evidence.requiredJobs.includes('shadow-database'));assert.match(summary,/HUMAN DIFF REVIEW REQUIRED/);
 });
 test('workflow select and gate invoke the launcher, not candidate verdict',()=>{
  const y=readFileSync(new URL('../.github/workflows/ci-shadow.yml',import.meta.url),'utf8');
  for(const mode of ['select','gate'])assert.match(y,new RegExp('run: node scripts/ci-trusted-launcher.mjs '+mode));
  assert.doesNotMatch(y,/run: node scripts\/ci-shadow-gate\.mjs/);
- assert.match(y,/BOOTSTRAP_TRUST_ANCHOR_SHA: ''/);
+ assert.match(y,/BOOTSTRAP_TRUST_ANCHOR_SHA: '573eebe0648ebff301a2be39f33bb484e13ce282'/);
 });

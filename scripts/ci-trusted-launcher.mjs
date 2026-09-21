@@ -47,8 +47,19 @@ export async function main(env=process.env) {
   catch(e){result={pass:false,errors:[e.message],calculation:{valid:false,CI_CONTROL_CHANGE:true,requirements:full()}};}
   const safe=s=>s.replaceAll(env.GITHUB_TOKEN||'\0','[redacted]').replaceAll('::',': :');
   console.log(safe(JSON.stringify(result)));
-  if(env.GITHUB_STEP_SUMMARY)appendFileSync(env.GITHUB_STEP_SUMMARY,
-    '\nCI_CONTROL_CHANGE='+result.calculation.CI_CONTROL_CHANGE+'; '+(result.calculation.CI_CONTROL_CHANGE?'HUMAN DIFF REVIEW REQUIRED; workflow/launcher not automatically trusted.':'No control-path change detected.')+'\n');
+  if(env.GITHUB_STEP_SUMMARY){
+    const c=result.calculation,b=c.binding||{},r=c.requirements;
+    const summary={bootstrapAnchorSha:env.BOOTSTRAP_TRUST_ANCHOR_SHA,baseSha:b.baseSha,headSha:b.headSha,
+      checkoutSha:b.checkoutSha,runId:b.runId,attempt:b.attempt,trustedSha:result.trustedSha,
+      trustedSource:result.trustedSha?(result.trustedSha===b.baseSha?'base-tree':'bootstrap-anchor'):'unavailable',
+      trustedRequirements:c.trustedRequirements,candidateRequirements:c.candidateRequirements,unionRequirements:r,
+      CI_CONTROL_CHANGE:c.CI_CONTROL_CHANGE,
+      requiredJobs:['shadow-select','shadow-test',...['database','edge','mediaConcurrency'].filter(k=>r[k])
+        .map(k=>'shadow-'+(k==='mediaConcurrency'?'media-concurrency':k))],
+      trustedVerdict:result.pass?'PASS':'FAIL',errors:result.errors};
+    appendFileSync(env.GITHUB_STEP_SUMMARY,'\n### Trusted shadow '+process.argv[2]+'\n\n```json\n'+safe(JSON.stringify(summary,null,2))+
+      '\n```\n'+(c.CI_CONTROL_CHANGE?'CI_CONTROL_CHANGE=true — HUMAN DIFF REVIEW REQUIRED; workflow/routing/launcher invocation is not automatically trusted.\n':''));
+  }
   if(process.argv[2]==='select'&&env.GITHUB_OUTPUT){
     appendFileSync(env.GITHUB_OUTPUT,'selection='+JSON.stringify(result.calculation)+'\n');
     for(const [k,v] of Object.entries(result.calculation.requirements))appendFileSync(env.GITHUB_OUTPUT,k+'='+v+'\n');

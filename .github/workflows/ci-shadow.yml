@@ -14,8 +14,8 @@ permissions:
 
 env:
   CI_BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.base }}
-  # Intentionally unset until a human approves and explicitly pins the full SHA.
-  BOOTSTRAP_TRUST_ANCHOR_SHA: ''
+  # Reviewed code identity. ci-bootstrap-v1 only retains this object; never resolve trust from a ref.
+  BOOTSTRAP_TRUST_ANCHOR_SHA: '573eebe0648ebff301a2be39f33bb484e13ce282'
 
 jobs:
   select:
