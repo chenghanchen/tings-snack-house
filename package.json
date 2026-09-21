@@ -2,9 +2,9 @@
   "name": "tings-snack-house",
   "private": true,
   "scripts": {
-    "ci:select": "node scripts/ci-select.mjs",
+    "ci:select": "node scripts/ci-trusted-launcher.mjs select",
     "ci:check": "node scripts/ci-check.mjs",
-    "ci:shadow-gate": "node scripts/ci-shadow-gate.mjs",
+    "ci:shadow-gate": "node scripts/ci-trusted-launcher.mjs gate",
     "test": "node --test tests/*.test.mjs",
     "release:check": "node scripts/release-check.mjs",
     "test:unit": "node scripts/release-check.mjs --unit-only",

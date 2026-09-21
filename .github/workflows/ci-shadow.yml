@@ -14,6 +14,8 @@ permissions:
 
 env:
   CI_BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.base }}
+  # Intentionally unset until a human approves and explicitly pins the full SHA.
+  BOOTSTRAP_TRUST_ANCHOR_SHA: ''
 
 jobs:
   select:
@@ -45,7 +47,7 @@ jobs:
           echo "run_id=$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
           echo "run_attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
       - id: select
-        run: node scripts/ci-select.mjs
+        run: node scripts/ci-trusted-launcher.mjs select
 
   test:
     name: shadow-test
@@ -210,4 +212,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           CI_SHADOW_NEEDS: ${{ toJSON(needs) }}
-        run: node scripts/ci-shadow-gate.mjs
+        run: node scripts/ci-trusted-launcher.mjs gate

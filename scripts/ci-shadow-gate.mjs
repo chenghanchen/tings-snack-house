@@ -1,12 +1,11 @@
 // Shadow only: never publishes the existing required "release-gate" context.
-import { readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateContext, contextFromEnvironment, readAttemptJobs } from './release-ci-gate.mjs';
-import { validateSelection, selectGit } from './ci-select.mjs';
+import { validateContext, readAttemptJobs } from './release-ci-gate.mjs';
+import { validateSelection } from './ci-select.mjs';
 import { computeRequirements } from './ci-requirements.mjs';
 export const JOBS={select:'shadow-select',test:'shadow-test',database:'shadow-database',edge:'shadow-edge','media-concurrency':'shadow-media-concurrency'};
+export const TRUSTED_CI_VERSION=1;
 export function evaluateShadow(context,needs,jobs) {
   const errors=[],lines=[];
   try {validateContext(context);}catch(e){return {pass:false,errors:[e.message],lines};}
@@ -43,10 +42,9 @@ export async function verifyShadow(context,needs,options={}) {
   try {return evaluateShadow(context,needs,await readAttemptJobs(context,options));}
   catch(e){return {pass:false,errors:[e.message],lines:[]};}
 }
-// Unwired Phase 2.5 verdict candidate. Step 2 must load this module and ALL its
-// imports from the reviewed base/anchor, never from the candidate working tree.
+// Only the launcher may load this and its imports from an event base/approved anchor.
 export async function verifyRequirements(root,context,needs,binding,options={}) {
-  const calculation = computeRequirements(root,binding);
+  const calculation = computeRequirements(root,binding,options.trustedSha ?? binding?.baseSha);
   try {
     validateContext(context);
     if (!calculation.valid || binding.checkoutSha !== context.checkoutSha || binding.headSha !== context.apiSha ||
@@ -62,17 +60,6 @@ export async function verifyRequirements(root,context,needs,binding,options={}) 
   } catch (e) { return {pass:false,errors:[e.message],lines:[],calculation}; }
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
-  let result;
-  try {
-    const actual=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
-    const context=contextFromEnvironment(process.env,JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH,'utf8')),actual);
-    const needs=JSON.parse(process.env.CI_SHADOW_NEEDS||'null');
-    // Independent local diff reconstruction; no old report/artifact can fill evidence.
-    const received=validateSelection(JSON.parse(needs?.select?.outputs?.selection),actual);
-    const expected=selectGit(process.cwd(),process.env.CI_BASE_SHA);
-    if(JSON.stringify(received)!==JSON.stringify(expected))throw Error('Selector output differs from complete current-checkout diff');
-    result=await verifyShadow(context,needs,{token:process.env.GITHUB_TOKEN});
-  }catch(e){result={pass:false,errors:[e.message],lines:[]};}
-  console.log([...result.lines,...result.errors.map(s=>'ERROR: '+s),'release-gate-shadow='+(result.pass?'PASS':'FAIL')].join('\n').replaceAll('::',': :'));
-  if(!result.pass)process.exitCode=1;
+  console.error('Direct candidate gate execution forbidden; use ci-trusted-launcher.mjs gate');
+  process.exitCode=1;
 }

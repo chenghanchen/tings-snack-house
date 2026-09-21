@@ -1,41 +1,58 @@
-# Phase 2.5 step 1: candidate only, no trust anchor selected
+# Phase 2.5 final candidate: isolated trusted launcher, anchor NOT selected
 
 CI_CONTROL_CHANGE=true. Human diff review is mandatory for this change.
-No workflow, Ruleset or required check is replaced in this step. The existing
-shadow launcher still uses its old candidate-only path; Linux results on the
-previous PR head are NOT evidence that this new trust chain is installed.
+Only the non-required shadow workflow and its npm entries use the new launcher.
+Ruleset and required release-gate remain unchanged. Previous Linux results are
+NOT evidence for this new commit. No actual anchor SHA is configured yet.
 
 ## Small proposed chain
 
 Event base/head + actual checkout → exact Git blobs → separate selector processes
 → trusted requirements UNION candidate requirements → independent verdict.
 
-`ci-requirements.mjs` reads the base selector from the explicit base commit and
+`ci-trusted-launcher.mjs select|gate` is the human-reviewed invocation boundary.
+It reads the four-module closure from the event's exact base commit; if any module
+is absent, it requires BOOTSTRAP_TRUST_ANCHOR_SHA, an explicit full commit SHA.
+The anchor must be locally available after an explicit fetch by the reviewed
+workflow. No branch/tag/latest/head lookup chooses its identity. An invalid or
+nonregular present module, unsupported complete implementation, invalid SHA,
+unreadable object or incomplete anchor fails, never tries a different source.
+
+Every module is read from the SAME selected SHA via Git objects and copied into
+one fresh OS temporary directory. Relative imports stay within that four-file
+closure; remaining imports are Node builtins. No npm or candidate package scripts
+are executed by this launcher. The temporary directory is removed in finally.
+There is no per-file SHA override or artifact executable input.
+
+`ci-requirements.mjs` reads the trusted selector from that selected revision and
 the candidate selector from the explicit PR head commit, not worktree files.
 Both selectors inspect the same checkout diff. The binding contains base SHA,
 head SHA, checkout SHA, run id and attempt. A merge checkout must have exactly
 the event-bound base/head parents. No dynamic main lookup or historical evidence.
 
-Missing base is currently full high-risk AND invalid (anchor not chosen).
+Missing base implementation without an explicit usable anchor is full/invalid.
 Missing/deleted candidate, malformed output, exceptions, incomplete diff or wrong
 SHA also require full and prevent a successful verdict. Invalid inputs never mean
 base-only. Workflow/selector/gate/runner/cache/dependency/config changes force full
 independently of both selectors' returned requirements. `CI_CONTROL_CHANGE` is
 explicitly included in the calculation and must be shown in the future PR review.
 
-`verifyRequirements` recomputes that calculation and substitutes the resulting
+The real CLI and tests both use runTrusted → isolated verifyRequirements, which
+recomputes that calculation and substitutes the resulting
 requirements before checking current-attempt job evidence. It ignores candidate
-selection claims. It must be loaded from the reviewed revision in step 2; calling
-the candidate's copy does NOT turn it into a trusted final verdict.
+selection claims. Direct invocation of ci-shadow-gate.mjs refuses to execute;
+there is no remaining candidate-only verdict CLI. A complete trusted base takes
+precedence over the configured bootstrap SHA.
 
 ## Attack demonstration and accepted boundary
 
-The gate attack test executes a candidate gate that prints PASS and exits 0.
-That attack DOES succeed against the candidate gate. The separately loaded test
-verdict rejects the same job evidence when database is required but skipped.
-The passing regression means the boundary is demonstrated, not that GitHub's
-candidate workflow has become tamper-proof. Candidate code execution is not an
-OS security sandbox. Workflow/routing/launcher changes still require human review.
+Launcher attack tests replace or delete candidate gate/helper files, forge selector
+output and supply candidate same-name API helpers. The actual launcher rejects
+required database skipped using the isolated trusted verdict. A child process
+exercises the real CLI with mocked GitHub API evidence and the same implementation.
+Candidate code execution is not an OS security sandbox. Workflow/routing/launcher
+changes still require human review. CI summaries explicitly mark CI_CONTROL_CHANGE
+and HUMAN DIFF REVIEW REQUIRED; this is not automatic workflow trust.
 
 ## Files the future reviewed anchor must contain
 
@@ -45,22 +62,23 @@ OS security sandbox. Workflow/routing/launcher changes still require human revie
 - scripts/release-ci-gate.mjs — existing generic context and current-attempt API
   utilities imported by the gate, not its legacy level-based verdict.
 
-ALL transitive imports must come from the same reviewed Git tree. Extracting only
-the gate and resolving its imports against candidate files would defeat the anchor.
+The launcher loads ALL transitive imports from that same reviewed Git tree.
 The selector is intentionally standalone; unknown relative imports fail closed.
 No imports of release-level, Override or Report are introduced. The generic API
 helper remains an old-file dependency to extract before that file can be retired.
 
-## Step 2 remains pending explicit approval
+## Activation and remote retention remain pending explicit approval
 
-No anchor SHA has been selected, no bootstrap fallback has been wired and no
-trusted launcher has been installed. After review, the user must explicitly name
-the immutable anchor SHA. A future launcher loads the implementation from the
-event base Git tree, falling back ONLY when the implementation is absent to that
-exact approved anchor. Corrupt/invalid present policy must not silently fall back.
-Union, verdict and imports must all use the trusted source. Candidate selectors
-still execute separately and may only add requirements. This launcher itself
-remains within the explicitly accepted human-review boundary.
+The shadow workflow intentionally leaves BOOTSTRAP_TRUST_ANCHOR_SHA empty, so a
+base missing the new implementation FAILS until approval supplies the exact SHA.
+PR events only are supported; non-PR/manual invocation fails closed rather than
+guessing a base/head identity. No trust anchor is silently selected by this commit.
+After approval: push the commit, retain an explicit remote branch/tag/ref, fetch
+that retained object, verify its full commit SHA against the approved constant,
+and configure the reviewed launcher invocation. The ref preserves reachability;
+its movable name must never choose identity. A hard-coded SHA alone does not stop
+unreachable-object garbage collection. No tag/ref is created by this candidate.
 
-Until then: step-1 tests can PASS; Phase 2.5 trust-chain acceptance remains PENDING.
+Local trust tests can PASS; remote availability/activation/Linux acceptance remain
+separate from code approvability and are not claimed by this candidate.
 Do not delete legacy modules, merge, deploy or begin Phase 3.

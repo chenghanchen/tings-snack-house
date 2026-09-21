@@ -23,15 +23,15 @@ export function bindingFromEvent(env, event, checkoutSha) {
   return { baseSha:event.pull_request?.base?.sha, headSha:event.pull_request?.head?.sha,
     checkoutSha, runId:env.GITHUB_RUN_ID, attempt:env.GITHUB_RUN_ATTEMPT };
 }
-export function computeRequirements(root, binding) {
+export function computeRequirements(root, binding, trustedSha = binding?.baseSha) {
   const git = (...args) => execFileSync('git', args, { cwd:root, encoding:'utf8', maxBuffer:32*1024*1024, stdio:['ignore','pipe','pipe'] });
   const errors = []; let trusted = null, candidate = null, control = false;
-  const result = () => ({ binding, valid:errors.length === 0, CI_CONTROL_CHANGE:control,
+  const result = () => ({ binding, trustedSha, valid:errors.length === 0, CI_CONTROL_CHANGE:control,
     trustedRequirements:trusted?.requirements ?? null, candidateRequirements:candidate?.requirements ?? null,
     requirements:errors.length ? full() : unionRequirements(trusted.requirements, candidate.requirements, control), errors });
   let sources;
   try {
-    if (!binding || !['baseSha','headSha','checkoutSha'].every(k => sha(binding[k])) ||
+    if (!sha(trustedSha) || !binding || !['baseSha','headSha','checkoutSha'].every(k => sha(binding[k])) ||
         !['runId','attempt'].every(k => /^[1-9]\d*$/.test(String(binding[k])) && Number.isSafeInteger(Number(binding[k]))))
       throw Error('Malformed SHA/run/attempt binding');
     if (git('rev-parse','HEAD').trim() !== binding.checkoutSha) throw Error('Wrong checkout SHA');
@@ -43,7 +43,7 @@ export function computeRequirements(root, binding) {
     control = paths.some(isControlPath);
     // Snapshot BOTH exact Git blobs before executing either side. No branch-name,
     // worktree-source, HEAD fallback, prior run or bootstrap-anchor auto-selection.
-    sources = [binding.baseSha,binding.headSha].map(ref => {
+    sources = [trustedSha,binding.headSha].map(ref => {
       const entry = git('ls-tree',ref,'--','scripts/ci-select.mjs');
       if (!entry.startsWith('100644 blob ')) return null;
       return git('show',ref+':scripts/ci-select.mjs');
