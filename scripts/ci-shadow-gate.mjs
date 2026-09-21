@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateContext, contextFromEnvironment, readAttemptJobs } from './release-ci-gate.mjs';
 import { validateSelection, selectGit } from './ci-select.mjs';
+import { computeRequirements } from './ci-requirements.mjs';
 export const JOBS={select:'shadow-select',test:'shadow-test',database:'shadow-database',edge:'shadow-edge','media-concurrency':'shadow-media-concurrency'};
 export function evaluateShadow(context,needs,jobs) {
   const errors=[],lines=[];
@@ -41,6 +42,24 @@ export function evaluateShadow(context,needs,jobs) {
 export async function verifyShadow(context,needs,options={}) {
   try {return evaluateShadow(context,needs,await readAttemptJobs(context,options));}
   catch(e){return {pass:false,errors:[e.message],lines:[]};}
+}
+// Unwired Phase 2.5 verdict candidate. Step 2 must load this module and ALL its
+// imports from the reviewed base/anchor, never from the candidate working tree.
+export async function verifyRequirements(root,context,needs,binding,options={}) {
+  const calculation = computeRequirements(root,binding);
+  try {
+    validateContext(context);
+    if (!calculation.valid || binding.checkoutSha !== context.checkoutSha || binding.headSha !== context.apiSha ||
+        String(binding.runId) !== String(context.runId) || String(binding.attempt) !== String(context.attempt))
+      throw Error('Invalid trusted union/binding: '+calculation.errors.join('; '));
+    const selection = {schemaVersion:1,checkoutSha:binding.checkoutSha,baseSha:binding.baseSha,diffComplete:true,
+      requirements:calculation.requirements,reasons:['trusted base UNION candidate; CI_CONTROL_CHANGE='+calculation.CI_CONTROL_CHANGE]};
+    validateSelection(selection,context.checkoutSha);
+    const effective = structuredClone(needs);
+    // Candidate's requirements or candidate verdict cannot replace this calculation.
+    effective.select.outputs.selection = JSON.stringify(selection);
+    return {...await verifyShadow(context,effective,options),calculation};
+  } catch (e) { return {pass:false,errors:[e.message],lines:[],calculation}; }
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   let result;
