@@ -53,12 +53,16 @@ module.exports = async (page, errors) => {
       return {clear:title.right<=refresh.left && refresh.right<back.left,
         inline:Math.abs(title.top+title.height/2-refresh.top-refresh.height/2)<1 && Math.abs(back.top+back.height/2-refresh.top-refresh.height/2)<1,
         overflow:root.scrollWidth>root.clientWidth,
-        style:[s.color,s.borderTopColor,s.borderRadius,s.fontSize,refresh.height]};
+        titleSize:getComputedStyle(document.getElementById('customerAccountTitle')).fontSize,
+        padding:[getComputedStyle(root).paddingTop,getComputedStyle(root).paddingBottom],
+        style:[s.color,s.borderTopColor,s.borderRadius,s.fontSize,refresh.height,s.paddingLeft,s.paddingRight]};
     });
     assert.equal(layout.clear,true,`header overlap at ${width}: ${JSON.stringify(layout)}`);
     assert.equal(layout.inline,true,`header row at ${width}`);
     assert.equal(layout.overflow,false,`dialog overflow at ${width}`);
-    assert.deepEqual(layout.style,['rgb(215, 91, 75)','rgb(215, 91, 75)','8px','13px',36]);
+    assert.equal(layout.titleSize,'24px');
+    assert.deepEqual(layout.padding,['20px','20px']);
+    assert.deepEqual(layout.style,['rgb(215, 91, 75)','rgb(215, 91, 75)','8px','15px',36,'5px','5px']);
     if(process.env.TINGS_ACCOUNT_SCREENSHOT && [390,1710].includes(width))await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-refresh-${width}.png`)});
   }
   await page.fill('#customerOrderSearch','no-match-fixture');

@@ -44,7 +44,7 @@
 #customerAccountDialog select:focus-visible,#customerAccountDialog summary:focus-visible{outline:3px solid var(--red);outline-offset:2px}
 /* Keep the refresh control compact; animation follows the actual request state. */
 .customer-order-refresh{display:flex;align-items:center;gap:4px 6px;flex-wrap:wrap;max-width:100%}
-#customerAccountDialog #customerRefreshOrders{display:inline-flex;align-items:center;justify-content:center;gap:6px;color:var(--red);background:#fff;font-size:13px;font-weight:500;line-height:1;border:1px solid currentColor;border-radius:8px;padding:0 10px;height:36px;min-height:36px;flex:none;white-space:nowrap}
+#customerAccountDialog #customerRefreshOrders{display:inline-flex;align-items:center;justify-content:center;gap:6px;color:var(--red);background:#fff;font-size:15px;font-weight:500;line-height:1;border:1px solid currentColor;border-radius:8px;padding:0 5px;height:36px;min-height:36px;flex:none;white-space:nowrap}
 #customerAccountDialog #customerRefreshOrders:hover:not(:disabled){background:#fff1ee}
 #customerRefreshOrders svg{width:16px;height:16px;flex:none;transform-origin:center}
 #customerRefreshOrders{justify-self:start}
@@ -55,7 +55,7 @@
 .customer-account-heading:has(#customerOrderRefresh:not([hidden])){display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px}
 .customer-account-heading:has(#customerOrderRefresh:not([hidden])) .customer-account-title-row,
 .customer-account-heading #customerOrderRefresh:not([hidden]){display:contents}
-.customer-account-heading:has(#customerOrderRefresh:not([hidden])) h2{font-size:18px;white-space:nowrap}
+.customer-account-heading:has(#customerOrderRefresh:not([hidden])) h2{font-size:24px;white-space:nowrap}
 .customer-account-heading:has(#customerOrderRefresh:not([hidden])) #customerAccountBack{grid-column:3;grid-row:1}
 @media(max-width:780px){
   .customer-account-heading:has(#customerOrderRefresh:not([hidden])){grid-template-columns:minmax(0,1fr) auto auto;gap:8px}
@@ -85,7 +85,7 @@
 @media(max-width:780px){#customerAccountDialog:has(#customerSignedIn:not([hidden])){width:min(390px,94vw);padding:14px 16px 18px;border:0}#customerOrders{padding-right:2px}}
 #customerOrders .lookup-order-card:focus-visible{outline:3px solid var(--red);outline-offset:2px}
 /* Compact the orders view without changing the home heading or card widths. */
-#customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerOrdersPanel:not([hidden])){padding-top:10px;padding-bottom:10px}
+#customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerOrdersPanel:not([hidden])){padding-top:20px;padding-bottom:20px}
 #customerOrdersPanel>p.customer-muted:first-child{margin-top:-10px;margin-bottom:-10px}
 .customer-orders-no-match{width:fit-content;max-width:100%;margin:40px auto;text-align:center;overflow-wrap:anywhere}
 /* Address form density; keep the shared dialog's horizontal padding unchanged. */
