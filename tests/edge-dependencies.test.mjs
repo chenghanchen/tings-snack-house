@@ -27,19 +27,20 @@ test('floating source, changed lock, missing transitive integrity and unfrozen c
     assert.throws(() => validateDependencyPolicy(...f));
   }
 });
-test('L3 release Tests gate retains frozen Deno; both CI paths pin the same toolchain', () => {
-  const script = read('scripts/release-check.mjs');
+test('conditional Edge runner retains frozen Deno and actual Docker bundling', () => {
+  const script = read('scripts/ci-check.mjs');
   assert.match(script, /check-edge-dependencies\.mjs/);
-  assert.match(script, /if \(edge\.error \|\| edge\.status !== 0\) process\.exit/);
-  assert.match(script, /if \(!frontendOnly && !businessOnly\)/);
-  for (const file of ['release-check.yml', 'release-production.yml']) {
+  assert.match(script, /if\(r.error\|\|r.status!==0\)throw Error/);
+  assert.match(script, /mode==='edge'/);
+  for (const file of ['release-check.yml']) {
     const workflow = read('.github/workflows/' + file);
     assert.ok(workflow.includes(`deno-version: v${policy.denoVersion}`));
-    assert.match(workflow, /outputs\.level != 'L1' && .*outputs\.level != 'L2'/);
+    assert.match(workflow, /run: node scripts\/ci-check.mjs all/);
   }
   const config = read('supabase/config.toml');
   for (const slug of policy.functions) {
     assert.ok(config.includes(`static_files = ["./functions/${slug}/deno.lock"]`));
   }
-  assert.match(read('.github/workflows/release-check.yml'), /node scripts\/edge-bundle-proof\.mjs/);
+  assert.match(script, /run\(\['scripts\/edge-bundle-proof\.mjs'\]/);
+  assert.match(script, /assertProof\([^\n]+,6,checkoutSha\)/);
 });

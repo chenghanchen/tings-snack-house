@@ -24,7 +24,7 @@
 
 ## 验证入口
 
-- scripts/release-check.mjs：完整自动检查及真实 PostgreSQL 兼容数据库测试。
+- scripts/ci-check.mjs：最小自动检查；database 模式执行真实 PostgreSQL 兼容数据库测试。
 - scripts/check-customer-account.cjs：离线浏览器账户、领券、失败重试、选择、配送切换及响应式布局。
 - scripts/check-referral-marketing.cjs：离线后台创建封顶折扣券、免配送费券及旧券编辑兼容。
 

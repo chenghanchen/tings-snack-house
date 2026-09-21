@@ -5,7 +5,7 @@
 部署前运行：
 
 ```text
-node scripts/release-check.mjs
+npm run ci:check -- <完整 base SHA>
 ```
 
 部署顺序：

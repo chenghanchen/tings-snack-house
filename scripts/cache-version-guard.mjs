@@ -1,5 +1,4 @@
-// Transitional extraction: legacy classifier remains standalone for trusted-base loading.
-// Exact parity is enforced until the legacy path is retired; no Stage 6 manifest.
+// Independent local cache-key check; no release classifier or production manifest.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 const hash = value => createHash('sha256').update(value).digest('hex');

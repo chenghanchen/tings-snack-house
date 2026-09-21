@@ -13,10 +13,11 @@
 
 ```text
 node scripts/check-edge-dependencies.mjs
-node scripts/release-check.mjs --unit-only
+npm test
+node scripts/ci-check.mjs edge
 ```
 
-检查使用每个函数自己的配置运行 `deno check --frozen`，验证依赖解析与类型并确认锁文件字节未变。缺 Deno、版本不符、依赖漂移、完整性不符或类型错误均失败，不跳过。正式 Release Report 的 Tests gate 自动包含此检查，两个发布检查工作流安装同一精确 Deno 版本。
+检查使用每个函数自己的配置运行 `deno check --frozen`，验证依赖解析与类型并确认锁文件字节未变。缺 Deno、版本不符、依赖漂移、完整性不符或类型错误均失败，不跳过。最小 CI 选中 edge 时执行此检查与 Docker 验证，不再使用 Release Report。
 
 CI 不复用 Deno 缓存，下载包时验证锁文件完整性；本地若需重验下载内容，将 `DENO_DIR` 指向新的空目录再检查。检查不启动函数、不需要平台令牌、不创建订单或删除媒体。
 
@@ -30,7 +31,7 @@ CI 不复用 Deno 缓存，下载包时验证锁文件完整性；本地若需�
    deno install --entrypoint --config supabase/functions/admin-media-cleanup/deno.json --frozen=false supabase/functions/admin-media-cleanup/index.ts
    ```
 
-3. 审核全部传递依赖和 integrity diff，再执行正常冻结检查、数据库测试与 Secret 扫描。Deno 版本变化还需同步两个工作流。
+3. 审核全部传递依赖和 integrity diff，再执行正常冻结检查、数据库测试与 Secret 扫描。Deno 版本变化还需同步正式 CI 工作流。
 4. 同一提交保存函数、配置与锁文件。不能手工捏造 integrity、删锁文件重试，或在 CI / 发布时使用 `--no-lock`、`--frozen=false`、`--no-check` 绕过失败。
 
 ## 生产边界

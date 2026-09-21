@@ -2,15 +2,12 @@
   "name": "tings-snack-house",
   "private": true,
   "scripts": {
-    "ci:select": "node scripts/ci-trusted-launcher.mjs select",
-    "ci:check": "node scripts/ci-check.mjs",
-    "ci:shadow-gate": "node scripts/ci-trusted-launcher.mjs gate",
-    "test": "node --test tests/*.test.mjs",
-    "release:check": "node scripts/release-check.mjs",
-    "test:unit": "node scripts/release-check.mjs --unit-only",
-    "test:database": "node scripts/release-database.mjs",
+    "ci:select": "node scripts/ci-select.mjs",
+    "ci:check": "node scripts/ci-check.mjs all",
+    "test": "node scripts/ci-check.mjs node",
+    "test:unit": "node scripts/ci-check.mjs node",
+    "test:database": "node scripts/ci-check.mjs database",
     "release:security": "node scripts/release-security.mjs",
-    "release:report": "node scripts/release-report.mjs",
     "test:accounts:browser": "node scripts/check-customer-account.cjs"
   },
   "devDependencies": { "@electric-sql/pglite": "0.5.8", "playwright": "1.62.1" }

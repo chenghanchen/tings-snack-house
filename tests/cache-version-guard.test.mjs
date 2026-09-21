@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { managedResources, checkResourceVersions, resourceParts, checkGitVersions } from '../scripts/cache-version-guard.mjs';
 const hash=s=>createHash('sha256').update(s.replace(/\r\n/g,'\n')).digest('hex');
@@ -20,17 +19,7 @@ function fixture() {
  };
  return {files,old,html,check:(changes=[{path:'index.html'}])=>checkResourceVersions(git,'before','after',changes)};
 }
-test('temporary extraction is byte-for-byte identical to standalone legacy guard',()=>{
- const read=f=>readFileSync(new URL('../scripts/'+f,import.meta.url),'utf8').replace(/\r\n/g,'\n').replace(/^export /gm,'');
- const legacy=read('release-level.mjs'),standalone=read('cache-version-guard.mjs');
- for(const [start,end] of [
-  ['const managedResources =','// This is an audited one-way'],
-  ['function resourceParts(', 'function onlyManagedVersionsChanged('],
-  ['function checkResourceVersions(', '// Small, intentionally conservative recognizer']
- ]) {
-  const code=legacy.slice(legacy.indexOf(start),legacy.indexOf(end)).trim();
-  assert.ok(standalone.includes(code),start+' changed semantics');
- }
+test('managed resource scope remains the four audited assets',()=>{
  assert.deepEqual(Object.keys(managedResources),['styles.css','mobile-header.js','customer-account.css','customer-account.js']);
 });
 test('managed changed bytes require updated real hash version',()=>{

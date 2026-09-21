@@ -4,15 +4,20 @@ import { spawnSync, execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkGitVersions } from './cache-version-guard.mjs';
+import { selectGit, validateSelection } from './ci-select.mjs';
 import { createRequire } from 'node:module';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const require=createRequire(import.meta.url);
 export const MANDATORY_NODE = ['activity-promotions','browser-baseline','catalog-layout','customer-identity',
  'customer-order-tools','customer-otp-template','edge-bundle-proof','edge-dependencies','footer-layout','image-optimizer',
- 'media-cleanup-core','order-refresh-level','release-ci-gate','release-contracts','release-level','release-live',
- 'release-override','release-report','request-body','submit-order-auth','supabase-evidence',
- 'ci-select','ci-shadow-gate','ci-check','cache-version-guard'];
+ 'media-cleanup-core','release-contracts','request-body','submit-order-auth','supabase-evidence',
+ 'ci-select','ci-check','ci-workflow','security','cache-version-guard'];
 export const DATABASE = ['customer-accounts-db','customer-wallet-db','media-deletion-guard-db'];
+export function selectedModes(selection) {
+  validateSelection(selection,selection?.checkoutSha);
+  return ['base',...['database','edge','media-concurrency'].filter(k=>
+    selection.requirements[k==='media-concurrency'?'mediaConcurrency':k])];
+}
 export function assertTap(output, file) {
   const metric=k=>{const m=[...output.matchAll(new RegExp('^# '+k+' (\\d+)\\r?$','gm'))];if(m.length!==1)throw Error('Missing/ambiguous TAP '+k);return Number(m[0][1]);};
   const tests=metric('tests');
@@ -70,14 +75,28 @@ export async function check(mode,base) {
   const checkoutSha=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
   if(process.env.GITHUB_SHA && process.env.GITHUB_SHA!==checkoutSha)throw Error('Wrong checkout SHA');
   let cases=0,details={};
-  if(mode==='base') {
+  if(mode==='all') {
+    const selection=selectGit(root,base);
+    console.log('CI_SELECTION '+JSON.stringify(selection));
+    if(process.env.GITHUB_STEP_SUMMARY)appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+      '\n## Minimal CI requirements\n\n```json\n'+JSON.stringify(selection,null,2)+'\n```\nCI control changes require human diff review.\n');
+    // No serialized plan, prior result or candidate-reported success is reused.
+    for(const suite of selectedModes(selection))await check(suite,base);
+    if(!selection.diffComplete)throw Error('Incomplete diff; cannot certify CI');
+    return;
+  }
+  if(mode==='base'||mode==='node') {
+    if(mode==='base'){
     details.local=localChecks();
     details.cache=checkGitVersions(root,base,checkoutSha);
     if(!['PASS','NOT_REQUIRED'].includes(details.cache.status))throw Error('Cache Version Guard: '+JSON.stringify(details.cache));
     run(['scripts/release-security.mjs']);
+    console.log('LOCAL_CHECKS '+JSON.stringify(details));
+    }
     const discovered=readdirSync(path.join(root,'tests')).filter(f=>f.endsWith('.test.mjs')&&!f.endsWith('-db.test.mjs')).map(f=>f.slice(0,-9));
     for(const name of MANDATORY_NODE)if(!discovered.includes(name))throw Error('Missing mandatory Node suite '+name);
     cases=nodeSuites(discovered.sort());
+    if(mode==='base'){
     const log=run(['scripts/check-browser-baseline.cjs']);
     const lines=log.split(/\r?\n/).filter(l=>l.startsWith('BROWSER_BASELINE '));
     if(lines.length!==1)throw Error('Missing current browser execution summary');
@@ -85,6 +104,7 @@ export async function check(mode,base) {
     require('./browser/policy.cjs').assertComplete(browser.results);
     if(browser.retries!==0)throw Error('Unexpected browser retry');
     details.browser=browser;cases+=browser.results.reduce((n,r)=>n+r.cases,0);
+    }
   } else if(mode==='database') {
     const names=readdirSync(path.join(root,'tests')).filter(f=>f.endsWith('-db.test.mjs')).map(f=>f.slice(0,-9));
     for(const name of DATABASE)if(!names.includes(name))throw Error('Missing database suite '+name);
@@ -105,14 +125,10 @@ export async function check(mode,base) {
   } else throw Error('Unknown suite');
   if(!Number.isSafeInteger(cases)||cases<=0)throw Error('Zero execution');
   const result={mode,checkoutSha,cases,details};
-  mkdirSync(path.join(root,'.build/ci-shadow'),{recursive:true});
-  writeFileSync(path.join(root,'.build/ci-shadow',mode+'.json'),JSON.stringify(result,null,2));
-  // Emitted only after ALL required operations succeeded in this invocation.
-  if(process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,
-    'cases='+cases+'\ncheckout_sha='+checkoutSha+'\ncheckout_run_id='+process.env.GITHUB_RUN_ID+
-    '\ncheckout_run_attempt='+process.env.GITHUB_RUN_ATTEMPT+'\n');
+  mkdirSync(path.join(root,'.build/ci'),{recursive:true});
+  writeFileSync(path.join(root,'.build/ci',mode+'.json'),JSON.stringify(result,null,2));
   console.log('CI_CHECK '+JSON.stringify({mode,checkoutSha,cases}));return result;
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
-  try {await check(process.argv[2],process.env.CI_BASE_SHA);}catch(e){console.error(e.stack);process.exitCode=1;}
+  try {await check(process.argv[2]||'all',process.env.CI_BASE_SHA||process.argv[3]);}catch(e){console.error(e.stack);process.exitCode=1;}
 }

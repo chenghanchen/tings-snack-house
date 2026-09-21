@@ -5,13 +5,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { selectChanges, validateSelection, parseNameStatus, selectGit } from '../scripts/ci-select.mjs';
-import { classifyChanges } from '../scripts/release-level.mjs';
+import { selectedModes } from '../scripts/ci-check.mjs';
 const context={checkoutSha:'b'.repeat(40),baseSha:'a'.repeat(40)};
 const change=(path,status='M')=>({path,status});
 const plan=(changes,extra={})=>selectChanges(changes,{...context,...extra});
 const full=p=>{for(const k of ['database','edge','mediaConcurrency','unknown'])assert.equal(p.requirements[k],true);};
 test('real Git diff matrix (including rename/delete) matches selection on this runner',()=>{
- const matrix=[['CSS','styles.css',[false,false,false,false]],['SQL','schema.sql',[true,false,false,false]],
+ const matrix=[['CSS','styles.css',[false,false,false,false]],['UI JS','mobile-header.js',[false,false,false,false]],['SQL','schema.sql',[true,false,false,false]],
   ['Edge','supabase/functions/submit-order/index.ts',[true,true,false,false]],
   ['media','media-cleanup.js',[true,true,true,false]],['workflow','.github/workflows/check.yml',[true,true,true,true]],
   ['rename-delete','old.sql',[true,true,true,true]],['unknown','unknown/new.js',[true,true,true,true]]];
@@ -29,6 +29,7 @@ test('real Git diff matrix (including rename/delete) matches selection on this r
   if(name==='rename-delete'){assert.match(raw,/R100\s+old.sql\s+renamed.sql/);assert.match(raw,/D\s+schema.sql/);}
   const p=selectGit(root,base);assert.equal(p.diffComplete,true);assert.equal(p.checkoutSha,git('rev-parse','HEAD'));
   assert.deepEqual(['database','edge','mediaConcurrency','unknown'].map(k=>p.requirements[k]),expected,name);
+  assert.deepEqual(selectedModes(p),['base',...['database','edge','media-concurrency'].filter((_,i)=>expected[i])]);
   console.log('REAL_GIT_MATRIX '+JSON.stringify({platform:process.platform,name,diff:raw,requirements:p.requirements}));
  }
 });
@@ -69,16 +70,4 @@ test('malformed or stale selector output rejected',()=>{
   p=>{p.requirements.unknown=true;},p=>{p.diffComplete=false;},p=>{p.extra=true;},p=>{p.requirements.base=false;}
  ]){const p=structuredClone(good);mutate(p);assert.throws(()=>validateSelection(p,context.checkoutSha));}
  assert.throws(()=>validateSelection(null,context.checkoutSha));
-});
-test('same fixtures: new path requirements vs old semantic levels (no downgrade of old required gate)',()=>{
- const comparison=[];
- for(const [name,changes] of rows) {
-  const diff=changes.map(c=>({...c,before:'/* before */',after:'/* after */'}));
-  const old=classifyChanges(diff,{base:context.baseSha,head:context.checkoutSha});
-  const next=plan(changes);
-  comparison.push({name,old:old.level,oldDatabase:old.databaseScope,newRequirements:next.requirements});
-  // Every recognized DB/backend fixture is still selected; legacy L3 may overselect.
-  if(changes.some(c=>/\.sql$/i.test(c.path)||c.path==='customer-account.js'))assert.equal(next.requirements.database,true);
- }
- console.log('CI_COMPARISON '+JSON.stringify(comparison));
 });

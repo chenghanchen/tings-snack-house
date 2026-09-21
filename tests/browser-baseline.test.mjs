@@ -28,9 +28,11 @@ test('responsive matrix uses mobile/touch contexts, not viewport-only emulation'
   for(const width of WIDTHS){const o=options(width);assert.equal(o.hasTouch,width<=780);assert.equal(o.isMobile,width<=780);assert.equal(o.serviceWorkers,'block')}
 });
 test('release paths and CI install mandatory Chromium without changing gate scheduling',()=>{
-  const source=readFileSync(new URL('../scripts/release-check.mjs',import.meta.url),'utf8');
-  assert.match(source,/const frontendTests = \[[^\n]*'browser-baseline.test.mjs'/);
-  assert.match(source,/const browser = spawnSync\(process.execPath, \[path.join\(root, 'scripts\/check-browser-baseline.cjs'\)\], \{ cwd: root, stdio: 'inherit' \}\);\s*if \(browser.error \|\| browser.status !== 0\) process.exit\(browser.status \|\| 1\);/);
+  const source=readFileSync(new URL('../scripts/ci-check.mjs',import.meta.url),'utf8');
+  assert.match(source,/'browser-baseline'/);
+  assert.match(source,/run\(\['scripts\/check-browser-baseline.cjs'\]\)/);
+  assert.match(source,/if\(r.error\|\|r.status!==0\)throw Error/);
+  assert.match(source,/if\(browser.retries!==0\)throw Error/);
   const workflow=readFileSync(new URL('../.github/workflows/release-check.yml',import.meta.url),'utf8');
   assert.match(workflow,/name: Install offline Chromium\r?\n        run: npx --no-install playwright install --with-deps chromium/);
 });
