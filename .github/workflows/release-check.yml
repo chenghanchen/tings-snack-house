@@ -3,223 +3,52 @@ name: Release checks
 on:
   pull_request:
   push:
-    branches: [main, fix/media-guard-body-limits-locks, tooling/release-levels, tooling/release-ui-override]
+    branches: [main]
   workflow_dispatch:
     inputs:
       base:
-        description: 'Full previous release SHA; absent/invalid base uses L3'
-        required: false
+        description: Full base commit SHA (missing or unreadable fails closed)
+        required: true
         type: string
-
-env:
-  RELEASE_BASE_SHA: ${{ github.event.before || github.event.pull_request.base.sha || inputs.base }}
 
 permissions:
   contents: read
 
 jobs:
-  classify:
-    name: classify
-    runs-on: ubuntu-latest
-    outputs:
-      level: ${{ steps.level.outputs.level }}
-      valid: ${{ steps.level.outputs.valid }}
-      checkout_sha: ${{ steps.checkout-proof.outputs.sha }}
-      checkout_run_id: ${{ steps.checkout-proof.outputs.run_id }}
-      checkout_run_attempt: ${{ steps.checkout-proof.outputs.run_attempt }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - id: checkout-proof
-        shell: bash
-        run: |
-          set -euo pipefail
-          actual=$(git rev-parse HEAD)
-          test "$actual" = "$GITHUB_SHA"
-          echo "sha=$actual" >> "$GITHUB_OUTPUT"
-          echo "run_id=$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
-          echo "run_attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - id: level
-        shell: bash
-        run: |
-          # Never let a candidate classifier lower its own review requirements.
-          level=L3
-          valid=false
-          policy="$RUNNER_TEMP/trusted-release-level.mjs"
-          if [[ "$RELEASE_BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && git merge-base --is-ancestor "$RELEASE_BASE_SHA" HEAD && git show "$RELEASE_BASE_SHA:scripts/release-level.mjs" > "$policy" 2>/dev/null; then
-            if result=$(node "$policy" --root "$GITHUB_WORKSPACE" --base "$RELEASE_BASE_SHA" --head HEAD --format level); then
-              case "$result" in L1|L2|L3) level="$result"; valid=true ;; esac
-            fi
-          fi
-          echo "Trusted base policy gate floor: $level"
-          echo "level=$level" >> "$GITHUB_OUTPUT"
-          echo "valid=$valid" >> "$GITHUB_OUTPUT"
-  test:
-    needs: classify
-    if: ${{ always() }}
-    name: test
-    outputs:
-      checkout_sha: ${{ steps.checkout-proof.outputs.sha }}
-      checkout_run_id: ${{ steps.checkout-proof.outputs.run_id }}
-      checkout_run_attempt: ${{ steps.checkout-proof.outputs.run_attempt }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      RELEASE_GATE_FLOOR: ${{ needs.classify.outputs.level || 'L3' }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - id: checkout-proof
-        shell: bash
-        run: |
-          set -euo pipefail
-          actual=$(git rev-parse HEAD)
-          test "$actual" = "$GITHUB_SHA"
-          echo "sha=$actual" >> "$GITHUB_OUTPUT"
-          echo "run_id=$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
-          echo "run_attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: denoland/setup-deno@v2
-        if: ${{ needs.classify.outputs.level != 'L1' && needs.classify.outputs.level != 'L2' }}
-        with:
-          deno-version: v2.9.6
-      - name: Initialize version-bound report
-        run: node scripts/release-report.mjs init --version HEAD
-      - name: Check release checkout
-        run: node scripts/release-report.mjs check --version HEAD --gate workingTree
-      - name: Install test dependencies
-        if: always()
-        run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Install offline Chromium
-        run: npx --no-install playwright install --with-deps chromium
-      - name: Run release checks
-        if: always()
-        run: node scripts/release-report.mjs check --version HEAD --gate tests
-      - name: Run mandatory PGlite database tests
-        if: always()
-        run: node scripts/release-report.mjs check --version HEAD --gate database
-      - name: Scan source for secrets
-        if: always()
-        run: node scripts/release-report.mjs check --version HEAD --gate security
-      - name: Generate preflight report (not production success)
-        if: always()
-        run: node scripts/release-report.mjs render --version HEAD
-      - name: Upload report and check logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-preflight-${{ github.sha }}
-          path: |
-            .build/releases/${{ github.sha }}/
-            .build/browser-baseline/
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 30
-
-  edge-bundler:
-    needs: classify
-    if: ${{ always() && needs.classify.outputs.level != 'L1' && needs.classify.outputs.level != 'L2' }}
-    name: edge-bundler
-    outputs:
-      checkout_sha: ${{ steps.checkout-proof.outputs.sha }}
-      checkout_run_id: ${{ steps.checkout-proof.outputs.run_id }}
-      checkout_run_attempt: ${{ steps.checkout-proof.outputs.run_attempt }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - id: checkout-proof
-        shell: bash
-        run: |
-          set -euo pipefail
-          actual=$(git rev-parse HEAD)
-          test "$actual" = "$GITHUB_SHA"
-          echo "sha=$actual" >> "$GITHUB_OUTPUT"
-          echo "run_id=$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
-          echo "run_attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: node --test tests/edge-bundle-proof.test.mjs
-      - run: node scripts/release-security.mjs
-      - run: node scripts/edge-bundle-proof.mjs
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: edge-lockfile-proof-${{ github.sha }}
-          path: .build/edge-bundle-proof/evidence/
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 30
-
-  media-concurrency:
-    needs: classify
-    if: ${{ always() && needs.classify.outputs.level != 'L1' && needs.classify.outputs.level != 'L2' }}
-    name: media-concurrency
-    outputs:
-      checkout_sha: ${{ steps.checkout-proof.outputs.sha }}
-      checkout_run_id: ${{ steps.checkout-proof.outputs.run_id }}
-      checkout_run_attempt: ${{ steps.checkout-proof.outputs.run_attempt }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - id: checkout-proof
-        shell: bash
-        run: |
-          set -euo pipefail
-          actual=$(git rev-parse HEAD)
-          test "$actual" = "$GITHUB_SHA"
-          echo "sha=$actual" >> "$GITHUB_OUTPUT"
-          echo "run_id=$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
-          echo "run_attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: node scripts/check-media-concurrency.mjs
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: media-concurrency-${{ github.sha }}
-          path: .build/media-concurrency/
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 30
-
+  # Single required check, same GitHub Actions App. CI edits require human review.
+  # No classifier, bootstrap, API verdict, report, approval state or deployment.
   release-gate:
     name: release-gate
-    needs: [classify, test, edge-bundler, media-concurrency]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      actions: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || inputs.base }}
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Verify release-gate contract
-        run: node --test tests/release-ci-gate.test.mjs
-      - name: Verify current-attempt release evidence
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install offline Chromium
+        run: npx --no-install playwright install --with-deps chromium
+      # Installing a small toolchain is unconditional; Edge/Docker checks are not.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.6
+      - name: Base and selected safety checks
+        run: node scripts/ci-check.mjs all
+      - uses: actions/upload-artifact@v4
         if: always()
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          RELEASE_NEEDS_JSON: ${{ toJSON(needs) }}
-        run: node scripts/release-ci-gate.mjs
+        with:
+          name: ci-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .build/ci/
+            .build/browser-baseline/
+            .build/media-concurrency/
+            .build/edge-bundle-proof/evidence/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
