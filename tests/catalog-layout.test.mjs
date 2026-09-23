@@ -31,7 +31,7 @@ test("商品排版：现价与按钮双端一致，所有卡片底部留白 10px
   assert.match(shared, /\.has-promotion \.product-price-wrap\{flex:0 1 150px;width:150px;max-width:100%\}/);
   assert.match(shared, /@container catalog-card \(max-width:166px\)/);
   assert.match(shared, /\.has-promotion \.add\{padding-left:4px;padding-right:4px;font-size:10px\}/);
-  assert.match(shared, /\.product-bottom>\.stock-warning\{grid-column:1\/-1;flex-basis:100%;margin:0/);
+  assert.match(shared, /\.product-action-wrap>\.stock-warning\{position:static;margin:0/);
   assert.match(shared, /@media\(max-width:388px\)\{#productGrid\{grid-template-columns:minmax\(0,1fr\)\}/);
   assert.match(shared, /\.product-price-wrap b\{display:flex;flex-direction:row;align-items:center/);
   assert.match(shared, /\.product>\.promotion-badge\{[^}]*font-size:12px/);

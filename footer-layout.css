@@ -109,13 +109,16 @@
   #story .ft-benefits{grid-template-columns:1fr 1fr;gap:26px 12px}
   #story .ft-benefits h2{font-size:20px}
   #story .ft-benefits p{font-size:13px}
-  #story .ft-links{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:24px 0}
+  #story .ft-links{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:10px 0;text-align:center}
+  #story .ft-links nav{align-items:center}
+  #story .ft-links button,#story .ft-links a{justify-content:center;text-align:center}
   #story .ft-links h2{font-size:16px;margin-bottom:8px;white-space:nowrap}
   #story .ft-links button,#story .ft-links a{font-size:13px;min-height:32px}
   /* Reuse two regions of the original artwork at its natural scale.
      Flow layout removes the artwork's fixed contact-to-payment blank area. */
   #story .ft-bottom{margin-inline:-20px;aspect-ratio:auto;background:#382412;padding-bottom:14px}
-  #story .ft-brand{position:static;width:100%;height:auto;aspect-ratio:1164/430;margin:0;background:url("footer-mobile-background-v1.webp") center top/100% auto no-repeat}
+  /* Crop only the artwork's top 60px of empty background; keep the full logo. */
+  #story .ft-brand{position:static;width:100%;height:auto;aspect-ratio:1164/370;margin:0;background:url("footer-mobile-background-v1.webp") center 6.1162%/100% auto no-repeat}
   #story .ft-contact{position:static;width:90.6%;margin:8px auto 0}
   #story .ft-payments{position:static;width:100%;height:auto;aspect-ratio:1164/310;margin:12px 0 0;background:url("footer-mobile-background-v1.webp") center 73.9673%/100% auto no-repeat}
   #story .ft-copyright{position:static;width:90.6%;margin:16px auto 0;padding-top:10px;border-top:1px solid #79654c}
@@ -146,7 +149,7 @@
 }
 /* Mobile-only service strip: four equal columns, with live wrapping copy. */
 @media(max-width:780px){
-  #story .ft-benefits{grid-template-columns:repeat(4,minmax(0,1fr));gap:0}
+  #story .ft-benefits{grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:-20px;padding-bottom:10px}
   #story .ft-benefits>section{position:relative;min-width:0;padding:0 5px}
   #story .ft-benefits>section+section::before{content:"";position:absolute;left:0;top:10px;bottom:4px;border-left:1px dashed #dfc9b1}
   #story .ft-service-icon{width:clamp(44px,13vw,68px);height:clamp(44px,13vw,68px);margin:0 auto 8px;background-size:contain;background-position:center}
