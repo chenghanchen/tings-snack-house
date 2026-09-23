@@ -13,6 +13,11 @@
 #customerAccountDialog button:disabled{opacity:.55;cursor:default}
 #customerAccountDialog button:focus-visible,#customerAccountDialog input:focus-visible,#customerAccountDialog textarea:focus-visible,.customer-account-button:focus-visible{outline:3px solid var(--red);outline-offset:2px}
 #customerAccountDialog .customer-primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+#customerAccountDialog #customerGoogleSignIn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:16px;background:#fff;font-size:15px}
+#customerGoogleSignIn svg{flex:none}
+#customerAccountDialog #customerGoogleSignIn:hover:not(:disabled){background:#fff5f2;border-color:var(--red)}
+.customer-login-divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:#68776e;font-size:13px}
+.customer-login-divider::before,.customer-login-divider::after{content:"";height:1px;flex:1;background:var(--line)}
 #customerAccountMessage{font-size:14px;line-height:1.6;overflow-wrap:anywhere}
 #customerAccountDialog form:not(.lookup-order-card *){display:grid;gap:12px;margin:16px 0}
 #customerAccountDialog label:not(.lookup-order-card *){display:grid;gap:6px;font-size:14px}
