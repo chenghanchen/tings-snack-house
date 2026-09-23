@@ -27,13 +27,23 @@
   dialog.setAttribute('aria-labelledby', 'customerAccountTitle');
   // This template contains only application-owned text, never remote data.
   dialog.innerHTML = `
-    <div class="customer-account-heading"><div class="customer-account-title-row"><h2 id="customerAccountTitle" tabindex="-1">登录 / 注册</h2>
+    <div class="customer-account-heading"><div class="customer-account-title-row"><h2 id="customerAccountTitle" tabindex="-1">登录账户</h2>
       <div id="customerOrderRefresh" class="customer-order-refresh" hidden><button type="button" id="customerRefreshOrders" aria-busy="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/></svg><span>刷新订单</span></button></div>
       </div>
       <button type="button" id="customerAccountBack" aria-label="返回商店">返回</button></div>
     <p id="customerAccountMessage" role="status" aria-live="polite"></p>
     <button type="button" id="customerReauthenticate" hidden>重新登录</button>
     <section id="customerSignedOut">
+      <button type="button" id="customerGoogleSignIn">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" focusable="false">
+          <path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.33 2.98-7.36Z"/>
+          <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.41l-3.24-2.51c-.9.6-2.04.96-3.38.96-2.61 0-4.82-1.76-5.61-4.12H3.04v2.59A10 10 0 0 0 12 22Z"/>
+          <path fill="#FBBC05" d="M6.39 13.92a6 6 0 0 1 0-3.84V7.49H3.04a10 10 0 0 0 0 9.02l3.35-2.59Z"/>
+          <path fill="#EA4335" d="M12 5.96c1.47 0 2.79.5 3.83 1.5l2.87-2.87A9.62 9.62 0 0 0 12 2a10 10 0 0 0-8.96 5.49l3.35 2.59C7.18 7.72 9.39 5.96 12 5.96Z"/>
+        </svg>
+        <span>使用 Google 登录</span>
+      </button>
+      <div class="customer-login-divider">或</div>
       <p class="customer-muted">邮箱验证码登录，首次登录即创建账户。也可以游客身份继续下单。</p>
       <form id="customerEmailForm"><label>邮箱地址<input name="email" type="email" autocomplete="email" required maxlength="254"></label>
         <button type="submit" class="customer-primary" id="customerSendCode">获取验证码</button></form>
@@ -217,7 +227,7 @@
     window.dispatchEvent(new CustomEvent('tings:account-state',{detail:{signedIn:!!session}}));
     $('#customerSignedOut').hidden = !!session;
     $('#customerSignedIn').hidden = !session;
-    $('#customerAccountTitle').textContent = session ? accountTitles[accountView] : '登录 / 注册';
+    $('#customerAccountTitle').textContent = session ? accountTitles[accountView] : '登录账户';
     $('#customerAccountEmail').textContent = session?.user.email ? `你好，${session.user.email}` : '';
     $('#customerIdentityEmail').value = session?.user.email || '';
     checkoutHint();
@@ -229,7 +239,22 @@
       loadAccountView(destination);
     }
   }
-  const ready = client.auth.getSession().then(({data, error}) => {
+  let oauthReturnFailed = false;
+  const ready = (async () => {
+    if (window.TingsCustomerOAuthReturn) {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (!params.get('code') || params.has('error')) throw new Error('OAuth return failed');
+        const {data, error} = await client.auth.exchangeCodeForSession(params.get('code'));
+        if (error || !data?.session) throw new Error('OAuth exchange failed');
+      } catch { oauthReturnFailed = true; }
+      finally {
+        // Never leave OAuth codes or provider error details in the visible URL.
+        window.history.replaceState(window.history.state, '', '/');
+      }
+    }
+    return client.auth.getSession();
+  })().then(({data, error}) => {
     if (error) throw error;
     if (!authKnown) applySession(data.session);
     authKnown = true;
@@ -258,6 +283,32 @@
     else emailForm.elements.email.focus();
   }
   button.addEventListener('click', () => { void openAccount(); });
+  const googleButton = $('#customerGoogleSignIn');
+  googleButton.onclick = async () => {
+    if (googleButton.disabled || authBlocked || session) return;
+    googleButton.disabled = true; googleButton.setAttribute('aria-busy', 'true');
+    message('正在前往 Google 登录…');
+    const stamp = epoch;
+    try {
+      const {error} = await client.auth.signInWithOAuth({provider: 'google', options: {
+        redirectTo: new URL('/?customer_oauth=google', window.location.origin).href,
+      }});
+      if (error) throw error;
+      // The SDK navigates away; keep disabled until navigation or a direct error.
+    } catch {
+      googleButton.disabled = false; googleButton.removeAttribute('aria-busy');
+      if (stamp === epoch) message('Google 登录失败，请稍后重试。');
+    }
+  };
+  window.addEventListener('pageshow', event => {
+    if (event.persisted) {
+      googleButton.disabled = false; googleButton.removeAttribute('aria-busy');
+    }
+  });
+  if (window.TingsCustomerOAuthReturn) void ready.then(async () => {
+    await openAccount();
+    if (oauthReturnFailed) message('Google 登录失败，请稍后重试。');
+  });
   dialog.addEventListener('cancel', event => { if (!mayDiscard()) event.preventDefault(); });
   dialog.addEventListener('close', () => { pendingAccountView = null; codeForm.elements.code.value = ''; accountOpener.focus(); });
   function showAccountView(view) {
@@ -265,7 +316,7 @@
     for (const panel of dialog.querySelectorAll('[data-account-panel]')) panel.hidden = panel.dataset.accountPanel !== view;
     $('#customerAccountBack').setAttribute('aria-label',session && view !== 'home' ? '返回我的账户' : '返回商店');
     $('#customerOrderRefresh').hidden = !session || view !== 'orders';
-    $('#customerAccountTitle').textContent = session ? accountTitles[view] : '登录 / 注册';
+    $('#customerAccountTitle').textContent = session ? accountTitles[view] : '登录账户';
     dialog.scrollTop = 0;
   }
   function loadAccountView(view) {

@@ -12,7 +12,7 @@ function mockSdk() {
     const storageKey = options?.auth?.storageKey || 'owner-auth';
     let session = customer ? JSON.parse(localStorage.getItem(storageKey) || 'null') : owner;
     let listener;
-    state.clients.push({customer,storageKey});
+    state.clients.push({customer,storageKey,auth:options?.auth});
     const change = (next) => {
       session = next; localStorage.setItem(storageKey,JSON.stringify(next));
       listener?.(next?'SIGNED_IN':'SIGNED_OUT',next);
@@ -26,6 +26,19 @@ function mockSdk() {
       auth:{
         async getSession(){return customer && state.expired ? {data:{session:null},error:{message:'expired',status:401}} : {data:{session}}},
         onAuthStateChange(fn){listener=fn; return {data:{subscription:{unsubscribe(){}}}}},
+        async signInWithOAuth(args){
+          state.calls.push({name:'oauth',args,customer});
+          if(state.delayOAuth)await new Promise(resolve=>{state.resolveOAuth=resolve});
+          if(state.throwOAuth)throw new Error('private provider details');
+          return {error:state.oauthError?{message:'private provider details'}:null};
+        },
+        async exchangeCodeForSession(code){
+          state.calls.push({name:'exchange',code,customer});
+          if(code!=='mock-google-code')return {error:{message:'private callback details'}};
+          const next={access_token:'mock-google-session',user:{id:'existing-customer-uid',email:'alice@example.test',
+            identities:[{provider:'email'},{provider:'google'}]}};
+          change(next);return {data:{session:next},error:null};
+        },
         async signInWithOtp(args){state.calls.push({name:'otp',args});return state.sendError?{error:{message:'SMTP'}}:{}},
         async verifyOtp({email,token}){
           if(state.verifyError)return {error:state.verifyError};
@@ -148,6 +161,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
       await require('./check-order-refresh.cjs')(page, errors);
       return;
     }
+    await require('./check-customer-google.cjs')(browser, mockSdk, width);
     assert.equal(await page.locator('.activity-card').count(),4);
     assert.equal(await page.textContent('#openCustomerAccount'),'登录账户');
     assert.equal(await page.textContent('#mobileAccountEntry'),'登录账户');
@@ -324,6 +338,16 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
       }
       await openCustomerAccount();
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+      assert.equal(await page.textContent('#customerAccountTitle'),'登录账户');
+      assert.equal(await page.textContent('.customer-login-divider'),'或');
+      assert.equal(await page.locator('#customerEmailForm').isVisible(),true);
+      assert.equal(await page.locator('#customerCodeForm').isHidden(),true);
+      assert.equal(await page.locator('#customerGoogleSignIn').isVisible(),true);
+      assert.ok(await page.locator('#customerGoogleSignIn').evaluate(el=>{
+        const r=el.getBoundingClientRect(),d=el.closest('dialog').getBoundingClientRect();
+        const back=document.querySelector('#customerAccountBack').getBoundingClientRect();
+        return r.left>=d.left&&r.right<=d.right&&r.top>=back.bottom&&r.bottom<=d.bottom&&el.scrollWidth<=el.clientWidth;
+      }),`Google button fits and does not overlap Back at ${width}px`);
       assert.equal(await page.textContent('#customerSignedOut>p.customer-muted'),'邮箱验证码登录，首次登录即创建账户。也可以游客身份继续下单。');
       const loginLayout=await page.locator('#customerAccountDialog').evaluate(el=>({width:el.getBoundingClientRect().width,top:getComputedStyle(el).paddingTop,bottom:getComputedStyle(el).paddingBottom}));
       assert.equal(loginLayout.top,'15px');assert.equal(loginLayout.bottom,'15px');
