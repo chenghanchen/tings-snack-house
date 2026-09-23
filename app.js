@@ -1037,11 +1037,6 @@ $("#productGrid").addEventListener(
   (e) => {
     const preview = e.target.closest?.("[data-preview]");
     if (!preview) return;
-    if (
-      window.matchMedia("(max-width:780px)").matches &&
-      !e.target.closest(".image-zoom-hint")
-    )
-      return;
     const p = products.find((x) => x.id === +preview.dataset.preview);
     if (!p) return;
     e.stopImmediatePropagation();
@@ -1507,7 +1502,7 @@ function updateProductCardOffer(card, product, item, action) {
   if (offer) card.querySelector("h3")?.insertAdjacentHTML("afterend", `<div class="promotion-badge">🔥限时优惠：${escapeHtml(offer)}</div>`);
   bottom.classList.toggle("has-promotion", !!offer);
   bottom.classList.toggle("has-stock-notice", !!stockNotice);
-  bottom.innerHTML = `<div class="product-price-wrap"><b>${price}</b></div><div class="product-action-wrap">${action}</div>${stockNotice ? `<p class="stock-warning">${stockNotice}</p>` : ""}`;
+  bottom.innerHTML = `<div class="product-price-wrap"><b>${price}</b></div><div class="product-action-wrap">${stockNotice ? `<p class="stock-warning">${stockNotice}</p>` : ""}${action}</div>`;
 }
 const baseProductRender = renderProducts;
 renderProducts = function (filter) {

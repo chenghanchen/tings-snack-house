@@ -60,7 +60,8 @@ test("手机页尾：链接行高32px，联系方式与支付图按内容紧凑�
   assert.match(mobile, /\.ft-links a\{font-size:13px;min-height:32px\}/);
   assert.match(mobile, /\.ft-contact\{position:static;width:90.6%;margin:8px auto 0\}/);
   assert.match(mobile, /\.ft-payments\{position:static;[^}]*margin:12px 0 0;[^}]*footer-mobile-background-v1.webp/);
-  assert.match(mobile, /\.ft-brand\{position:static;[^}]*aspect-ratio:1164\/430/);
+  assert.match(mobile, /\.ft-brand\{position:static;[^}]*aspect-ratio:1164\/370/);
+  assert.match(mobile, /center 6\.1162%\/100% auto no-repeat/);
 });
 
 test("页尾：二维码只允许当前项目、当前平台与 UUID PNG", async () => {
