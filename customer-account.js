@@ -27,7 +27,7 @@
   dialog.setAttribute('aria-labelledby', 'customerAccountTitle');
   // This template contains only application-owned text, never remote data.
   dialog.innerHTML = `
-    <div class="customer-account-heading"><div class="customer-account-title-row"><h2 id="customerAccountTitle" tabindex="-1">登录账户</h2>
+    <div class="customer-account-heading"><span id="customerAccountAvatar" aria-hidden="true">客</span><div class="customer-account-title-row"><h2 id="customerAccountTitle" tabindex="-1">登录账户</h2>
       <div id="customerOrderRefresh" class="customer-order-refresh" hidden><button type="button" id="customerRefreshOrders" aria-busy="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/></svg><span>刷新订单</span></button></div>
       </div>
       <button type="button" id="customerAccountBack" aria-label="返回商店">返回</button></div>
@@ -58,13 +58,25 @@
     <section id="customerSignedIn" hidden>
       <p id="customerAccountEmail" class="customer-muted"></p>
       <section id="customerHomePanel" data-account-panel="home">
+        <div class="customer-home-welcome" aria-hidden="true">
+          <p>好零食，<br><span>让生活更美味！</span></p>
+          <svg viewBox="0 0 210 130" focusable="false">
+            <ellipse cx="131" cy="117" rx="77" ry="10" fill="#efe0cb" opacity=".5"/>
+            <g fill="#f4d5a6"><circle cx="124" cy="49" r="38"/><circle cx="179" cy="67" r="31"/><circle cx="80" cy="80" r="33"/></g>
+            <g fill="#d0a071" opacity=".7"><circle cx="109" cy="32" r="5"/><circle cx="137" cy="30" r="5"/><circle cx="148" cy="52" r="5"/><circle cx="119" cy="59" r="6"/><circle cx="101" cy="74" r="4"/><circle cx="164" cy="57" r="4"/><circle cx="185" cy="52" r="5"/><circle cx="193" cy="73" r="4"/><circle cx="70" cy="65" r="5"/><circle cx="84" cy="85" r="5"/><circle cx="60" cy="84" r="4"/></g>
+            <path d="M37 84q80 24 172-8c-8 38-40 50-91 48-43-2-70-15-81-40Z" fill="#faf0e1"/>
+            <path d="M38 84q78 23 171-8" fill="none" stroke="#fffdf8" stroke-width="7" stroke-linecap="round"/>
+            <path d="m173 14 3-10m13 20 8-7" stroke="#e7bb87" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+        </div>
         <nav class="customer-home-menu" aria-label="账户内容">
-          <button type="button" data-account-tab="orders" aria-controls="customerOrdersPanel"><span><strong>我的订单</strong><small>查看订单、配送和取消状态</small></span><i aria-hidden="true">›</i></button>
-          <button type="button" data-account-tab="details" aria-controls="customerDetailsPanel"><span><strong>收货资料</strong><small>管理默认配送信息</small></span><i aria-hidden="true">›</i></button>
-          <button type="button" data-account-tab="coupons" aria-controls="customerCouponsPanel"><span><strong>我的优惠券</strong><small>普通券与新人券</small></span><i aria-hidden="true">›</i></button>
-          <button type="button" data-account-tab="rewards" aria-controls="customerRewardsPanel"><span><strong>推荐奖励</strong><small>分享好物，领取优惠</small></span><i aria-hidden="true">›</i></button>
+          <button type="button" data-account-tab="orders" aria-controls="customerOrdersPanel"><span class="customer-home-icon" aria-hidden="true"><svg viewBox="0 0 40 40" focusable="false"><path d="m20 4 15 9v17l-15 8-15-8V13Z" fill="#f3dfbf"/><path d="m5 13 15 9 15-9M20 22v16M12 9l16 9v8M11 24l3 2"/></svg></span><span class="customer-home-copy"><strong>我的订单</strong><small>查看订单、配送和取消状态</small></span><span class="customer-home-badge">订单记录</span><i aria-hidden="true">›</i></button>
+          <button type="button" data-account-tab="details" aria-controls="customerDetailsPanel"><span class="customer-home-icon" aria-hidden="true"><svg viewBox="0 0 40 40" focusable="false"><path d="M20 38S6 23 6 16a14 14 0 0 1 28 0c0 7-14 22-14 22Z" fill="#efc582"/><circle cx="20" cy="16" r="5" fill="#fff9ee"/></svg></span><span class="customer-home-copy"><strong>收货资料</strong><small>管理默认配送信息</small></span><span id="customerHomeDetailsStatus" class="customer-home-badge">查看资料</span><i aria-hidden="true">›</i></button>
+          <button type="button" data-account-tab="coupons" aria-controls="customerCouponsPanel"><span class="customer-home-icon" aria-hidden="true"><svg viewBox="0 0 40 40" focusable="false"><g transform="rotate(-30 20 20)"><path d="M5 9h30v7a4 4 0 0 0 0 8v7H5v-7a4 4 0 0 0 0-8Z" fill="#eda77f"/><path d="M24 10v20" stroke-dasharray="3 4"/></g></svg></span><span class="customer-home-copy"><strong>我的优惠券</strong><small>普通券与新人券</small></span><span class="customer-home-badge customer-home-badge--coupon">查看卡券</span><i aria-hidden="true">›</i></button>
+          <button type="button" data-account-tab="rewards" aria-controls="customerRewardsPanel"><span class="customer-home-icon" aria-hidden="true"><svg viewBox="0 0 40 40" focusable="false"><path d="M6 18h28v19H6Z" fill="#f4ce72"/><path d="M3 12h34v9H3Z" fill="#f9dc8d"/><path d="M20 12v25m0-25C5 12 7 0 13 3c4 2 7 9 7 9Zm0 0C35 12 33 0 27 3c-4 2-7 9-7 9Z"/></svg></span><span class="customer-home-copy"><strong>推荐奖励</strong><small>分享好物，领取优惠</small></span><span class="customer-home-badge">分享有礼</span><i aria-hidden="true">›</i></button>
         </nav>
         <button type="button" id="customerSignOut">退出登录</button>
+        <div class="customer-home-footer" aria-hidden="true"><span>美味常在<br>每一天 ♥</span><svg viewBox="0 0 520 66" preserveAspectRatio="none" focusable="false"><path d="M0 23C70-16 113 60 202 39S364 70 520 9V66H0Z" fill="#f8eddd"/><path d="M0 43c110 29 174-28 280 1s160 2 240-17v39H0Z" fill="#fbf2e6"/></svg></div>
       </section>
       <section id="customerOrdersPanel" data-account-panel="orders" hidden><p class="customer-muted">这里只显示登录后提交的订单。旧游客订单仍使用网站的“查订单”。</p>
         <div class="customer-order-toolbar">
@@ -94,8 +106,7 @@
       <section id="customerRewardsPanel" data-account-panel="rewards" class="customer-feature-note" hidden>
         <p>打开后加载推荐码与奖励。</p>
       </section>
-    </section>
-    <p class="customer-preview-note">内部测试版 · 邮件服务处于测试阶段，目前仅支持向测试发信账户的注册邮箱发送验证码。其他邮箱暂可使用游客下单。</p>`;
+    </section>`;
   document.body.append(dialog);
   const $ = (s) => dialog.querySelector(s);
   const emailForm = $('#customerEmailForm'), codeForm = $('#customerCodeForm');
@@ -145,6 +156,10 @@
   const detailsDirty = () => Object.entries(detailValues()).some(([name,value]) => value !== (details?.[name] || ''));
   function updateDetailsStatus() {
     const dirty = detailsDirty();
+    const complete = details && ['full_name','phone','address','city','state','zip'].every(name => String(details[name] || '').trim());
+    const homeStatus = $('#customerHomeDetailsStatus');
+    homeStatus.textContent = authExpired ? '重新登录' : detailsBusy ? '读取中' : !details ? '查看资料' : complete ? '已保存' : '待完善';
+    homeStatus.classList.toggle('is-complete', !!complete && !detailsBusy && !authExpired);
     $('#customerDetailsStatus').textContent = detailsBusy ? (detailsSaving ? '正在保存资料…' : '正在同步资料…') : dirty || details ? '' : '资料尚未加载';
     const submit = $('#customerSaveDetails');
     submit.disabled = detailsBusy || !session || !details || authExpired || !dirty;
@@ -229,6 +244,8 @@
     $('#customerSignedIn').hidden = !session;
     $('#customerAccountTitle').textContent = session ? accountTitles[accountView] : '登录账户';
     $('#customerAccountEmail').textContent = session?.user.email ? `你好，${session.user.email}` : '';
+    $('#customerAccountAvatar').textContent = (Array.from(session?.user.email?.trim() || '')[0] || '客').toLocaleUpperCase();
+    dialog.classList.toggle('customer-home-view', !!session && accountView === 'home');
     $('#customerIdentityEmail').value = session?.user.email || '';
     checkoutHint();
     updateDetailsStatus();
@@ -313,6 +330,7 @@
   dialog.addEventListener('close', () => { pendingAccountView = null; codeForm.elements.code.value = ''; accountOpener.focus(); });
   function showAccountView(view) {
     accountView = view;
+    dialog.classList.toggle('customer-home-view', !!session && view === 'home');
     for (const panel of dialog.querySelectorAll('[data-account-panel]')) panel.hidden = panel.dataset.accountPanel !== view;
     $('#customerAccountBack').setAttribute('aria-label',session && view !== 'home' ? '返回我的账户' : '返回商店');
     $('#customerOrderRefresh').hidden = !session || view !== 'orders';

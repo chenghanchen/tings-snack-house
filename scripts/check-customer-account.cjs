@@ -528,13 +528,18 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     assert.equal(await page.locator('#customerAccountBack').isVisible(),true);
     assert.equal(await page.locator('#customerAccountBack').getAttribute('aria-label'),'返回商店');
     assert.equal(await page.locator('#customerOrderRefresh').isVisible(),false);
+    assert.equal(await page.textContent('#customerAccountAvatar'),'A');
+    assert.equal(await page.locator('.customer-home-icon svg').count(),4);
+    assert.equal(await page.locator('.customer-preview-note').count(),0,'Internal-test footer removed');
+    assert.equal(await page.textContent('#customerHomeDetailsStatus'),'待完善','An empty profile must not say saved');
+    assert.doesNotMatch(await page.locator('.customer-home-menu').textContent(),/1 个进行中|2 张可用|\$5\.00/,'Illustration numbers are not account data');
     const assertAccountBack = async (view,width) => {
       const style=await page.locator('#customerAccountBack').evaluate(el=>{
         const s=getComputedStyle(el),r=el.getBoundingClientRect(),title=document.querySelector('#customerAccountTitle').getBoundingClientRect();
         return {width:r.width,height:r.height,fontSize:s.fontSize,padding:[s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft],
           clear:r.left>=title.right,clickable:document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===el};
       });
-      assert.deepEqual(style,{width:50,height:40,fontSize:'15px',padding:['0px','0px','0px','0px'],clear:true,clickable:true},`${view} back at ${width}px`);
+      assert.deepEqual(style,{width:view==='home'?72:50,height:40,fontSize:view==='home'?'14px':'15px',padding:['0px','0px','0px','0px'],clear:true,clickable:true},`${view} back at ${width}px`);
     };
     for (const width of responsiveWidths([320,375,390,780,781,782,1100,1710])) {
       await page.setViewportSize({width,height:844});
@@ -546,12 +551,33 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
         return {color:style.color,background:style.backgroundColor,radius:style.borderRadius,border:style.borderTopStyle,
           margin:getComputedStyle(heading).marginTop,closeInside:close.getBoundingClientRect().top>=root.getBoundingClientRect().top+6};
       });
-      assert.deepEqual(homeStyle,{color:'rgb(255, 255, 255)',background:'rgb(79, 48, 48)',radius:'15px',border:'solid',margin:width<=780?'-6px':'-20px',closeInside:true});
+      assert.deepEqual(homeStyle,{color:'rgb(99, 55, 25)',background:'rgba(0, 0, 0, 0)',radius:'12px',border:'solid',margin:'0px',closeInside:true});
+      assert.ok(await page.locator('#customerAccountDialog').evaluate(dialog=>{
+        const root=dialog.getBoundingClientRect();
+        const heading=dialog.querySelector('.customer-account-heading').getBoundingClientRect();
+        const email=dialog.querySelector('#customerAccountEmail').getBoundingClientRect();
+        return root.left>=0&&root.right<=innerWidth&&root.top>=0&&root.bottom<=innerHeight&&email.top>=heading.bottom&&email.right<=root.right;
+      }),`Home header and email fit ${width}px`);
+      for(const row of await page.locator('.customer-home-menu button').all()){
+        await row.scrollIntoViewIfNeeded();
+        assert.ok(await row.evaluate(el=>{
+          const r=el.getBoundingClientRect(),parts=[...el.children].map(child=>child.getBoundingClientRect());
+          return el.scrollWidth<=el.clientWidth&&parts.every((p,i)=>p.left>=r.left&&p.right<=r.right&&p.top>=r.top&&p.bottom<=r.bottom&&(!i||p.left>=parts[i-1].right))&&el.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2));
+        }),`Home card content is not clipped or overlapping at ${width}px`);
+      }
+      await page.locator('#customerAccountTitle').scrollIntoViewIfNeeded();
       const rows=await page.locator('.customer-home-menu button').evaluateAll(buttons=>buttons.map(el=>{
         const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};
       }));
       for (let i=1;i<rows.length;i++)assert.ok(rows[i].top>=rows[i-1].bottom&&rows[i].left===rows[0].left&&rows[i].right===rows[0].right);
     }
+    await page.setViewportSize({width:width<=780?320:1710,height:844});
+    await page.evaluate(()=>__accountTest.change({access_token:'customer-token-alice@example.test',user:{id:'alice@example.test',email:'averylongcustomeremailaddress.for.layout@example.test'}}));
+    await page.waitForFunction(()=>document.querySelector('#customerAccountEmail').textContent.includes('averylong'));
+    assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth));
+    assert.ok(await page.locator('#customerAccountEmail').evaluate(el=>el.scrollWidth<=el.clientWidth),'Long email wraps rather than clips');
+    await page.evaluate(()=>__accountTest.change({access_token:'customer-token-alice@example.test',user:{id:'alice@example.test',email:'alice@example.test'}}));
+    await page.waitForFunction(()=>document.querySelector('#customerAccountEmail').textContent==='你好，alice@example.test');
     await page.setViewportSize({width:390,height:844});
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-home.png')});
     for (const [view,panel] of [['coupons','customerCouponsPanel'],['rewards','customerRewardsPanel']]) {
@@ -666,7 +692,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     assert.equal(await page.textContent('.referral-code-row>code'),'TSHREF-K7M4X9');
     assert.equal(await page.textContent('.referral-code-card>.customer-muted'),'分享推荐码给好友，好友首次符合条件的订单即可享受优惠。');
     assert.doesNotMatch(await page.textContent('#customerRewardsPanel'),/请以微信中的实际发送结果为准/);
-    assert.equal(await page.locator('#customerAccountDialog>.customer-preview-note').isVisible(),false,'test notice is removed from rewards only');
+    assert.equal(await page.locator('#customerAccountDialog>.customer-preview-note').count(),0,'Internal-test footer removed');
     await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{__accountTest.copiedCode=text}}}));
     await page.getByRole('button',{name:'复制推荐码',exact:true}).click();
     assert.equal(await page.evaluate(()=>__accountTest.copiedCode),'TSHREF-K7M4X9');
@@ -758,7 +784,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-rewards.png')});
     await page.evaluate(()=>{__accountTest.referralSavedWallet=structuredClone(__accountTest.wallet);__accountTest.wallet.history=[];__accountTest.wallet.coupons=[]});
     await page.click('#customerAccountBack');
-    assert.equal(await page.locator('#customerAccountDialog>.customer-preview-note').isVisible(),true,'other account views retain their test notice');
+    assert.equal(await page.locator('#customerAccountDialog>.customer-preview-note').count(),0,'No internal-test footer on account views');
     await page.click('[data-account-tab=rewards]');
     await page.waitForSelector('.referral-empty');
     assert.equal(await page.textContent('.referral-section-heading>span'),'0 条');
@@ -971,6 +997,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     await page.click('#customerDetailsForm [type=submit]');
     await page.waitForFunction(()=>document.querySelector('#customerAccountMessage').textContent.includes('已保存'));
     assert.equal(await page.textContent('#customerSaveDetails'),'已保存');
+    assert.equal(await page.textContent('#customerHomeDetailsStatus'),'已保存','Home badge reflects the saved complete profile');
     assert.equal(await page.locator('#customerSaveDetails').isDisabled(),true);
     for (const width of responsiveWidths([320,390,780,781,782,1100,1723])) {
       await page.setViewportSize({width,height:844});
