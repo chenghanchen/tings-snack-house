@@ -187,9 +187,18 @@
   function checkoutHint() {
     const hint = document.getElementById('customerCheckoutHint');
     if (hint) hint.textContent = session
-      ? '此订单将保存到我的账户。已保存的资料会填入空白项。'
+      ? '订单将保存至当前账户'
       : '当前为游客下单；如需将订单保存到账户，请先关闭结算窗口并登录。';
+    syncCheckoutBadges();
   }
+  function syncCheckoutBadges() {
+    const form = document.querySelector('#orderForm'), email = form.elements.namedItem('email');
+    document.querySelector('#checkoutAutofillBadge').hidden = !session || ![...filled].some(([field,value]) => ['name','phone'].includes(field.name) && value && field.value === value);
+    const bound = !!session?.user.email && email.value.trim().toLowerCase() === session.user.email.toLowerCase();
+    document.querySelector('#checkoutEmailBadge').hidden = !bound;
+    email.classList.toggle('is-account-email',bound);
+  }
+  document.querySelector('#orderForm').addEventListener('input',syncCheckoutBadges);
   function fillCheckout() {
     if (!session || !details || !document.querySelector('#orderDialog')?.open) return;
     const form = document.querySelector('#orderForm');
@@ -201,6 +210,7 @@
         field.dispatchEvent(new Event('input', {bubbles: true}));
       }
     }
+    syncCheckoutBadges();
   }
   function applySession(next) {
     const changed = (session?.user.id || null) !== (next?.user.id || null);

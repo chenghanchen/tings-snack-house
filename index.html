@@ -15,10 +15,10 @@
       fetchpriority="high"
     />
     <link rel="stylesheet" href="styles.css?v=dde0abc6f61b9f9de5ff5df29fd8cc934dfc14966a94c5987f80af7e2c34cf69" />
-    <link rel="stylesheet" href="checkout-layout.css?v=20260916a" />
     <link rel="stylesheet" href="footer-layout.css?v=7e1457d6f5305a14864954442430ddaa9360208cf573882a077087c3f76bbb35" />
     <link rel="stylesheet" href="customer-account.css?v=b7427d6f5de8675df6ff38b94d41725b62c6debea2c4aa444b45b31eb8b44b8d" />
     <link rel="stylesheet" href="customer-wallet.css?v=4896816fd5ddada957679cd940d0a5333b56a4fa7468e3816cbe771b88e50eba" />
+    <link rel="stylesheet" href="checkout-layout.css?v=7dd270c084a30a66b4d0dc284302489860543f4a5b36b0d104799fcfd4b38c11" />
     <link rel="stylesheet" href="brand-header.css?v=20260915a" />
     <link rel="stylesheet" href="header-entry-buttons.css?v=20260915a" />
     <link rel="stylesheet" href="activity-announcement.css?v=20260915a" />
@@ -28,9 +28,9 @@
     ></script>
     <script defer src="supabase-config.js?v=181bb8d41beb2b47937a126b91731d4525c9a1f58fe09ffb0b94b64dbe271167"></script>
     <script defer src="customer-order-tools.js?v=20260911a"></script>
-    <script defer src="customer-wallet.js?v=08ec20933edb8e065183aceda9f139ae6f17a61d9d2857531993e9c41ef64b46"></script>
-    <script defer src="customer-account.js?v=4d82ab1a53907a7e818aab0bd1221d7c31597778b70a175b48401607b0e0587d"></script>
-    <script defer src="app.js?v=ca6813f98d0e35217fd742225f3aa669477894c1810a330eff689afe6eadb465"></script>
+    <script defer src="customer-wallet.js?v=a9b27b1f6d0dd99c7b51b0dc56a11bc89101a46ef9dc6bacfa1542f891553d86"></script>
+    <script defer src="customer-account.js?v=90fadc74cfedf2613882ed95f28340d153ab2f744383fc50456bc43b9845b39f"></script>
+    <script defer src="app.js?v=5bfaacfd63489c63f1982af4c08a9591c4f959ef11a975ab9d29ba369fe72e49"></script>
     <script defer src="mobile-header.js?v=902f8028e24f807bc808063aa320158619aa2ace602e40a8577427a9cd1b976a"></script>
     <script defer src="activity-announcement.js?v=20260915a"></script>
     <script defer src="activity-promotions.js?v=20260914a"></script>
@@ -384,9 +384,23 @@
     <dialog id="orderDialog">
       <button class="dialog-close" id="closeDialog" type="button" aria-label="关闭">×</button>
       <div id="orderFormWrap">
+        <svg class="checkout-snack-art" viewBox="0 0 180 120" aria-hidden="true">
+          <ellipse cx="108" cy="111" rx="68" ry="8" fill="#f3dfbd"/>
+          <path d="M20 87q17-33 34-6l-3 29H17z" fill="#f7bd68"/>
+          <g transform="rotate(-12 64 84)"><rect x="46" y="60" width="30" height="47" rx="6" fill="#c67a37"/><g fill="#ffe2a3"><rect x="51" y="65" width="8" height="12" rx="3"/><rect x="63" y="65" width="8" height="12" rx="3"/><rect x="51" y="82" width="8" height="12" rx="3"/><rect x="63" y="82" width="8" height="12" rx="3"/></g></g>
+          <g transform="rotate(12 129 73)" fill="#f7ba5c" stroke="#df9840" stroke-width="2"><rect x="117" y="42" width="8" height="47" rx="3"/><rect x="128" y="40" width="8" height="45" rx="3"/><rect x="139" y="49" width="8" height="38" rx="3"/><rect x="150" y="45" width="8" height="38" rx="3"/></g>
+          <g transform="rotate(-18 102 43)"><ellipse cx="102" cy="44" rx="27" ry="16" fill="#ffc56a"/><ellipse cx="102" cy="40" rx="23" ry="12" fill="#ffe6af"/><ellipse cx="102" cy="40" rx="16" ry="7" fill="#e79a40"/><path d="M89 40q13-7 26 0m-23 4q12-7 22-4" fill="none" stroke="#ffd686" stroke-width="3"/></g>
+          <path d="m78 64 72 5-9 44H84z" fill="#f2af53"/><path d="m78 64 54 10-6 39H84z" fill="#ffd991"/><path d="m132 74 18-5-9 44h-15z" fill="#e89c42"/>
+          <text x="89" y="87" fill="#b76b31" font-size="10" font-family="sans-serif" transform="rotate(7 90 86)">好吃</text><text x="90" y="102" fill="#b76b31" font-size="10" font-family="sans-serif" transform="rotate(7 90 101)">要开心!</text>
+          <path d="M139 27c-13-18-20 4 0 14 20-10 13-30 0-14" fill="#e97550"/><path d="m67 24-4-9m-9 22-8-4m34-7 1-8" stroke="#f5b459" stroke-width="4" stroke-linecap="round"/>
+          <path d="M169 104q-12-15 0-14 8-15 9-3-1 12-9 17" fill="#a6b67a"/>
+        </svg>
         <p class="eyebrow">Reserve Your Snacks</p>
         <h2>为您留好零食</h2>
+        <p class="customer-checkout-hint" id="customerCheckoutHint">填写信息，为您预留喜欢的零食</p>
         <form id="orderForm">
+          <section class="checkout-section checkout-contact" aria-labelledby="checkoutContactTitle">
+          <div class="checkout-section-heading"><h3 id="checkoutContactTitle"><span class="checkout-icon icon-person" aria-hidden="true"></span>联系信息</h3><span class="checkout-badge" id="checkoutAutofillBadge" hidden>已自动填写</span></div>
           <label
             >您的姓名<input
               required
@@ -413,41 +427,41 @@
               type="email"
               placeholder="例如 name@example.com"
               autocomplete="email"
-          /></label>
+          /><span class="checkout-badge checkout-email-badge" id="checkoutEmailBadge" hidden>已绑定</span></label>
+          </section>
+          <section class="checkout-section checkout-delivery" aria-labelledby="checkoutDeliveryTitle">
+          <div class="checkout-section-heading"><h3 id="checkoutDeliveryTitle"><span class="checkout-icon icon-truck" aria-hidden="true"></span>配送信息</h3></div>
+          <label>取货方式<select required name="fulfillment" id="fulfillment">
+              <option value="delivery">配送到家</option>
+              <option value="pickup">到店自取</option>
+          </select></label>
+          <label id="addressField">配送地址<input name="address" id="address" required placeholder="请输入街道、门牌号和邮编" autocomplete="street-address" /></label>
           <label class="order-note-field"
             >订单备注（选填）<textarea
               name="note"
               maxlength="300"
-              rows="3"
-              placeholder="例如：“请放门口”“到了打电话”"
+              rows="2"
+              placeholder="有什么需要告诉我们的吗？"
             ></textarea
             ><small class="order-note-count" id="orderNoteCount"
               >0 / 300</small
             ></label
           >
+          </section>
+          <section class="checkout-section checkout-offers" aria-labelledby="checkoutOffersTitle">
+          <div class="checkout-section-heading"><h3 id="checkoutOffersTitle"><span class="checkout-icon icon-tag" aria-hidden="true"></span>优惠</h3><small class="checkout-offer-rules">每单限用一张；推荐奖励与优惠券不能叠加</small></div>
           <section class="promotion-choice" id="promotionChoice">
             <label
-              >优惠券或推荐码（选填）<input
-                name="coupon_code"
-                id="couponCodeInput"
-                placeholder="输入一张优惠券兑换码或推荐码"
+              >优惠码 / 推荐码（选填）<input
+                id="manualCouponCode"
+                autocomplete="off"
+                placeholder="输入优惠码或推荐码"
             /></label>
+            <input type="hidden" name="coupon_code" id="couponCodeInput" />
+            <button type="button" id="applyCouponCode">应用</button>
             <p class="coupon-code-hint" id="couponCodeHint" hidden></p>
           </section>
-          <label
-            >取货方式<select required name="fulfillment" id="fulfillment">
-              <option value="delivery">配送到家</option>
-              <option value="pickup">到店自取</option>
-            </select></label
-          >
-          <label id="addressField"
-            >配送地址<input
-              name="address"
-              id="address"
-              required
-              placeholder="请输入街道、门牌号和邮编"
-              autocomplete="street-address"
-          /></label>
+          </section>
           <section
             class="checkout-order-error"
             id="checkoutOrderError"
@@ -463,10 +477,15 @@
               <button type="button" id="checkoutErrorPickup">改为到店自取</button>
             </div>
           </section>
-          <div class="order-summary" id="orderSummary"></div>
+          <div class="checkout-submit-bar">
+          <details class="checkout-total-details">
+            <summary><strong id="checkoutTotal" aria-live="polite">$0.00</strong><span>应付金额 <span aria-hidden="true">ⓘ</span></span></summary>
+            <div class="order-summary" id="orderSummary"></div>
+          </details>
           <button class="primary-button submit" id="submitOrder" type="submit">
             确认提交订单 <span>→</span>
           </button>
+          </div>
         </form>
       </div>
       <div class="success order-success" id="successMessage" hidden>

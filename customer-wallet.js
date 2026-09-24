@@ -62,7 +62,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     if(previewResult?.code===c.code&&previewResult.valid===false)return previewResult.reason||'本单暂不符合使用条件';
     return '';
   }
-  function choose(c){selectedCode=c?.code||'';couponInput.value=selectedCode;couponInput.dispatchEvent(new Event('input',{bubbles:true}));}
+  function choose(c){availableExpanded=false;selectedCode=c?.code||'';document.querySelector('#manualCouponCode').value='';couponInput.value=selectedCode;couponInput.dispatchEvent(new Event('input',{bubbles:true}));}
   async function claim(c,action,message){
     if(!identity()||claiming.has(c.id))return;
     const stamp=identity();claiming.add(c.id);action.disabled=true;action.textContent='领取中…';
@@ -162,8 +162,9 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     const fieldset=el('fieldset'),legend=el('legend');
     legend.append(el('span','优惠券'),el('small','每单限用一张；推荐奖励与优惠券不能叠加。','customer-wallet-rules'));
     fieldset.append(legend);
+    const selectionSummary=el('p','','checkout-coupon-selection');selectionSummary.setAttribute('aria-live','polite');fieldset.append(selectionSummary);
     for(const c of [{code:'',name:'不使用账户优惠券'}]){
-      const label=el('label'),radio=el('input');radio.type='radio';radio.name='wallet_coupon_choice';radio.value=c.code;radio.checked=c.code===couponInput.value.trim().toUpperCase();
+      const label=el('label',null,'checkout-coupon-opt-out'),radio=el('input');radio.type='radio';radio.name='wallet_coupon_choice';radio.value=c.code;radio.checked=c.code===couponInput.value.trim().toUpperCase();
       const text=c.code?`${amount(c)} · ${c.name} · 满 $${Number(c.min_spend).toFixed(2)} 可用`:c.name;
       label.append(radio,el('span',text));fieldset.append(label);
       const optOut=()=>{if(!radio.checked)return;availableExpanded=false;if(couponInput.value)choose(null);else syncCheckout();};
@@ -171,22 +172,29 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     }
     const availableToggle=button('',()=>{availableExpanded=!availableExpanded;syncCheckout();});
     availableToggle.append(el('span',''));
-    availableToggle.className='customer-coupon-toggle';fieldset.append(availableToggle);
-    const history=el('details',null,'customer-coupon-history');history.append(el('summary','查看不可用优惠券及原因'));fieldset.append(history);
+    availableToggle.className='customer-coupon-toggle';
+    const history=el('section',null,'customer-coupon-history');history.id='checkoutUnavailableCoupons';history.hidden=true;
+    const historyToggle=button('',()=>{history.hidden=!history.hidden;historyToggle.setAttribute('aria-expanded',String(!history.hidden));});
+    historyToggle.className='checkout-history-toggle';historyToggle.id='checkoutUnavailableToggle';
+    historyToggle.setAttribute('aria-controls',history.id);historyToggle.setAttribute('aria-expanded','false');historyToggle.append(el('span','查看不可用优惠券及原因'));
+    history.setAttribute('aria-labelledby',historyToggle.id);
+    const controls=el('div',null,'checkout-coupon-controls');controls.append(availableToggle,historyToggle);fieldset.append(controls,history);
     for(const c of rows){const node=card(c,true,true);if(unavailable(c,true))history.append(node);else fieldset.insertBefore(node,history);}
     checkout.append(fieldset);syncCheckout();
   }
   function syncCheckout(){
     const hasSelected=!!identity()&&!!wallet&&!checkout.hidden&&checkoutCards.has(couponInput.value.trim().toUpperCase());
-    document.querySelector('#promotionChoice').hidden=hasSelected;
+    document.querySelector('#promotionChoice').hidden=false;
     const fieldset=checkout.querySelector('fieldset'),history=fieldset?.querySelector('.customer-coupon-history');
     // Rebuild when eligibility or folding changes to avoid stale container-query layout on restored cards.
     if(history&&(checkout.dataset.hasSelected!==String(hasSelected)||checkout.dataset.availableCollapsed!==String(!hasSelected&&!availableExpanded)||[...checkoutCards.values()].some(({c,node})=>node.parentElement!==(unavailable(c,true)?history:fieldset)))){
-      const wasOpen=history.open,focused=document.activeElement,focusedCode=focused?.name==='wallet_coupon_choice'?focused.value:null;
+      const wasOpen=!history.hidden,focused=document.activeElement,focusedCode=focused?.name==='wallet_coupon_choice'?focused.value:null;
       renderCheckout();
-      const nextHistory=checkout.querySelector('.customer-coupon-history');if(nextHistory&&!nextHistory.hidden)nextHistory.open=wasOpen;
-      if(focusedCode!=null){const target=[...checkout.querySelectorAll('input')].find(input=>input.value===focusedCode);if(target?.disabled&&nextHistory&&!nextHistory.open)nextHistory.querySelector('summary').focus();else target?.focus();}
+      const nextHistory=checkout.querySelector('.customer-coupon-history'),nextHistoryToggle=checkout.querySelector('.checkout-history-toggle');
+      if(nextHistory&&!nextHistoryToggle.hidden){nextHistory.hidden=!wasOpen;nextHistoryToggle.setAttribute('aria-expanded',String(wasOpen));}
+      if(focusedCode!=null){const target=[...checkout.querySelectorAll('input')].find(input=>input.value===focusedCode);if(target?.disabled&&nextHistory&&nextHistory.hidden)nextHistoryToggle.focus();else target?.focus();}
       else if(focused?.classList.contains('customer-coupon-toggle'))checkout.querySelector('.customer-coupon-toggle')?.focus();
+      else if(focused?.classList.contains('checkout-history-toggle'))nextHistoryToggle?.focus();
       return;
     }
     let unavailableCount=0,availableCount=0;
@@ -195,15 +203,18 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     for(const radio of checkout.querySelectorAll('input'))radio.checked=radio.value===couponInput.value.trim().toUpperCase();
     for(const {c,node,radio,text,reason} of checkoutCards.values()){
       const why=unavailable(c,true);
-      node.hidden=!why&&!hasSelected&&!availableExpanded;
       radio.checked=radio.value===couponInput.value.trim().toUpperCase();
+      node.hidden=!why&&!radio.checked&&!availableExpanded;
       radio.disabled=!!why;reason.textContent=why;reason.hidden=!why;
       node.classList.toggle('is-selected',radio.checked);node.classList.toggle('is-unavailable',!!why);text.textContent=why?'不可用':radio.checked?'✓ 已选':'使用';
       if(why)unavailableCount++;else availableCount++;
     }
     const availableToggle=checkout.querySelector('.customer-coupon-toggle');
-    if(availableToggle){availableToggle.hidden=hasSelected||!availableCount;availableToggle.querySelector('span').textContent=`${availableExpanded?'收起':'展开'}可用优惠券（${availableCount}）`;availableToggle.setAttribute('aria-expanded',String(availableExpanded||hasSelected));}
-    if(history){history.hidden=!unavailableCount;history.querySelector('summary').textContent=`查看不可用优惠券及原因（${unavailableCount}）`;if(!unavailableCount)history.open=false;}
+    if(availableToggle){availableToggle.hidden=!availableCount;availableToggle.querySelector('span').textContent=hasSelected?(availableExpanded?'收起优惠券':'更换优惠券'):`${availableExpanded?'收起':'展开'}可用优惠券（${availableCount}）`;availableToggle.setAttribute('aria-expanded',String(availableExpanded));}
+    const selectionSummary=checkout.querySelector('.checkout-coupon-selection');
+    if(selectionSummary)selectionSummary.textContent=hasSelected?'已选择 1 张优惠券':`可用优惠券 · ${availableCount} 张`;
+    const historyToggle=checkout.querySelector('.checkout-history-toggle');
+    if(history&&historyToggle){historyToggle.hidden=!unavailableCount;historyToggle.querySelector('span').textContent=`查看不可用优惠券（${unavailableCount}）`;if(!unavailableCount)history.hidden=true;historyToggle.setAttribute('aria-expanded',String(!history.hidden));}
   }
   document.querySelector('#orderForm').addEventListener('input',event=>{if(event.target.name!=='wallet_coupon_choice')syncCheckout()});
   document.querySelector('#orderForm').addEventListener('change',syncCheckout);

@@ -486,6 +486,7 @@ function renderCart() {
     feeRow = pickup
       ? ""
       : `<div><span>配送费</span><span class="fee-value">${t.delivery === 0 ? "<small>（已减免）</small>" : ""}<b>${dollars(t.delivery)}</b></span></div>`;
+  $("#checkoutTotal").textContent = dollars(t.total);
   $("#orderSummary").innerHTML =
     cart
       .map(
@@ -614,11 +615,7 @@ function toggleCart(show) {
   $("#cart").classList.toggle("open", show);
   $("#overlay").classList.toggle("visible", show);
 }
-const noteField = $('textarea[name="note"]')?.closest("label");
-if (noteField) $("#addressField").insertAdjacentElement("afterend", noteField);
-const promotionChoice = $("#promotionChoice");
-if (noteField && promotionChoice)
-  noteField.insertAdjacentElement("afterend", promotionChoice);
+// Checkout field order is defined by the contact / delivery / offers sections in HTML.
 const fulfillmentLabel = $("#fulfillment").closest("label");
 if (fulfillmentLabel && !$("#pickupInfo"))
   fulfillmentLabel.insertAdjacentHTML(
@@ -1155,6 +1152,8 @@ function drawOfferPreview() {
     total = +(Math.max(0, t.subtotal - discount) + fee + tax).toFixed(2),
     rows = $("#orderSummary .order-amounts");
   if (!rows) return;
+  // Presentation only: the footer shares the existing preview's computed total.
+  $("#checkoutTotal").textContent = dollars(total);
   const codeHint = $("#couponCodeHint"),
     hasCode = !!$("#couponCodeInput")?.value.trim();
   if (codeHint) {
@@ -1236,6 +1235,14 @@ $("#couponCodeInput").addEventListener("input", () => {
   stackChoiceKey = "";
   previewOffer();
 });
+// Keep the optional entry field separate from the selected wallet coupon's internal code.
+// Both paths continue through the existing preview and validation handler.
+const applyManualCoupon = () => {
+  $("#couponCodeInput").value = $("#manualCouponCode").value;
+  $("#couponCodeInput").dispatchEvent(new Event("input", {bubbles:true}));
+};
+$("#manualCouponCode").addEventListener("input", applyManualCoupon);
+$("#applyCouponCode").addEventListener("click", applyManualCoupon);
 const revalidateOfferForPhone = () => {
   if (!$("#couponCodeInput")?.value.trim()) return;
   stackChoiceKey = "";

@@ -125,29 +125,41 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
           await page.selectOption('#fulfillment',fulfillment);
           const result=await page.locator('#orderForm').evaluate(form=>{
             const style=el=>getComputedStyle(el),margin=el=>[style(el).marginTop,style(el).marginBottom];
-            const root=form.closest('dialog'),heading=document.querySelector('#orderFormWrap>h2'),note=document.querySelector('#orderFormWrap>p.dialog-note');
+            const root=form.closest('dialog'),heading=document.querySelector('#orderFormWrap>h2');
             const summary=document.querySelector('#orderSummary'),button=document.querySelector('#submitOrder');
-            const labels=[...form.querySelectorAll(':scope>label')].filter(el=>el.checkVisibility()),promo=form.querySelector('#promotionChoice>label');
+            const labels=[...form.querySelectorAll('.checkout-contact>label,.checkout-delivery>label')].filter(el=>el.checkVisibility()),promo=form.querySelector('#promotionChoice>label');
             const rows=[...labels,promo];
             const overlaps=rows.slice(1).filter((el,i)=>el.getBoundingClientRect().top<rows[i].getBoundingClientRect().bottom-0.5).map(el=>el.textContent.trim());
-            return {labels:labels.map(margin),controls:[...form.querySelectorAll('input,select,textarea')].filter(el=>el.checkVisibility()).map(el=>[style(el).borderRadius,style(el).marginTop]),
+            return {sections:[...form.querySelectorAll(':scope>.checkout-section')].map(el=>el.querySelector('h3').textContent),controls:[...form.querySelectorAll('input:not([type=radio]),select,textarea')].filter(el=>el.checkVisibility()).map(el=>[style(el).borderRadius,style(el).marginTop]),
               promo:margin(promo),summary:[style(summary).borderRadius,style(summary).paddingTop,style(summary).paddingBottom,...margin(summary)],
-              dialog:[style(root).borderRadius,style(root).paddingTop,style(root).paddingBottom],heading:margin(heading),note:note!==null,
+              dialog:[style(root).borderRadius,style(root).paddingTop,style(root).paddingBottom],heading:margin(heading),
+              headerOffsets:[style(root.querySelector('#closeDialog')).marginTop,style(heading).paddingTop,style(root.querySelector('#orderFormWrap>.eyebrow')).paddingTop,style(root.querySelector('#customerCheckoutHint')).marginBottom],
+              compactSpacing:[style(form.querySelector('[name=name]').closest('label')).marginTop,style(form.querySelector('#fulfillment').closest('label')).marginTop,style(form.querySelector('.checkout-delivery')).paddingBottom],
+              sectionHeadingsClear:[...form.querySelectorAll('.checkout-contact,.checkout-delivery')].every(section=>section.querySelector('label').getBoundingClientRect().top>=section.querySelector('.checkout-section-heading').getBoundingClientRect().bottom),
               submit:[style(button).fontSize,style(button).borderRadius,style(button).paddingTop,style(button).paddingBottom,style(button).justifyContent],
               overflow:root.scrollWidth>root.clientWidth+1,headingClear:labels[0].getBoundingClientRect().top>=heading.getBoundingClientRect().bottom,overlaps};
           });
           // The fixture also enables the existing optional scheduled-time field.
-          assert.deepEqual(result,{labels:[['0px','0px'],...Array(fulfillment==='delivery'?6:5).fill(['8px','8px'])],controls:Array(fulfillment==='delivery'?8:7).fill(['8px','5px']),
-            promo:['-20px','-10px'],summary:['15px','10px','10px','10px','10px'],dialog:['10px','30px','25px'],heading:['-10px','10px'],note:false,
-            submit:['15px','8px','10px','10px','center'],overflow:false,headingClear:true,overlaps:[]},`checkout ${phase} ${width}px ${fulfillment}: ${JSON.stringify(result)}`);
+          assert.deepEqual(result,{sections:['联系信息','配送信息','优惠'],controls:Array(fulfillment==='delivery'?8:7).fill(['8px','5px']),
+            promo:['0px','0px'],summary:['12px','16px','16px','0px','0px'],dialog:['16px','20px','0px'],heading:['0px','7px'],headerOffsets:['0px','0px','0px','12px'],compactSpacing:['-5px','-5px','0px'],sectionHeadingsClear:true,
+            submit:[width<359?'14px':'16px','10px','12px','12px','center'],overflow:false,headingClear:true,overlaps:[]},`checkout ${phase} ${width}px ${fulfillment}: ${JSON.stringify(result)}`);
           const hintClear=await page.evaluate(()=>{
-            const hint=document.querySelector('#couponCodeHint'),input=document.querySelector('#couponCodeInput');
+            const hint=document.querySelector('#couponCodeHint'),input=document.querySelector('#manualCouponCode');
             const oldText=hint.textContent,oldHidden=hint.hidden;
             hint.textContent='优惠码暂时无法验证，请检查后重试。';hint.hidden=false;
             const clear=hint.getBoundingClientRect().top>=input.getBoundingClientRect().bottom+4;
             hint.textContent=oldText;hint.hidden=oldHidden;return clear;
           });
           assert.ok(hintClear,`coupon hint remains readable ${phase} ${width}px`);
+          await page.locator('.checkout-total-details>summary').click();
+          assert.equal(await page.locator('#orderSummary').isVisible(),true,'amount breakdown remains available');
+          await page.waitForFunction(()=>document.querySelector('#checkoutTotal').textContent===document.querySelector('#orderSummary .order-amounts>div:last-child>b:last-child').textContent);
+          const amountLayout=await page.locator('#orderSummary').evaluate(el=>{
+            const box=el.getBoundingClientRect(),dialog=el.closest('dialog').getBoundingClientRect(),button=document.querySelector('#submitOrder').getBoundingClientRect();
+            return {inside:box.left>=dialog.left&&box.right<=dialog.right,aboveSubmit:box.bottom<=button.top,overflow:el.scrollWidth>el.clientWidth+1};
+          });
+          assert.deepEqual(amountLayout,{inside:true,aboveSubmit:true,overflow:false},`amount disclosure ${phase} ${width}px`);
+          await page.locator('.checkout-total-details>summary').click();
         }
       }
       await page.selectOption('#fulfillment','delivery');
@@ -838,7 +850,8 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     const availableToggle=page.locator('#customerWalletCheckout .customer-coupon-toggle');
     assert.equal(await availableToggle.getAttribute('aria-expanded'),'false');
     assert.equal(await availableToggle.locator('span').evaluate(el=>getComputedStyle(el).listStyleType),'disclosure-closed','collapsed triangle matches native details marker');
-    assert.equal(await availableToggle.locator('span').evaluate(el=>getComputedStyle(el).listStyleType),await page.locator('#customerWalletCheckout .customer-coupon-history>summary').evaluate(el=>getComputedStyle(el).listStyleType));
+    const historyToggle=page.locator('#customerWalletCheckout .checkout-history-toggle');
+    assert.equal(await availableToggle.locator('span').evaluate(el=>getComputedStyle(el).listStyleType),await historyToggle.locator('span').evaluate(el=>getComputedStyle(el).listStyleType));
     await availableToggle.click();
     assert.equal(await availableToggle.getAttribute('aria-expanded'),'true');
     assert.equal(await availableToggle.locator('span').evaluate(el=>getComputedStyle(el).listStyleType),'disclosure-open','expanded triangle matches native details marker');
@@ -849,54 +862,72 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     assert.equal(await page.textContent('#customerWalletCheckout legend>span'),'优惠券');
     assert.equal(await page.textContent('#customerWalletCheckout legend>small'),'每单限用一张；推荐奖励与优惠券不能叠加。');
     assert.equal(await page.locator('#customerWalletCheckout>small').count(),0);
+    assert.equal(await page.locator('.checkout-offer-rules').isVisible(),true);
+    assert.equal(await page.textContent('.checkout-offer-rules'),'每单限用一张；推荐奖励与优惠券不能叠加');
     for(const width of responsiveWidths([320,390,780,1710])){
       await page.setViewportSize({width,height:1000});
       const layout=await page.evaluate(()=>{
-        const root=document.querySelector('#customerWalletCheckout'),field=root.querySelector('fieldset'),legend=root.querySelector('legend'),summary=root.querySelector('summary'),note=document.querySelector('#orderNoteCount'),cards=[...field.querySelectorAll(':scope>.customer-coupon-card')];
+        const root=document.querySelector('#customerWalletCheckout'),field=root.querySelector('fieldset'),legend=root.querySelector('legend'),summary=root.querySelector('.checkout-history-toggle'),note=document.querySelector('#orderNoteCount'),cards=[...field.querySelectorAll(':scope>.customer-coupon-card')];
         const noteRange=document.createRange();noteRange.selectNodeContents(note);
         const noteBox=noteRange.getBoundingClientRect(),noteClear=[...legend.children].every(el=>{const b=el.getBoundingClientRect();return b.top>=noteBox.bottom||b.right<=noteBox.left||b.left>=noteBox.right});
-        return {fieldMargin:getComputedStyle(field).marginTop,summaryMargin:getComputedStyle(summary).marginTop,noteClear,summaryClear:summary.getBoundingClientRect().top>=cards.at(-1).getBoundingClientRect().bottom,overflow:root.scrollWidth>root.clientWidth+1};
+        return {fieldMargin:getComputedStyle(field).marginTop,summaryMargin:getComputedStyle(summary).marginTop,noteClear,summaryClear:summary.getBoundingClientRect().bottom<=cards[0].getBoundingClientRect().top,overflow:root.scrollWidth>root.clientWidth+1};
       });
-      const expectedMargin=width<=780?'-8px':'-30px';
+      const expectedMargin='0px';
       assert.deepEqual(layout,{fieldMargin:expectedMargin,summaryMargin:expectedMargin,noteClear:true,summaryClear:true,overflow:false},`checkout coupon spacing at ${width}px`);
-      assert.deepEqual(await availableToggle.evaluate(el=>{const s=getComputedStyle(el);return [s.paddingTop,s.paddingBottom,s.marginTop,s.marginBottom,s.height];}),['0px','0px','-10px','-15px','35px'],`coupon toggle spacing at ${width}px`);
-      const history=page.locator('#customerWalletCheckout .customer-coupon-history');
-      await history.locator('summary').click();
-      const expanded=await page.evaluate(()=>{
-        const root=document.querySelector('#customerWalletCheckout'),summary=root.querySelector('summary'),cards=[...root.querySelectorAll('details>.customer-coupon-card')],promo=document.querySelector('#promotionChoice>label');
-        return {summaryBottom:getComputedStyle(summary).marginBottom,bodyBottom:getComputedStyle(cards[0].querySelector('.customer-coupon-body')).marginBottom,promoTop:getComputedStyle(promo).marginTop,summaryClear:summary.getBoundingClientRect().bottom<=cards[0].getBoundingClientRect().top,promoClear:promo.getBoundingClientRect().top>=cards.at(-1).getBoundingClientRect().bottom,reasonsInside:cards.every(c=>c.querySelector('.customer-coupon-reason').getBoundingClientRect().bottom<=c.getBoundingClientRect().bottom)};
+      const offerAlignment=await page.evaluate(()=>{
+        const textBox=node=>{const range=document.createRange();range.selectNodeContents(node);return range.getClientRects()[0]};
+        const toggle=textBox(document.querySelector('#customerWalletCheckout .customer-coupon-toggle>span'));
+        const summary=textBox(document.querySelector('#customerWalletCheckout .checkout-history-toggle>span'));
+        const rules=document.querySelector('.checkout-offer-rules').getBoundingClientRect(),optOut=document.querySelector('.checkout-coupon-opt-out').getBoundingClientRect();
+        return {aligned:Math.abs(toggle.top-summary.top)<=1,rulesClear:rules.bottom<=optOut.top};
       });
-      assert.deepEqual(expanded,{summaryBottom:width<=780?'0px':'-10px',bodyBottom:width<=780?'0px':'-10px',promoTop:width<=780?'-20px':'-25px',summaryClear:true,promoClear:true,reasonsInside:true},`expanded coupons at ${width}px`);
-      if(process.env.TINGS_ACCOUNT_SCREENSHOT&&width===1710){await history.locator('summary').scrollIntoViewIfNeeded();await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-expanded.png')})}
-      await history.locator('summary').click();
+      assert.deepEqual(offerAlignment,{aligned:true,rulesClear:true},`coupon link alignment and rule copy ${width}px`);
+      assert.deepEqual(await availableToggle.evaluate(el=>{const s=getComputedStyle(el);return [s.paddingTop,s.paddingBottom,s.marginTop,s.marginBottom];}),['3px','3px','0px','0px'],`coupon toggle spacing at ${width}px`);
+      const history=page.locator('#customerWalletCheckout .customer-coupon-history');
+      await historyToggle.click();
+      assert.equal(await historyToggle.getAttribute('aria-expanded'),'true');
+      assert.equal(await historyToggle.getAttribute('aria-controls'),await history.getAttribute('id'));
+      const expanded=await page.evaluate(()=>{
+        const root=document.querySelector('#customerWalletCheckout'),summary=root.querySelector('.checkout-history-toggle'),cards=[...root.querySelectorAll('.customer-coupon-history>.customer-coupon-card')],promo=document.querySelector('#promotionChoice');
+        const left=root.querySelector('.customer-coupon-toggle').getBoundingClientRect(),right=summary.getBoundingClientRect(),firstAvailable=root.querySelector('fieldset>.customer-coupon-card').getBoundingClientRect();
+        return {summaryBottom:getComputedStyle(summary).marginBottom,bodyBottom:getComputedStyle(cards[0].querySelector('.customer-coupon-body')).marginBottom,promoTop:getComputedStyle(promo).marginTop,summaryClear:right.bottom<=cards[0].getBoundingClientRect().top,controlsAbove:left.bottom<=firstAvailable.top&&right.bottom<=firstAvailable.top,aligned:Math.abs(left.top-right.top)<=1&&left.right<=right.left,promoClear:promo.getBoundingClientRect().top>=cards.at(-1).getBoundingClientRect().bottom,reasonsInside:cards.every(c=>c.querySelector('.customer-coupon-reason').getBoundingClientRect().bottom<=c.getBoundingClientRect().bottom)};
+      });
+      assert.deepEqual(expanded,{summaryBottom:'0px',bodyBottom:'0px',promoTop:'0px',summaryClear:true,controlsAbove:true,aligned:true,promoClear:true,reasonsInside:true},`expanded coupons at ${width}px`);
+      if(process.env.TINGS_ACCOUNT_SCREENSHOT&&width===1710){await historyToggle.scrollIntoViewIfNeeded();await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-expanded.png')})}
+      await historyToggle.click();
       if(process.env.TINGS_ACCOUNT_SCREENSHOT&&width===1710){await page.locator('#customerWalletCheckout legend').scrollIntoViewIfNeeded();await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-heading.png')})}
     }
     await page.setViewportSize({width:390,height:844});
     const foldedCoupons=page.locator('#customerWalletCheckout .customer-coupon-history');
-    assert.equal(await foldedCoupons.getAttribute('open'),null);
+    assert.equal(await historyToggle.getAttribute('aria-expanded'),'false');
+    assert.equal(await foldedCoupons.isVisible(),false);
     assert.equal(await page.locator('#promotionChoice').isVisible(),true);
     await page.evaluate(()=>{__accountTest.originalCouponContext=window.TingsCouponContext;window.TingsCouponContext=()=>({...__accountTest.originalCouponContext(),subtotal:10});window.dispatchEvent(new Event('tings:coupon-context'))});
     assert.equal(await page.locator('#customerWalletCheckout>fieldset>.customer-coupon-card').count(),0);
     assert.equal(await page.locator('#customerWalletCheckout [data-code="TEN"]').isVisible(),false);
-    await foldedCoupons.locator('summary').click();
+    await historyToggle.click();
     assert.match(await page.textContent('#customerWalletCheckout [data-code="TEN"] .customer-coupon-reason'),/达到使用门槛/);
     await page.evaluate(()=>window.dispatchEvent(new Event('tings:coupon-context')));
-    assert.notEqual(await foldedCoupons.getAttribute('open'),null);
-    await foldedCoupons.locator('summary').click();
+    assert.equal(await historyToggle.getAttribute('aria-expanded'),'true');
+    assert.equal(await foldedCoupons.isVisible(),true);
+    await historyToggle.click();
     await page.evaluate(()=>{window.TingsCouponContext=__accountTest.originalCouponContext;window.dispatchEvent(new Event('tings:coupon-context'))});
     assert.equal(await page.locator('#customerWalletCheckout>fieldset>[data-code="TEN"]').isVisible(),true);
     assert.ok(await page.locator('#customerWalletCheckout>fieldset>[data-code="TEN"] .customer-coupon-body').evaluate(el=>el.getBoundingClientRect().height>=100));
     await page.check('#customerWalletCheckout input[value="RWD-ALICE"]');
     assert.equal(await page.inputValue('#couponCodeInput'),'RWD-ALICE');
-    assert.equal(await page.locator('#promotionChoice').isVisible(),false);
+    assert.equal(await page.locator('#promotionChoice').isVisible(),true);
+    assert.equal(await page.inputValue('#manualCouponCode'),'','selected coupon code is not exposed in the optional entry field');
     assert.equal(await page.locator('#couponCodeInput').isEnabled(),true);
+    assert.equal(await page.locator('#customerWalletCheckout>fieldset>.customer-coupon-card:visible').count(),1,'only selected coupon stays expanded');
+    await availableToggle.click();
     await page.check('#customerWalletCheckout input[value="TEN"]');
     assert.equal(await page.locator('#customerWalletCheckout input:checked').count(),1);
     assert.equal(await page.inputValue('#couponCodeInput'),'TEN');
     await page.waitForFunction(()=>document.querySelector('#couponCodeHint').classList.contains('valid'));
     assert.match(await page.textContent('#orderSummary .order-amounts'),/优惠券：推荐奖励券/);
     assert.equal(await page.locator('#customerWalletCheckout [data-code="TEN"]').evaluate(el=>el.classList.contains('is-selected')),true);
-    assert.equal(await page.locator('#customerWalletCheckout [data-code="TEN"]').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 204, 204)');
+    assert.equal(await page.locator('#customerWalletCheckout [data-code="TEN"]').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 207, 202)');
     await page.selectOption('#fulfillment','pickup');
     assert.equal(await page.locator('#customerWalletCheckout input[value="TEST-SHIPPING"]').isDisabled(),true);
     assert.match(await page.textContent('#customerWalletCheckout [data-code="TEST-SHIPPING"] .customer-coupon-reason'),/仅配送/);
@@ -904,11 +935,12 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     assert.equal(await foldedCoupons.locator('[data-code="TEST-SHIPPING"]').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(244, 243, 237)');
     assert.equal(await page.locator('#customerWalletCheckout [data-code="TEST-SHIPPING"]').isVisible(),false);
     await page.selectOption('#fulfillment','delivery');
+    await availableToggle.click();
     await page.check('#customerWalletCheckout input[value="TEST-SHIPPING"]');
     await page.waitForFunction(()=>document.querySelector('#couponCodeHint').textContent.includes('减免整笔配送费'));
     assert.equal(await page.textContent('#orderSummary .fee-value b'),'$0.00');
     assert.equal(await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='preview_account_offer_v2').at(-1).args.p_fulfillment),'delivery');
-    const visibleCouponHeights=await page.locator('#customerWalletCheckout>fieldset>.customer-coupon-card').evaluateAll(cards=>cards.map(c=>({code:c.dataset.code,height:c.getBoundingClientRect().height,body:c.querySelector('.customer-coupon-body')?.getBoundingClientRect().height,html:c.innerHTML.slice(0,120)})));
+    const visibleCouponHeights=await page.locator('#customerWalletCheckout>fieldset>.customer-coupon-card:visible').evaluateAll(cards=>cards.map(c=>({code:c.dataset.code,height:c.getBoundingClientRect().height,body:c.querySelector('.customer-coupon-body')?.getBoundingClientRect().height,html:c.innerHTML.slice(0,120)})));
     assert.ok(visibleCouponHeights.every(c=>c.height>=100),JSON.stringify({cards:visibleCouponHeights,style:await page.locator('#customerWalletCheckout>fieldset>.customer-coupon-card').first().evaluate(c=>{const b=c.querySelector('.customer-coupon-body'),s=getComputedStyle(b);return {display:s.display,visibility:s.visibility,contentVisibility:s.contentVisibility,height:s.height,minHeight:s.minHeight,card:getComputedStyle(c).contentVisibility,html:c.outerHTML}})}));
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-shipping.png')});
     await page.selectOption('#fulfillment','pickup');
@@ -924,20 +956,24 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     await availableToggle.click();
     await page.check('#customerWalletCheckout input[value="RWD-ALICE"]');
     assert.equal(await page.inputValue('#couponCodeInput'),'RWD-ALICE');
-    assert.equal(await availableToggle.isVisible(),false);
+    assert.equal(await availableToggle.isVisible(),true);
+    assert.match(await availableToggle.textContent(),/更换优惠券|收起优惠券/);
     await page.check('#customerWalletCheckout input[value=""]');
     assert.equal(await page.locator('#customerWalletCheckout>fieldset>.customer-coupon-card:visible').count(),0);
     for(const width of responsiveWidths([320,390,780,781,1710])){
       await page.setViewportSize({width,height:1000});
       const collapsedLayout=await page.evaluate(()=>{
-        const root=document.querySelector('#customerWalletCheckout'),toggle=root.querySelector('.customer-coupon-toggle'),summary=root.querySelector('summary'),promo=document.querySelector('#promotionChoice>label');
-        return {toggleClear:toggle.getBoundingClientRect().bottom<=summary.getBoundingClientRect().top,promoClear:summary.getBoundingClientRect().bottom<=promo.getBoundingClientRect().top,overflow:root.scrollWidth>root.clientWidth+1};
+        const root=document.querySelector('#customerWalletCheckout'),toggle=root.querySelector('.customer-coupon-toggle'),summary=root.querySelector('.checkout-history-toggle'),promo=document.querySelector('#promotionChoice>label');
+        const a=toggle.getBoundingClientRect(),b=summary.getBoundingClientRect();
+        return {toggleClear:a.bottom<=b.top||a.right<=b.left,promoClear:b.bottom<=promo.getBoundingClientRect().top,overflow:root.scrollWidth>root.clientWidth+1};
       });
       assert.deepEqual(collapsedLayout,{toggleClear:true,promoClear:true,overflow:false},`collapsed coupons at ${width}px`);
       if(process.env.TINGS_ACCOUNT_SCREENSHOT&&width===1710){await availableToggle.scrollIntoViewIfNeeded();await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-collapsed-desktop.png')})}
     }
     await page.setViewportSize({width:390,height:844});
-    await page.fill('#couponCodeInput','MANUAL');
+    await page.fill('#manualCouponCode','MANUAL');
+    await page.click('#applyCouponCode');
+    assert.equal(await page.inputValue('#couponCodeInput'),'MANUAL');
     assert.equal(await page.locator('#customerWalletCheckout input:checked').count(),0);
     assert.ok(await page.locator('#orderDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-wallet-checkout.png')});
@@ -1063,6 +1099,11 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     await page.click('#openCart');await page.click('#checkout');
     assert.equal(await page.inputValue('#orderForm [name=name]'),'Alice');
     assert.equal(await page.inputValue('#orderForm [name=address]'),'Saved address, Unit 2B, Chicago IL 60601-1234');
+    assert.equal(await page.locator('#checkoutAutofillBadge').isVisible(),true);
+    assert.equal(await page.locator('#checkoutEmailBadge').isVisible(),true);
+    await page.fill('#orderForm [name=email]','different@example.test');
+    assert.equal(await page.locator('#checkoutEmailBadge').isVisible(),false,'edited email must not pretend to be account-bound');
+    await page.fill('#orderForm [name=email]','alice@example.test');
     await checkCheckoutLayout('account');
     assert.equal((await page.evaluate(()=>TingsAccount.checkoutHeaders())).Authorization,'Bearer customer-token-alice@example.test');
     await page.fill('#orderForm [name=name]','Manually entered');
