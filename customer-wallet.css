@@ -113,3 +113,76 @@ dialog.referral-wechat-guide button:focus-visible{outline:3px solid #f5d59b;outl
 }
 @media(max-width:780px){.customer-wallet-checkout{margin-top:12px}.customer-wallet-checkout fieldset{margin-top:-8px}.customer-wallet-checkout .customer-coupon-history{margin-top:18px}.customer-wallet-checkout .customer-coupon-history>summary{margin-top:-8px;margin-bottom:0}}
 @media(max-width:388px){.customer-coupon-card{grid-template-columns:minmax(0,1fr) 76px}.customer-coupon-body{padding:8px 12px}.customer-coupon-benefit{font-size:36px}.customer-coupon-card[data-shipping=true] .customer-coupon-benefit{font-size:24px}.customer-coupon-card .customer-coupon-minimum{font-size:15px}.customer-coupon-action{padding:8px 6px}}
+
+/* Account wallet only. Checkout radios and referral cards retain their existing layout. */
+#customerAccountDialog:has(#customerCouponsPanel:not([hidden])){background:#fffcf6;color:#4b291b}
+#customerCouponsPanel .customer-coupon-heading{display:flex;align-items:center;gap:4px;min-height:44px;margin:0;color:#4b291b;font-size:15px}
+#customerCouponsPanel .customer-coupon-count{color:#c43d29;font-size:13px;white-space:nowrap}
+#customerCouponsPanel .customer-wallet-ticket{grid-template-columns:minmax(90px,25%) minmax(0,1fr);align-items:center;gap:0;min-height:112px;margin:0 0 12px;padding:12px 14px 12px 8px;border-color:#ffc3b5;border-radius:11px;background:#ffede8;box-shadow:0 3px 10px #d8442510;color:#4b291b;--coupon-accent:#bc321e}
+#customerCouponsPanel>.customer-wallet-ticket{padding-block:0;margin-bottom:0}
+#customerCouponsPanel .customer-wallet-ticket::before,#customerCouponsPanel .customer-wallet-ticket::after{content:"";position:absolute;top:calc(50% - 9px);width:9px;height:18px;background:#fffcf6;border:1px solid #f2c6b8;pointer-events:none}
+#customerCouponsPanel .customer-wallet-ticket::before{left:0;border-left:0;border-radius:0 12px 12px 0}
+#customerCouponsPanel .customer-wallet-ticket::after{right:0;border-right:0;border-radius:12px 0 0 12px}
+#customerCouponsPanel .customer-coupon-body{display:contents}
+#customerCouponsPanel .customer-coupon-benefit{margin:0;padding:0 7px 0 0;font-size:44px;letter-spacing:-1.5px;white-space:normal;text-align:center;overflow-wrap:anywhere}
+#customerCouponsPanel .customer-coupon-flourish{display:block;margin-top:8px;color:#d98568;font-size:10px;font-style:italic;font-weight:500;line-height:1.3;letter-spacing:0;white-space:pre-line;transform:rotate(-6deg)}
+#customerCouponsPanel [data-shipping=true] .customer-coupon-benefit{font-size:22px;letter-spacing:0}
+#customerCouponsPanel .customer-coupon-details{padding-left:14px;border-left:1px dashed #efc7b6}
+#customerCouponsPanel .customer-coupon-minimum{margin:0 0 5px;color:#4b291b;font-size:16px;line-height:1.4;padding-right:28px}
+#customerCouponsPanel .customer-coupon-minimum b{color:var(--coupon-accent);font-size:20px}
+#customerCouponsPanel .customer-coupon-summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}
+#customerCouponsPanel .customer-coupon-summary>div{min-width:0}
+#customerCouponsPanel .customer-coupon-title{display:block;margin:0 0 4px;line-height:1.5}
+#customerCouponsPanel .customer-coupon-title h4{display:inline;color:#a2442e;font-size:11px}
+#customerCouponsPanel .customer-coupon-source{font-size:11px;color:#654536;font-weight:400}
+#customerCouponsPanel .customer-coupon-validity{color:#76695f;font-size:10px;margin:3px 0}
+#customerCouponsPanel .customer-coupon-scope{color:#805342;font-size:10px}
+#customerCouponsPanel .customer-coupon-details small{font-size:9px;color:#94877f;line-height:1.5;margin-top:3px}
+#customerCouponsPanel .customer-coupon-action{display:flex;flex-direction:column;gap:6px;padding:0;border:0;align-self:center}
+#customerCouponsPanel .customer-coupon-action::before,#customerCouponsPanel .customer-coupon-action::after{display:none}
+#customerAccountDialog #customerCouponsPanel .customer-coupon-use{width:auto;min-height:34px;padding:5px 10px;background:#e92235;border-color:#e92235;border-radius:10px;font-size:12px;color:#fff;white-space:nowrap}
+#customerCouponsPanel .customer-coupon-use::after{content:' ›';font-size:17px;line-height:1}
+#customerCouponsPanel .customer-coupon-action{position:relative}
+#customerCouponsPanel .customer-wallet-ticket:not(.is-unavailable) .customer-coupon-action::before{display:block;content:'';position:absolute;top:auto;left:auto;bottom:calc(100% + 8px);right:12px;width:24px;height:20px;border:0;border-radius:0;opacity:.5;pointer-events:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cpath d='m3 5 7 7 4-10 4 10 7-7-3 16H6Z' fill='none' stroke='%23f59a7d' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}
+#customerCouponsPanel .customer-coupon-state{font-size:11px;font-weight:600;color:#694534;text-align:center}
+#customerCouponsPanel [data-expiring=true] .customer-coupon-state{color:#ad5d12}
+#customerCouponsPanel .customer-coupon-more{margin-top:5px;font-size:10px;color:#8c7b70}
+#customerCouponsPanel .customer-coupon-more>summary{cursor:pointer;min-height:24px;padding:4px 0;font-size:10px}
+#customerCouponsPanel .customer-coupon-more[open]{margin-top:8px}
+#customerCouponsPanel .customer-coupon-history{margin-top:8px;padding-top:6px;border-top:1px solid #efdfcc}
+#customerCouponsPanel .customer-coupon-history>.customer-coupon-heading{display:flex;list-style:none;cursor:pointer}
+#customerCouponsPanel .customer-coupon-history>summary::-webkit-details-marker{display:none}
+#customerCouponsPanel .customer-coupon-history>summary::after{content:'⌄';margin-left:auto;font-size:20px;line-height:1}
+#customerCouponsPanel .customer-coupon-history[open]>summary::after{transform:rotate(180deg)}
+#customerCouponsPanel .customer-coupon-history .customer-coupon-count{color:#8c837a}
+#customerCouponsPanel .customer-wallet-ticket.is-unavailable{min-height:92px;padding-block:10px;background:#f4f2ed;border-color:#e3dfd6;box-shadow:none;--coupon-accent:#92908a}
+#customerCouponsPanel .is-unavailable::before,#customerCouponsPanel .is-unavailable::after{border-color:#e3dfd6;width:6px;height:12px;top:calc(50% - 6px)}
+#customerCouponsPanel .is-unavailable .customer-coupon-benefit{font-size:36px}
+#customerCouponsPanel .is-unavailable[data-shipping=true] .customer-coupon-benefit{font-size:18px}
+#customerCouponsPanel .is-unavailable .customer-coupon-details{border-color:#e4dfd5}
+#customerCouponsPanel .is-unavailable .customer-coupon-minimum{font-size:14px;color:#817e78}
+#customerCouponsPanel .is-unavailable .customer-coupon-title h4,#customerCouponsPanel .is-unavailable .customer-coupon-source{color:#979189}
+#customerCouponsPanel .is-unavailable .customer-coupon-action{align-self:start;transform:translateY(-20px)}
+#customerCouponsPanel .is-unavailable .customer-coupon-action::after{display:block;content:'';position:absolute;top:calc(100% + 5px);bottom:auto;left:auto;right:0;width:42px;height:28px;border:0;opacity:.22;pointer-events:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 32'%3E%3Cpath d='m6 4 20-3 4 27-20 3Z M8 8l18-3' fill='none' stroke='%23b3a794' stroke-width='1.5'/%3E%3Ccircle cx='19' cy='19' r='6' fill='none' stroke='%23b3a794'/%3E%3Cpath d='m16 17 2 1m3 3 2 1m-7 0 1 2m22-17 2 3 4-1-2 4 2 3-4-1-2 3v-4l-3-2 3-1Z' fill='none' stroke='%23b3a794' stroke-width='1.5'/%3E%3C/svg%3E") center/contain no-repeat}
+#customerCouponsPanel .is-unavailable .customer-coupon-state{padding:5px 10px;border-radius:10px;background:#e2dfda;color:#848078;font-size:10px;white-space:nowrap}
+#customerCouponsPanel [data-status=used] .customer-coupon-state{background:#eeece7;color:#98938b}
+#customerCouponsPanel .customer-coupon-more>summary:focus-visible,#customerCouponsPanel .customer-coupon-history>summary:focus-visible{outline:2px solid #c73525;outline-offset:3px;border-radius:4px}
+.customer-coupon-footer{min-height:86px;margin:6px -16px -20px;padding:48px 39% 12px 24px;background:url("coupon-wallet-footer-v1.png") right bottom/100% auto no-repeat;color:#a36534;font-size:12px;font-style:italic;line-height:1.7;letter-spacing:.4px}
+#customerAccountDialog:has(#customerCouponsPanel:not([hidden])) #customerAccountEmail{font-size:15px;color:#654536;margin-bottom:8px;overflow-wrap:anywhere}
+#customerAccountDialog:has(#customerCouponsPanel:not([hidden])) .customer-account-title-row h2{min-height:32px}
+#customerCouponsPanel .customer-coupon-heading{font-weight:700;min-height:40px}
+@media(min-width:781px){.customer-coupon-footer{margin-inline:-36px}}
+#customerCouponsPanel .customer-coupon-heading::before{content:'';width:20px;height:20px;flex:none;margin-right:3px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m3 6 16-3 2 6q-4 2 1 5l-1 4-16 3-1-6q4-2-1-5Z M9 6l2 12m2-7 3-3m-2 6 3-3' fill='none' stroke='%23974021' stroke-width='1.7' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}
+#customerCouponsPanel .customer-coupon-history>summary::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='8.5' fill='none' stroke='%23974021' stroke-width='2'/%3E%3Cpath d='m6 6 12 12' stroke='%23974021' stroke-width='2'/%3E%3C/svg%3E")}
+@media(max-width:388px){
+#customerCouponsPanel .customer-wallet-ticket{padding-inline:7px;min-height:104px}
+  #customerCouponsPanel .customer-coupon-benefit{font-size:38px;padding-right:5px}
+  #customerCouponsPanel .customer-coupon-details{padding-left:10px}
+  #customerCouponsPanel .customer-coupon-minimum{font-size:14px}
+  #customerCouponsPanel .is-unavailable .customer-coupon-benefit{font-size:32px}
+  #customerCouponsPanel .customer-coupon-title h4,#customerCouponsPanel .customer-coupon-source{font-size:10px}
+  #customerCouponsPanel .customer-coupon-summary{gap:4px}
+  #customerAccountDialog #customerCouponsPanel .customer-coupon-use{font-size:11px;padding-inline:7px;min-height:32px}
+  #customerCouponsPanel .customer-wallet-ticket.is-unavailable{min-height:84px}
+  .customer-coupon-footer{font-size:10px;letter-spacing:0}
+}

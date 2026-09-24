@@ -77,8 +77,9 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
       message.hidden=false;action.textContent='立即领取';action.disabled=false;
     }finally{if(identity()===stamp)claiming.delete(c.id);}
   }
-  function card(c,showSource=false,inCheckout=false){
+  function card(c,showSource=false,inCheckout=false,inWallet=false){
     const node=el('article',null,'customer-coupon-card');
+    if(inWallet)node.classList.add('customer-wallet-ticket');
     node.dataset.code=c.code;
     node.dataset.status=c.status;
     node.dataset.shipping=String(c.discount_kind==='free_shipping');
@@ -94,20 +95,42 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     if(c.discount_kind==='percent')details.append(el('p',c.max_discount!=null?`最高减 ${money(c.max_discount)}`:'无固定金额封顶（旧券）','customer-coupon-cap'));
     if(c.customer_scope==='new'||c.kind==='new')details.append(el('p','仅限符合条件的新客','customer-coupon-scope'));
     const title=el('div',null,'customer-coupon-title');
-    if(showSource)title.append(el('span',`【${({new:'新人券',regular:'店铺优惠券',referral:'推荐奖励'})[c.kind]||'店铺优惠券'}】：`,'customer-coupon-source'));
+    if(showSource){const source=({new:'新人券',regular:'店铺优惠券',referral:'推荐奖励'})[c.kind]||'店铺优惠券';title.append(el('span',inWallet?`${source} · `:`【${source}】：`,'customer-coupon-source'));}
     title.append(el('h4',c.name));
-    details.append(title,el('p',c.status==='claimable'&&c.claim_valid_days?`领取后 ${c.claim_valid_days} 天有效${c.ends_at?'，不超过 '+date(c.ends_at):''}`:c.ends_at?`有效期至 ${date(c.ends_at)}`:'无固定到期日'));
+    details.append(title,el('p',c.status==='claimable'&&c.claim_valid_days?`领取后 ${c.claim_valid_days} 天有效${c.ends_at?'，不超过 '+date(c.ends_at):''}`:c.ends_at?`有效期至 ${date(c.ends_at)}`:'无固定到期日','customer-coupon-validity'));
     const usageLimit=!c.requires_claim&&Number(c.per_user_limit)>1?`限用 ${Number(c.per_user_limit)} 次`:'限用一次';
     details.append(el('small',`${usageLimit}，不可与其他优惠券叠加使用${c.allow_campaign_stack===false?'；不可与活动叠加':''}`));
     if(c.starts_at&&new Date(c.starts_at)>new Date())details.append(el('p',`开始于 ${date(c.starts_at)}`));
     for(const use of c.uses||[])details.append(el('p',use.order_number?`使用于订单 ${use.order_number}`:`已于 ${date(use.used_at)} 使用（历史订单）`));
     const reason=el('p',unavailable(c,inCheckout),'customer-coupon-reason');reason.hidden=!reason.textContent;reason.setAttribute('role','status');
     details.append(reason);body.append(details);node.append(body,aside);node.classList.toggle('is-unavailable',!!reason.textContent);
+    if(inWallet){
+      // Presentation only: eligibility, claim and checkout still use the existing rules.
+      const minimum=details.querySelector('.customer-coupon-minimum');
+      minimum.replaceChildren('满 ',el('b',`$${Number(c.min_spend).toFixed(2)}`),' 可用');
+      const summary=el('div',null,'customer-coupon-summary'),copy=el('div');
+      copy.append(title,details.querySelector('.customer-coupon-validity'));summary.append(copy,aside);minimum.after(summary);
+      // Codes remain internal checkout identifiers, never rendered as coupon copy.
+      if(reason.textContent){
+        const more=el('details',null,'customer-coupon-more');more.append(el('summary','使用说明'));
+        for(const item of [...details.children])if(item!==minimum&&item!==summary)more.append(item);
+        // Standard expired tickets need only their status; retain unusual reasons and usage history.
+        if((c.uses||[]).length||!['优惠券已过期','此券已使用'].includes(reason.textContent))details.append(more);
+      }else{
+        const flourish=el('span','让味蕾心动，\n把美味带回家！♥','customer-coupon-flourish');flourish.setAttribute('aria-hidden','true');body.querySelector('.customer-coupon-benefit').append(flourish);
+      }
+      const remaining=new Date(c.ends_at).getTime()-Date.now();
+      if(!reason.textContent&&remaining>0&&remaining<=3*86400000){node.dataset.expiring='true';aside.append(el('span','即将过期','customer-coupon-state'));}
+      else if(!reason.textContent&&(c.claimed||justClaimed.has(c.id)))aside.append(el('span','已领取','customer-coupon-state'));
+    }
     if(inCheckout){
       const label=el('label',null,'customer-coupon-select'),radio=el('input'),text=el('span','使用');
       radio.type='radio';radio.name='wallet_coupon_choice';radio.value=c.code;radio.setAttribute('aria-label',`使用${c.name}，${amount(c)}`);
       label.append(radio,text);aside.append(label);radio.onchange=()=>{if(radio.checked)choose(c)};
       checkoutCards.set(c.code,{c,node,radio,text,reason});
+    }else if(inWallet&&reason.textContent){
+      const state=c.status==='used'?'已使用':c.status==='expired'||(c.ends_at&&new Date(c.ends_at)<new Date())?'已过期':'暂不可用';
+      aside.append(el('span',state,'customer-coupon-state'));
     }else{
       const action=button(c.status==='claimable'?'立即领取':'去使用',()=>{
         if(c.status==='claimable')void claim(c,action,reason);
@@ -279,12 +302,17 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     const available=wallet.coupons.filter(c=>c.status==='available');
     const newcomer=available.find(c=>c.kind==='new');
     window.dispatchEvent(new CustomEvent('tings:wallet-summary',{detail:newcomer?{amount:newcomer.amount,min_spend:newcomer.min_spend,discount_kind:newcomer.discount_kind}:null}));
-    couponsPanel.replaceChildren(el('h3','可用优惠券'),...available.map(c=>card(c,true)));
-    if(!available.length)couponsPanel.append(el('p','暂无可用优惠券。','customer-muted'));
-    const claimable=wallet.coupons.filter(c=>c.status==='claimable');
-    if(claimable.length)couponsPanel.append(el('h3','可领取优惠券'),...claimable.map(c=>card(c,true)));
-    const unavailableRows=wallet.coupons.filter(c=>!['available','claimable'].includes(c.status));
-    if(unavailableRows.length){const history=el('details',null,'customer-coupon-history');history.append(el('summary','不可用优惠券'),...unavailableRows.map(c=>card(c,true)));couponsPanel.append(history)}
+    // Wallet display only: expired records remain available to checkout/history logic.
+    const visibleCoupons=wallet.coupons.filter(c=>c.status!=='expired'&&!(c.ends_at&&new Date(c.ends_at)<new Date()));
+    const usable=visibleCoupons.filter(c=>c.status==='available'&&!unavailable(c));
+    const heading=(tag,title,count)=>{const node=el(tag,null,'customer-coupon-heading');node.append(el('span',title),el('span',` · ${count}张`,'customer-coupon-count'));return node;};
+    couponsPanel.replaceChildren(heading('h3','可用优惠券',usable.length),...usable.map(c=>card(c,true,false,true)));
+    if(!usable.length)couponsPanel.append(el('p','暂无可用优惠券。','customer-muted'));
+    const claimable=visibleCoupons.filter(c=>c.status==='claimable'&&!unavailable(c));
+    if(claimable.length)couponsPanel.append(heading('h3','可领取优惠券',claimable.length),...claimable.map(c=>card(c,true,false,true)));
+    const unavailableRows=visibleCoupons.filter(c=>!!unavailable(c));
+    if(unavailableRows.length){const history=el('details',null,'customer-coupon-history');history.append(heading('summary','不可用优惠券',unavailableRows.length),...unavailableRows.map(c=>card(c,true,false,true)));couponsPanel.append(history)}
+    const footer=el('div','好零食 · 好心情 · 每一天 ♡','customer-coupon-footer');footer.setAttribute('aria-hidden','true');couponsPanel.append(footer);
     renderRewards();
     renderCheckout();
   }
