@@ -116,12 +116,12 @@
   #story .ft-links button,#story .ft-links a{font-size:13px;min-height:32px}
   /* Reuse two regions of the original artwork at its natural scale.
      Flow layout removes the artwork's fixed contact-to-payment blank area. */
-  #story .ft-bottom{margin-inline:-20px;aspect-ratio:auto;background:#382412;padding-bottom:14px}
+  #story .ft-bottom{margin-inline:-20px;aspect-ratio:auto;background:#382412;min-height:min(400px,90vw);padding-bottom:4px}
   /* Crop only the artwork's top 60px of empty background; keep the full logo. */
   #story .ft-brand{position:static;width:100%;height:auto;aspect-ratio:1164/370;margin:0;background:url("footer-mobile-background-v1.webp") center 6.1162%/100% auto no-repeat}
-  #story .ft-contact{position:static;width:90.6%;margin:8px auto 0}
-  #story .ft-payments{position:static;width:100%;height:auto;aspect-ratio:1164/310;margin:12px 0 0;background:url("footer-mobile-background-v1.webp") center 73.9673%/100% auto no-repeat}
-  #story .ft-copyright{position:static;width:90.6%;margin:16px auto 0;padding-top:10px;border-top:1px solid #79654c}
+  #story .ft-contact{position:static;width:90.6%;margin:0 auto}
+  #story .ft-payments{position:static;width:100%;height:auto;aspect-ratio:1164/310;margin:10px 0 0;background:url("footer-mobile-background-v1.webp") center 73.9673%/100% auto no-repeat}
+  #story .ft-copyright{position:static;width:90.6%;margin:0 auto;padding-top:0;border-top:1px solid #79654c}
   #story .ft-contact{font-size:13px;gap:12px}
   #story .ft-contact h2{font-size:15px}
   #story .ft-copyright{font-size:12px;gap:4px}
@@ -143,6 +143,8 @@
   #story .ft-social>.ft-social-empty{grid-row:3}
 }
 @media(max-width:600px){
+  /* 35px inset on the annotated phone; reduce it on narrow screens for the icons. */
+  #story .ft-social{padding:15px clamp(10px,calc(25vw - 78px),35px)}
   #story .ft-contact{font-size:clamp(10px,3.1vw,13px)}
   #story #footerEmail{font-size:clamp(9px,2.75vw,13px)}
   #story #footerHours{font-size:inherit;white-space:nowrap}

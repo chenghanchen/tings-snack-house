@@ -1037,6 +1037,8 @@ $("#productGrid").addEventListener(
   (e) => {
     const preview = e.target.closest?.("[data-preview]");
     if (!preview) return;
+    // The category badge is a label, not an image-preview target.
+    if (e.target.closest(".product-tag")) return;
     const p = products.find((x) => x.id === +preview.dataset.preview);
     if (!p) return;
     e.stopImmediatePropagation();
