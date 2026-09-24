@@ -26,7 +26,8 @@
 #customerAccountAvatar{display:none}
 #customerAccountBack{margin:0;flex:none;white-space:nowrap}
 /* All signed-in account views share one compact back control on desktop and mobile. */
-#customerAccountDialog:has(#customerSignedIn:not([hidden])) #customerAccountBack{font-size:15px;padding:0;width:50px;height:40px;min-height:40px}
+#customerAccountDialog:has(#customerSignedIn:not([hidden])) #customerAccountBack{font-size:15px;padding:0;width:70px;height:40px;min-height:40px;border-radius:20px;background:#fbf2e2;border-color:#eee1ce;color:#805132}
+#customerAccountDialog:has(#customerSignedIn:not([hidden])) #customerAccountBack::before{content:'‹ ';font-size:18px}
 #customerAccountEmail{margin:0 0 16px;font-size:14px;color:#000000}
 #customerAccountMessage:empty{display:none}
 .customer-feature-note{margin:12px 0;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--cream);line-height:1.7;font-size:14px}
@@ -100,8 +101,6 @@
 .customer-home-view .customer-account-title-row h2{font-size:28px;line-height:1.25;min-height:40px}
 .customer-home-view #customerAccountTitle:focus{outline:none} /* Programmatic heading focus, not an interactive control. */
 .customer-home-view #customerAccountAvatar{position:absolute;left:0;top:2px;display:grid;place-items:center;width:54px;height:54px;border-radius:50%;background:#f4e7d8;color:#633719;font-size:30px;font-weight:600}
-#customerAccountDialog.customer-home-view:has(#customerSignedIn) #customerAccountBack{width:72px;font-size:14px;border-color:#dfcbb7;border-radius:12px;color:#4b291b;background:#fffaf3}
-.customer-home-view #customerAccountBack::before{content:"←";margin-right:6px}
 .customer-home-view #customerAccountEmail{margin:2px 0 0 68px;color:#765e51;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
 .customer-home-welcome{position:relative;display:flex;align-items:center;min-height:112px;margin:4px -12px 0;isolation:isolate;pointer-events:none}
 .customer-home-welcome p{position:relative;z-index:1;margin:8px 0 0 14px;font-size:22px;line-height:1.55;letter-spacing:2px;color:#bd874b;transform:rotate(-6deg)}

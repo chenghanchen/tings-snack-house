@@ -539,7 +539,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
         return {width:r.width,height:r.height,fontSize:s.fontSize,padding:[s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft],
           clear:r.left>=title.right,clickable:document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===el};
       });
-      assert.deepEqual(style,{width:view==='home'?72:50,height:40,fontSize:view==='home'?'14px':'15px',padding:['0px','0px','0px','0px'],clear:true,clickable:true},`${view} back at ${width}px`);
+      assert.deepEqual(style,{width:70,height:40,fontSize:'15px',padding:['0px','0px','0px','0px'],clear:true,clickable:true},`${view} back at ${width}px`);
     };
     for (const width of responsiveWidths([320,375,390,780,781,782,1100,1710])) {
       await page.setViewportSize({width,height:844});
@@ -609,12 +609,20 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     await page.click('[data-account-tab=coupons]');
     await page.waitForSelector('#customerCouponsPanel .customer-coupon-card');
     assert.equal(await page.textContent('#activityWelcomeOffer'),'满 $35 减 $5');
-    assert.deepEqual(await page.locator('#customerCouponsPanel h3').allTextContents(),['可用优惠券']);
-    assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card .customer-coupon-source').allTextContents(),['【推荐奖励】：','【店铺优惠券】：','【新人券】：']);
-    assert.equal(await page.locator('#customerCouponsPanel .customer-coupon-card code').count(),0);
+    assert.deepEqual(await page.locator('#customerCouponsPanel h3').allTextContents(),['可用优惠券 · 3张']);
+    assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card .customer-coupon-source').allTextContents(),['推荐奖励 · ','店铺优惠券 · ','新人券 · ']);
+    assert.equal(await page.locator('#customerCouponsPanel .customer-coupon-card code').count(),0,'Coupon codes are never rendered, including collapsed content');
+    assert.doesNotMatch(await page.textContent('#customerCouponsPanel'),/优惠码|RWD-ALICE|RWD-USED|EXPIRED|UNAVAILABLE|TEN|NEW/);
+    assert.equal(await page.locator('#customerCouponsPanel button[aria-label^="复制"]').count(),0,'No coupon copy action');
+    const walletHistory=page.locator('#customerCouponsPanel>.customer-coupon-history');
+    assert.equal(await walletHistory.evaluate(el=>el.open),false,'Unavailable coupons default to collapsed');
+    assert.equal(await walletHistory.locator('summary').first().textContent(),'不可用优惠券 · 2张');
+    assert.equal(await walletHistory.locator('.customer-coupon-use').count(),0,'Unavailable status is not a fake action');
+    assert.deepEqual(await walletHistory.locator('.customer-coupon-state').allTextContents(),['暂不可用','已使用']);
+    assert.equal(await page.locator('#customerCouponsPanel [data-code="EXPIRED"]').count(),0,'Expired coupons are not rendered or counted');
     assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card').evaluateAll(cards=>cards.map(c=>c.dataset.code)),['RWD-ALICE','TEN','NEW']);
     assert.doesNotMatch(await page.textContent('#customerCouponsPanel'),/全店商品/);
-    assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card .customer-coupon-title').allTextContents(),['【推荐奖励】：推荐奖励券','【店铺优惠券】：10% 优惠券','【新人券】：首单专享']);
+    assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card .customer-coupon-title').allTextContents(),['推荐奖励 · 推荐奖励券','店铺优惠券 · 10% 优惠券','新人券 · 首单专享']);
     assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card small').allTextContents(),Array(3).fill('限用一次，不可与其他优惠券叠加使用'));
     assert.match(await page.textContent('#customerCouponsPanel'),/满 \$35\.00 可用/);
     assert.equal(await page.locator('#customerCouponsPanel>button').count(),0);
@@ -626,14 +634,21 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
         return {padding:[s.paddingTop,s.paddingBottom],clear:t.right<=b.left-4,overflow:root.scrollWidth>root.clientWidth+1};
       });
       assert.deepEqual(layout,{padding:['20px','20px'],clear:true,overflow:false},`coupon heading at ${width}px`);
-      const spacing=await page.locator('#customerCouponsPanel>.customer-coupon-card').first().evaluate(card=>{
-        const body=card.querySelector('.customer-coupon-body'),benefit=card.querySelector('.customer-coupon-benefit'),details=card.querySelector('.customer-coupon-details'),s=getComputedStyle(body),b=getComputedStyle(benefit);
-        return {padding:[s.paddingTop,s.paddingBottom],minHeight:s.minHeight,wide:s.display==='grid',benefitPadding:[b.paddingLeft,b.paddingRight],benefitMargin:[b.marginTop,b.marginBottom],overlap:s.display==='grid'&&benefit.getBoundingClientRect().right>details.getBoundingClientRect().left};
-      });
-      assert.deepEqual(spacing.padding,['8px','8px']);assert.equal(spacing.minHeight,'100px');assert.equal(spacing.overlap,false);
-      if(spacing.wide){assert.deepEqual(spacing.benefitPadding,['14px','14px']);assert.deepEqual(spacing.benefitMargin,['20px','20px'])}
-      const colors=await page.locator('#customerCouponsPanel>.customer-coupon-card').evaluateAll(cards=>cards.map(card=>{const s=getComputedStyle(card.querySelector('button'));return [getComputedStyle(card).backgroundColor,s.backgroundColor,s.color]}));
-      assert.deepEqual(colors,Array.from({length:3},()=>['rgb(255, 204, 204)','rgb(255, 26, 26)','rgb(255, 255, 255)']));
+      assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card').first().evaluate(card=>{
+        const s=getComputedStyle(card),f=getComputedStyle(card.querySelector('.customer-coupon-flourish'));
+        return [s.paddingTop,s.paddingBottom,s.marginBottom,f.fontSize,f.fontWeight,getComputedStyle(card.querySelector('.customer-coupon-minimum b')).fontSize,getComputedStyle(document.querySelector('#customerAccountEmail')).fontSize];
+      }),['0px','0px','0px','10px','500','20px','15px'],`Coupon annotations at ${width}px`);
+      assert.ok(await page.locator('#customerCouponsPanel>.customer-coupon-card').evaluateAll(cards=>cards.every(card=>{
+        const r=card.getBoundingClientRect(),b=card.querySelector('.customer-coupon-benefit').getBoundingClientRect(),d=card.querySelector('.customer-coupon-details').getBoundingClientRect(),a=card.querySelector('.customer-coupon-action').getBoundingClientRect(),copy=card.querySelector('.customer-coupon-summary>div').getBoundingClientRect();
+        return r.height>=104&&card.scrollWidth<=card.clientWidth&&b.right<=d.left&&copy.right<=a.left&&a.right<=r.right&&[b,d,a].every(p=>p.top>=r.top&&p.bottom<=r.bottom);
+      })),`Wallet amount/details/action never overlap at ${width}px`);
+      const colors=await page.locator('#customerCouponsPanel>.customer-coupon-card').evaluateAll(cards=>cards.map(card=>{const s=getComputedStyle(card.querySelector('.customer-coupon-use'));return [getComputedStyle(card).backgroundColor,s.backgroundColor,s.color]}));
+      assert.deepEqual(colors,Array.from({length:3},()=>['rgb(255, 237, 232)','rgb(233, 34, 53)','rgb(255, 255, 255)']));
+      await walletHistory.locator('summary').first().click();
+      assert.ok(await walletHistory.locator('.customer-coupon-card').evaluateAll(cards=>cards.every(c=>c.scrollWidth<=c.clientWidth&&c.querySelector('.customer-coupon-summary>div').getBoundingClientRect().right<=c.querySelector('.customer-coupon-action').getBoundingClientRect().left)),`Expanded unavailable cards fit ${width}px`);
+      assert.equal(await walletHistory.locator('[data-code="EXPIRED"]').count(),0,'Expanding history cannot reveal expired coupons');
+      await walletHistory.locator('summary').first().press('Enter');
+      assert.equal(await walletHistory.evaluate(el=>el.open),false,'Keyboard can collapse unavailable coupons');
     }
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-desktop.png')});
     await page.setViewportSize({width:390,height:1000});
@@ -643,23 +658,34 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     )});
     const reopenCoupons=async()=>{await page.click('#customerAccountBack');await page.click('[data-account-tab=coupons]');await page.waitForFunction(()=>document.querySelector('#customerCouponsPanel').getAttribute('aria-busy')==='false')};
     await reopenCoupons();
+    // UI grouping follows the existing eligibility result, including a stale API status.
+    await page.evaluate(()=>{__accountTest.wallet.coupons.push({id:'stale-expired',code:'STALE-END',name:'旧状态过期券',amount:5,min_spend:35,kind:'regular',status:'available',ends_at:'2000-01-01',uses:[]},{id:'soon',code:'SOON',name:'即将过期券',amount:5,min_spend:35,kind:'regular',status:'available',ends_at:new Date(Date.now()+86400000).toISOString(),uses:[]})});
+    await reopenCoupons();
+    assert.equal(await page.locator('#customerCouponsPanel>.customer-coupon-history [data-code="STALE-END"] .customer-coupon-use').count(),0);
+    assert.equal(await page.locator('#customerCouponsPanel [data-code="STALE-END"]').count(),0,'Past end dates are hidden even when the API status is stale');
+    assert.equal(await page.locator('#customerCouponsPanel>[data-code="SOON"] .customer-coupon-state').textContent(),'即将过期');
+    await page.evaluate(()=>{__accountTest.wallet.coupons=__accountTest.wallet.coupons.filter(c=>!['stale-expired','soon'].includes(c.id))});await reopenCoupons();
+    await page.evaluate(()=>{__accountTest.savedCoupons=__accountTest.wallet.coupons;__accountTest.wallet.coupons=__accountTest.savedCoupons.filter(c=>c.status==='expired')});await reopenCoupons();
+    assert.equal(await page.locator('#customerCouponsPanel .customer-coupon-card,#customerCouponsPanel>.customer-coupon-history').count(),0,'Expired-only wallet has no cards or empty history section');
+    assert.match(await page.textContent('#customerCouponsPanel'),/暂无可用优惠券/);
+    await page.evaluate(()=>{__accountTest.wallet.coupons=__accountTest.savedCoupons;delete __accountTest.savedCoupons});await reopenCoupons();
     const capCard=page.locator('#customerCouponsPanel [data-code="CLAIM-CAP"]');
     await capCard.waitFor();assert.match(await capCard.textContent(),/8.5折/);assert.match(await capCard.textContent(),/最高减 \$8/);
     assert.equal(await capCard.locator('small').textContent(),'限用一次，不可与其他优惠券叠加使用');
-    assert.equal(await capCard.locator('button').textContent(),'立即领取');
-    assert.equal(await capCard.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 253, 248)');
+    assert.equal(await capCard.locator('.customer-coupon-use').textContent(),'立即领取');
+    assert.equal(await capCard.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 237, 232)');
     await page.evaluate(()=>{__accountTest.claimError=true});
-    await capCard.locator('button').click();await page.waitForFunction(()=>document.querySelector('[data-code="CLAIM-CAP"] .customer-coupon-reason').textContent.includes('领取失败'));
-    assert.equal(await capCard.locator('button').isEnabled(),true);
+    await capCard.locator('.customer-coupon-use').click();await page.waitForFunction(()=>document.querySelector('[data-code="CLAIM-CAP"] .customer-coupon-reason').textContent.includes('领取失败'));
+    assert.equal(await capCard.locator('.customer-coupon-use').isEnabled(),true);
     await page.evaluate(()=>{__accountTest.claimError=false;__accountTest.delayClaim=true});
-    await capCard.locator('button').click();await page.waitForFunction(()=>!!__accountTest.resolveClaim);
-    assert.equal(await capCard.locator('button').isDisabled(),true);
+    await capCard.locator('.customer-coupon-use').click();await page.waitForFunction(()=>!!__accountTest.resolveClaim);
+    assert.equal(await capCard.locator('.customer-coupon-use').isDisabled(),true);
     await page.evaluate(()=>{__accountTest.delayClaim=false;__accountTest.resolveClaim()});
-    await page.waitForFunction(()=>document.querySelector('[data-code="CLAIM-CAP"] button').textContent==='去使用');
-    assert.equal(await capCard.locator('button').evaluate(el=>el.classList.contains('is-claimed')),true);
+    await page.waitForFunction(()=>document.querySelector('[data-code="CLAIM-CAP"] .customer-coupon-use').textContent==='去使用');
+    assert.equal(await capCard.locator('.customer-coupon-use').evaluate(el=>el.classList.contains('is-claimed')),true);
     await reopenCoupons();await capCard.waitFor();
-    assert.equal(await capCard.locator('button').textContent(),'去使用');
-    assert.deepEqual(await capCard.evaluate(el=>{const s=getComputedStyle(el.querySelector('button'));return [getComputedStyle(el).backgroundColor,s.backgroundColor,s.color]}),['rgb(255, 204, 204)','rgb(255, 26, 26)','rgb(255, 255, 255)']);
+    assert.equal(await capCard.locator('.customer-coupon-use').textContent(),'去使用');
+    assert.deepEqual(await capCard.evaluate(el=>{const s=getComputedStyle(el.querySelector('.customer-coupon-use'));return [getComputedStyle(el).backgroundColor,s.backgroundColor,s.color]}),['rgb(255, 237, 232)','rgb(233, 34, 53)','rgb(255, 255, 255)']);
     assert.equal(await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='claim_customer_coupon').length),2);
     assert.match(await page.locator('#customerCouponsPanel [data-code="CLAIM-SHIP"]').textContent(),/店铺当前配送区域/);
     for(const width of responsiveWidths([320,390,780,1710])){
@@ -677,7 +703,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     await page.evaluate(()=>{__accountTest.walletError=false;__accountTest.savedCoupons=__accountTest.wallet.coupons;__accountTest.wallet.coupons=__accountTest.savedCoupons.filter(c=>c.status!=='available')});
     await page.locator('#customerCouponsPanel').getByRole('button',{name:'重试',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#customerCouponsPanel').textContent.includes('暂无可用优惠券'));
     assert.equal(await page.locator('#customerCouponsPanel>.customer-coupon-card').count(),0);
-    assert.equal(await page.locator('#customerCouponsPanel .customer-coupon-history .customer-coupon-card').count(),3);
+    assert.equal(await page.locator('#customerCouponsPanel .customer-coupon-history .customer-coupon-card').count(),2);
     await page.evaluate(()=>{__accountTest.wallet.coupons=__accountTest.savedCoupons});
     await reopenCoupons();await page.waitForSelector('#customerCouponsPanel .customer-coupon-card');
     await page.click('#customerAccountBack');
@@ -1007,7 +1033,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
         return {width:r.width,height:r.height,fontSize:s.fontSize,padding:[s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft],
           clear:r.left>=title.right,clickable:document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===el};
       });
-      assert.deepEqual(detailsBack,{width:50,height:40,fontSize:'15px',padding:['0px','0px','0px','0px'],clear:true,clickable:true},`details back at ${width}px`);
+      assert.deepEqual(detailsBack,{width:70,height:40,fontSize:'15px',padding:['0px','0px','0px','0px'],clear:true,clickable:true},`details back at ${width}px`);
       assert.equal(await page.locator('#customerDetailsStatus').isVisible(),false);
       if(process.env.TINGS_ACCOUNT_SCREENSHOT && [390,1723].includes(width))await page.locator('#customerAccountDialog').screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-details-${width}.png`)});
       const spacing=await page.locator('#customerDetailsForm').evaluate(form=>{
