@@ -58,8 +58,8 @@ test("手机页尾：链接行高32px，联系方式与支付图按内容紧凑�
   const css = await read("footer-layout.css");
   const mobile = css.slice(css.indexOf("@media(max-width:600px)"));
   assert.match(mobile, /\.ft-links a\{font-size:13px;min-height:32px\}/);
-  assert.match(mobile, /\.ft-contact\{position:static;width:90.6%;margin:8px auto 0\}/);
-  assert.match(mobile, /\.ft-payments\{position:static;[^}]*margin:12px 0 0;[^}]*footer-mobile-background-v1.webp/);
+  assert.match(mobile, /\.ft-contact\{position:static;width:90.6%;margin:0 auto\}/);
+  assert.match(mobile, /\.ft-payments\{position:static;[^}]*margin:10px 0 0;[^}]*footer-mobile-background-v1.webp/);
   assert.match(mobile, /\.ft-brand\{position:static;[^}]*aspect-ratio:1164\/370/);
   assert.match(mobile, /center 6\.1162%\/100% auto no-repeat/);
 });
