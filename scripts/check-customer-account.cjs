@@ -135,13 +135,14 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
               dialog:[style(root).borderRadius,style(root).paddingTop,style(root).paddingBottom],heading:margin(heading),
               headerOffsets:[style(root.querySelector('#closeDialog')).marginTop,style(heading).paddingTop,style(root.querySelector('#orderFormWrap>.eyebrow')).paddingTop,style(root.querySelector('#customerCheckoutHint')).marginBottom],
               compactSpacing:[style(form.querySelector('[name=name]').closest('label')).marginTop,style(form.querySelector('#fulfillment').closest('label')).marginTop,style(form.querySelector('.checkout-delivery')).paddingBottom],
+              sectionSpacing:[style(form.querySelector('.checkout-contact')).paddingTop,style(form.querySelector('.checkout-contact')).paddingBottom,style(form.querySelector('.checkout-contact')).marginTop,style(form.querySelector('.checkout-delivery')).paddingTop],
               sectionHeadingsClear:[...form.querySelectorAll('.checkout-contact,.checkout-delivery')].every(section=>section.querySelector('label').getBoundingClientRect().top>=section.querySelector('.checkout-section-heading').getBoundingClientRect().bottom),
               submit:[style(button).fontSize,style(button).borderRadius,style(button).paddingTop,style(button).paddingBottom,style(button).justifyContent],
               overflow:root.scrollWidth>root.clientWidth+1,headingClear:labels[0].getBoundingClientRect().top>=heading.getBoundingClientRect().bottom,overlaps};
           });
           // The fixture also enables the existing optional scheduled-time field.
           assert.deepEqual(result,{sections:['联系信息','配送信息','优惠'],controls:Array(fulfillment==='delivery'?8:7).fill(['8px','5px']),
-            promo:['0px','0px'],summary:['12px','16px','16px','0px','0px'],dialog:['16px','20px','0px'],heading:['0px','7px'],headerOffsets:['0px','0px','0px','12px'],compactSpacing:['-5px','-5px','0px'],sectionHeadingsClear:true,
+            promo:['0px','0px'],summary:['12px','16px','16px','0px','0px'],dialog:['16px','20px','0px'],heading:['0px','7px'],headerOffsets:['0px','0px','0px','12px'],compactSpacing:['-5px','-5px','0px'],sectionSpacing:['8px','8px','-10px','8px'],sectionHeadingsClear:true,
             submit:[width<359?'14px':'16px','10px','12px','12px','center'],overflow:false,headingClear:true,overlaps:[]},`checkout ${phase} ${width}px ${fulfillment}: ${JSON.stringify(result)}`);
           const hintClear=await page.evaluate(()=>{
             const hint=document.querySelector('#couponCodeHint'),input=document.querySelector('#manualCouponCode');
@@ -837,6 +838,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.locator('#customerAccountDialog').screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-rewards-history.png')});
     await page.evaluate(()=>{__accountTest.wallet=__accountTest.referralSavedWallet});
     await page.evaluate(()=>{__accountTest.wallet.coupons.push({id:'test-shipping',code:'TEST-SHIPPING',name:'配送专享券',discount_kind:'free_shipping',amount:0,min_spend:25,requires_claim:true,claimed:true,kind:'regular',status:'available'})});
+    await page.evaluate(()=>{__accountTest.wallet.coupons.push({id:'checkout-stale',code:'CHECKOUT-STALE',name:'旧状态过期券',amount:5,min_spend:30,kind:'regular',status:'available',ends_at:'2000-01-01',uses:[]})});
     await page.click('#customerAccountBack');await page.click('[data-account-tab=rewards]');
     await page.waitForSelector('#customerWalletCheckout [data-code="TEST-SHIPPING"]',{state:'attached'});
     await closeCustomerAccount();
@@ -846,6 +848,9 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     await page.evaluate(()=>{__accountTest.originalFee=settings.delivery_fee;settings.delivery_fee=4});
     await page.click('#checkout');
     await page.waitForSelector('#customerWalletCheckout input[value="RWD-ALICE"]',{state:'attached'});
+    assert.equal(await page.locator('#customerWalletCheckout .checkout-coupon-selection').count(),0,'No redundant selected-count line');
+    assert.equal(await page.locator('#customerWalletCheckout [data-code="EXPIRED"]').count(),0,'Expired coupons are excluded from checkout');
+    assert.equal(await page.locator('#customerWalletCheckout [data-code="CHECKOUT-STALE"]').count(),0,'Past end dates are excluded even when API status is available');
     assert.equal(await page.locator('#customerWalletCheckout input[value="RWD-ALICE"]').isVisible(),false);
     const availableToggle=page.locator('#customerWalletCheckout .customer-coupon-toggle');
     assert.equal(await availableToggle.getAttribute('aria-expanded'),'false');
@@ -856,7 +861,8 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     assert.equal(await availableToggle.getAttribute('aria-expanded'),'true');
     assert.equal(await availableToggle.locator('span').evaluate(el=>getComputedStyle(el).listStyleType),'disclosure-open','expanded triangle matches native details marker');
     assert.equal(await page.locator('#customerWalletCheckout input[value="RWD-ALICE"]').isVisible(),true);
-    await page.click('#customerWalletCheckout input[value=""]');
+    assert.equal(await page.locator('.checkout-coupon-opt-out').count(),0,'Separate opt-out entry is removed');
+    await availableToggle.click();
     assert.equal(await availableToggle.getAttribute('aria-expanded'),'false');
     await availableToggle.click();
     assert.equal(await page.textContent('#customerWalletCheckout legend>span'),'优惠券');
@@ -872,21 +878,38 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
         const noteBox=noteRange.getBoundingClientRect(),noteClear=[...legend.children].every(el=>{const b=el.getBoundingClientRect();return b.top>=noteBox.bottom||b.right<=noteBox.left||b.left>=noteBox.right});
         return {fieldMargin:getComputedStyle(field).marginTop,summaryMargin:getComputedStyle(summary).marginTop,noteClear,summaryClear:summary.getBoundingClientRect().bottom<=cards[0].getBoundingClientRect().top,overflow:root.scrollWidth>root.clientWidth+1};
       });
-      const expectedMargin='0px';
-      assert.deepEqual(layout,{fieldMargin:expectedMargin,summaryMargin:expectedMargin,noteClear:true,summaryClear:true,overflow:false},`checkout coupon spacing at ${width}px`);
+      assert.deepEqual(layout,{fieldMargin:'-5px',summaryMargin:'0px',noteClear:true,summaryClear:true,overflow:false},`checkout coupon spacing at ${width}px`);
       const offerAlignment=await page.evaluate(()=>{
         const textBox=node=>{const range=document.createRange();range.selectNodeContents(node);return range.getClientRects()[0]};
         const toggle=textBox(document.querySelector('#customerWalletCheckout .customer-coupon-toggle>span'));
         const summary=textBox(document.querySelector('#customerWalletCheckout .checkout-history-toggle>span'));
-        const rules=document.querySelector('.checkout-offer-rules').getBoundingClientRect(),optOut=document.querySelector('.checkout-coupon-opt-out').getBoundingClientRect();
-        return {aligned:Math.abs(toggle.top-summary.top)<=1,rulesClear:rules.bottom<=optOut.top};
+        const rules=document.querySelector('.checkout-offer-rules').getBoundingClientRect(),controls=document.querySelector('.checkout-coupon-controls').getBoundingClientRect();
+        return {aligned:Math.abs(toggle.top-summary.top)<=1,rulesClear:rules.bottom<=controls.top};
       });
       assert.deepEqual(offerAlignment,{aligned:true,rulesClear:true},`coupon link alignment and rule copy ${width}px`);
-      assert.deepEqual(await availableToggle.evaluate(el=>{const s=getComputedStyle(el);return [s.paddingTop,s.paddingBottom,s.marginTop,s.marginBottom];}),['3px','3px','0px','0px'],`coupon toggle spacing at ${width}px`);
+      assert.ok(await page.locator('#customerWalletCheckout>fieldset>.customer-coupon-card').evaluateAll(cards=>cards.every(card=>{
+        const b=card.querySelector('.customer-coupon-benefit').getBoundingClientRect(),d=card.querySelector('.customer-coupon-details').getBoundingClientRect(),a=card.querySelector('.customer-coupon-action').getBoundingClientRect(),copy=card.querySelector('.customer-coupon-summary>div').getBoundingClientRect();
+        return card.classList.contains('customer-wallet-ticket')&&card.scrollWidth<=card.clientWidth+1&&b.right<=d.left&&(copy.right<=a.left||copy.bottom<=a.top)&&a.right<=card.getBoundingClientRect().right;
+      })),`shared checkout tickets never overlap at ${width}px`);
+      assert.equal(await page.locator('#customerWalletCheckout [data-code="TEN"] .customer-coupon-minimum b').evaluate(el=>getComputedStyle(el).fontSize),'20px','shared wallet threshold typography');
+      assert.deepEqual(await availableToggle.evaluate(el=>{const s=getComputedStyle(el);return [s.paddingTop,s.paddingBottom,s.marginTop,s.marginBottom];}),['6px','6px','0px','0px'],`coupon toggle spacing at ${width}px`);
+      assert.ok(await page.evaluate(()=>{
+        const root=document.querySelector('#customerWalletCheckout'),left=root.getBoundingClientRect().left;
+        return ['.customer-coupon-toggle'].every(selector=>{
+          const node=root.querySelector(selector),style=getComputedStyle(node),box=node.getBoundingClientRect();
+          return Math.abs(box.left-left)<=1&&style.borderTopStyle==='solid'&&parseFloat(style.borderTopWidth)>=1&&style.borderTopColor==='rgb(177, 60, 46)'&&style.textDecorationLine==='none'&&box.right<=root.getBoundingClientRect().right;
+        });
+      }),`coupon outline buttons align left without overflowing at ${width}px`);
+      assert.deepEqual(await historyToggle.evaluate(node=>{
+        const style=getComputedStyle(node),box=node.getBoundingClientRect(),root=node.closest('#customerWalletCheckout').getBoundingClientRect();
+        return {border:style.borderTopStyle,color:style.borderTopColor,outlined:parseFloat(style.borderTopWidth)>=1,decoration:style.textDecorationLine,inside:box.left>=root.left&&box.right<=root.right};
+      }),{border:'solid',color:'rgb(177, 60, 46)',outlined:true,decoration:'none',inside:true},`unavailable coupon outline button at ${width}px`);
       const history=page.locator('#customerWalletCheckout .customer-coupon-history');
       await historyToggle.click();
       assert.equal(await historyToggle.getAttribute('aria-expanded'),'true');
       assert.equal(await historyToggle.getAttribute('aria-controls'),await history.getAttribute('id'));
+      assert.equal(await historyToggle.textContent(),`查看不可用优惠券（${await history.locator('.customer-coupon-card').count()}）`,'Count includes only rendered, unexpired coupons');
+      assert.equal(await history.locator('[data-status=expired],[data-code="CHECKOUT-STALE"]').count(),0);
       const expanded=await page.evaluate(()=>{
         const root=document.querySelector('#customerWalletCheckout'),summary=root.querySelector('.checkout-history-toggle'),cards=[...root.querySelectorAll('.customer-coupon-history>.customer-coupon-card')],promo=document.querySelector('#promotionChoice');
         const left=root.querySelector('.customer-coupon-toggle').getBoundingClientRect(),right=summary.getBoundingClientRect(),firstAvailable=root.querySelector('fieldset>.customer-coupon-card').getBoundingClientRect();
@@ -907,17 +930,34 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     assert.equal(await page.locator('#customerWalletCheckout [data-code="TEN"]').isVisible(),false);
     await historyToggle.click();
     assert.match(await page.textContent('#customerWalletCheckout [data-code="TEN"] .customer-coupon-reason'),/达到使用门槛/);
+    assert.ok(await page.locator('#customerWalletCheckout [data-code="TEN"]').evaluate(node=>{
+      const wallet=document.querySelector('#customerCouponsPanel [data-code="TEN"]');
+      const properties=['backgroundColor','borderRadius','color'];
+      return !!wallet&&properties.every(key=>getComputedStyle(node)[key]===getComputedStyle(wallet)[key])&&node.querySelector('.customer-coupon-flourish')&&!node.classList.contains('is-wallet-inactive')&&node.querySelector('.customer-coupon-select').hidden&&!node.querySelector('.customer-coupon-state').hidden&&node.querySelector('input').disabled;
+    }),'Cart-ineligible valid coupons retain the wallet appearance with a noninteractive status');
     await page.evaluate(()=>window.dispatchEvent(new Event('tings:coupon-context')));
     assert.equal(await historyToggle.getAttribute('aria-expanded'),'true');
     assert.equal(await foldedCoupons.isVisible(),true);
     await historyToggle.click();
     await page.evaluate(()=>{window.TingsCouponContext=__accountTest.originalCouponContext;window.dispatchEvent(new Event('tings:coupon-context'))});
     assert.equal(await page.locator('#customerWalletCheckout>fieldset>[data-code="TEN"]').isVisible(),true);
-    assert.ok(await page.locator('#customerWalletCheckout>fieldset>[data-code="TEN"] .customer-coupon-body').evaluate(el=>el.getBoundingClientRect().height>=100));
+    assert.ok(await page.locator('#customerWalletCheckout>fieldset>[data-code="TEN"]').evaluate(el=>el.getBoundingClientRect().height>=104));
     await page.check('#customerWalletCheckout input[value="RWD-ALICE"]');
     assert.equal(await page.inputValue('#couponCodeInput'),'RWD-ALICE');
     assert.equal(await page.locator('#promotionChoice').isVisible(),true);
     assert.equal(await page.inputValue('#manualCouponCode'),'','selected coupon code is not exposed in the optional entry field');
+    assert.equal(await page.locator('#manualCouponCode').isDisabled(),true);
+    assert.equal(await page.locator('#manualCouponCode').getAttribute('placeholder'),'已使用优惠券');
+    assert.equal(await page.locator('#applyCouponCode').isDisabled(),true);
+    await page.evaluate(()=>{document.querySelector('#manualCouponCode').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#applyCouponCode').dispatchEvent(new Event('click',{bubbles:true}))});
+    assert.equal(await page.inputValue('#couponCodeInput'),'RWD-ALICE','Locked manual entry cannot overwrite the chosen coupon');
+    await page.locator('#customerWalletCheckout [data-code="RWD-ALICE"] .customer-coupon-select span').click();
+    assert.equal(await page.inputValue('#couponCodeInput'),'','Clicking the selected label cancels it');
+    assert.equal(await page.locator('#customerWalletCheckout input:checked').count(),0);
+    assert.equal(await page.locator('#manualCouponCode').isEnabled(),true);
+    assert.equal(await page.locator('#applyCouponCode').isEnabled(),true);
+    assert.equal(await page.locator('#manualCouponCode').getAttribute('placeholder'),'输入优惠码或推荐码');
+    await page.check('#customerWalletCheckout input[value="RWD-ALICE"]');
     assert.equal(await page.locator('#couponCodeInput').isEnabled(),true);
     assert.equal(await page.locator('#customerWalletCheckout>fieldset>.customer-coupon-card:visible').count(),1,'only selected coupon stays expanded');
     await availableToggle.click();
@@ -927,12 +967,12 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     await page.waitForFunction(()=>document.querySelector('#couponCodeHint').classList.contains('valid'));
     assert.match(await page.textContent('#orderSummary .order-amounts'),/优惠券：推荐奖励券/);
     assert.equal(await page.locator('#customerWalletCheckout [data-code="TEN"]').evaluate(el=>el.classList.contains('is-selected')),true);
-    assert.equal(await page.locator('#customerWalletCheckout [data-code="TEN"]').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 207, 202)');
+    assert.equal(await page.locator('#customerWalletCheckout [data-code="TEN"]').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 237, 232)');
     await page.selectOption('#fulfillment','pickup');
     assert.equal(await page.locator('#customerWalletCheckout input[value="TEST-SHIPPING"]').isDisabled(),true);
     assert.match(await page.textContent('#customerWalletCheckout [data-code="TEST-SHIPPING"] .customer-coupon-reason'),/仅配送/);
     assert.equal(await foldedCoupons.locator('[data-code="TEST-SHIPPING"]').count(),1);
-    assert.equal(await foldedCoupons.locator('[data-code="TEST-SHIPPING"]').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(244, 243, 237)');
+    assert.equal(await foldedCoupons.locator('[data-code="TEST-SHIPPING"]').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 237, 232)','Fulfillment restrictions do not change the coupon lifecycle appearance');
     assert.equal(await page.locator('#customerWalletCheckout [data-code="TEST-SHIPPING"]').isVisible(),false);
     await page.selectOption('#fulfillment','delivery');
     await availableToggle.click();
@@ -946,7 +986,12 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     await page.selectOption('#fulfillment','pickup');
     await page.waitForFunction(()=>document.querySelector('#couponCodeHint').textContent.includes('仅配送'));
     assert.equal(await foldedCoupons.locator('[data-code="TEST-SHIPPING"]').count(),1);
-    await page.check('#customerWalletCheckout input[value=""]');
+    await historyToggle.click();
+    assert.equal(await page.locator('#customerWalletCheckout input[value="TEST-SHIPPING"]').isEnabled(),true,'An ineligible selected coupon remains cancellable');
+    await page.click('#customerWalletCheckout input[value="TEST-SHIPPING"]');
+    assert.equal(await page.locator('#manualCouponCode').isEnabled(),true);
+    await availableToggle.click();
+    await historyToggle.click();
     assert.equal(await page.locator('#promotionChoice').isVisible(),true);
     assert.equal(await page.inputValue('#couponCodeInput'),'');
     assert.equal(await availableToggle.getAttribute('aria-expanded'),'false');
@@ -958,7 +1003,11 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     assert.equal(await page.inputValue('#couponCodeInput'),'RWD-ALICE');
     assert.equal(await availableToggle.isVisible(),true);
     assert.match(await availableToggle.textContent(),/更换优惠券|收起优惠券/);
-    await page.check('#customerWalletCheckout input[value=""]');
+    await page.locator('#customerWalletCheckout input[value="RWD-ALICE"]').focus();
+    await page.keyboard.press('Space');
+    assert.equal(await page.inputValue('#couponCodeInput'),'','Space cancels the selected coupon');
+    assert.equal(await page.locator('#manualCouponCode').isEnabled(),true);
+    await availableToggle.click();
     assert.equal(await page.locator('#customerWalletCheckout>fieldset>.customer-coupon-card:visible').count(),0);
     for(const width of responsiveWidths([320,390,780,781,1710])){
       await page.setViewportSize({width,height:1000});
@@ -977,7 +1026,14 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     assert.equal(await page.locator('#customerWalletCheckout input:checked').count(),0);
     assert.ok(await page.locator('#orderDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-wallet-checkout.png')});
+    await page.fill('#manualCouponCode','');
     await page.click('#closeDialog');
+    await page.evaluate(()=>{__accountTest.wallet.coupons=__accountTest.wallet.coupons.filter(c=>c.status==='expired'||c.code==='CHECKOUT-STALE')});
+    await openCustomerAccount();await page.click('[data-account-tab=rewards]');
+    await page.waitForFunction(()=>document.querySelector('#customerRewardsPanel').getAttribute('aria-busy')==='false');
+    assert.equal(await page.locator('#customerWalletCheckout').isVisible(),false,'Expired-only checkout has no empty coupon section');
+    assert.equal(await page.locator('#customerWalletCheckout .customer-coupon-card,.checkout-history-toggle').count(),0);
+    await closeCustomerAccount();
     await page.evaluate(()=>{settings.delivery_fee=__accountTest.originalFee});
     await page.evaluate(()=>{__accountTest.wallet=null;__accountTest.walletError=true});
     await openCustomerAccount();await page.click('[data-account-tab=rewards]');

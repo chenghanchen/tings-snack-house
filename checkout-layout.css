@@ -24,8 +24,9 @@
 .checkout-badge{padding:3px 8px;border-radius:8px;background:#f3eddf;color:#8b7a67;font-size:10px;font-weight:400;white-space:nowrap}
 #orderForm .checkout-section>label{position:relative;display:block;margin:12px 0 0;font-size:11px;line-height:1.5;font-weight:600;color:#48413b}
 #orderForm .checkout-section>label:has(input[name=name]),#orderForm .checkout-section>label:has(#fulfillment){margin-top:-5px}
-#orderForm .checkout-delivery{padding-bottom:0}
-#orderForm input:not([type=radio]):not([type=hidden]),#orderForm select,#orderForm textarea{width:100%;min-width:0;min-height:38px;margin-top:5px;padding:8px 12px 8px 36px;border:1px solid #e5ded4;border-radius:8px;background-color:#fffdfa;color:#413b36;font:400 13px/1.45 Arial, sans-serif;outline-color:#d96049;box-shadow:0 1px 3px #442b1910 inset}
+#orderForm .checkout-contact{padding-top:8px;padding-bottom:8px;margin-top:-10px}
+#orderForm .checkout-delivery{padding-top:8px;padding-bottom:0}
+#orderForm input:not([type=radio]):not([type=checkbox]):not([type=hidden]),#orderForm select,#orderForm textarea{width:100%;min-width:0;min-height:38px;margin-top:5px;padding:8px 12px 8px 36px;border:1px solid #e5ded4;border-radius:8px;background-color:#fffdfa;color:#413b36;font:400 13px/1.45 Arial, sans-serif;outline-color:#d96049;box-shadow:0 1px 3px #442b1910 inset}
 #orderForm select{appearance:auto;padding-right:8px}
 #orderForm textarea{height:50px;min-height:50px;resize:vertical}
 #orderForm input::placeholder,#orderForm textarea::placeholder{color:#a29a90;opacity:1}
@@ -49,38 +50,39 @@
 #orderForm #promotionChoice>label:before{content:'♧';color:#da4937;margin-right:8px;font-size:16px}
 #orderForm #manualCouponCode{padding:9px 10px;font-size:12px}
 #applyCouponCode{height:38px;border:0;border-radius:7px;background:#765248;color:#fff;font-size:12px;cursor:pointer}
+#orderForm #manualCouponCode:disabled{background:#f0efeb;color:#857b72;cursor:not-allowed;opacity:1}
+#orderForm #manualCouponCode:disabled::placeholder{color:#857b72}
+#applyCouponCode:disabled{opacity:.5;cursor:not-allowed}
 #orderForm #couponCodeHint:not([hidden]){grid-column:1/-1;margin:3px 0 0;font-size:11px;line-height:1.5}
 #orderForm #couponCodeHint.valid{color:#946e4c}
-/* Compact tickets; keep all eligibility messages and accessible radio controls. */
-#orderForm #customerWalletCheckout{margin:0;padding:0;position:relative;min-width:0}
-#orderForm #customerWalletCheckout fieldset{display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:14px;align-items:start;min-width:0;margin:0;padding:0}
+/* Compact tickets; keep all eligibility messages and accessible selection controls. */
+#orderForm #customerWalletCheckout{margin:0;padding:0;position:relative;min-width:0;container:checkout-coupons / inline-size}
+#orderForm #customerWalletCheckout fieldset{display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:14px;align-items:start;min-width:0;margin:-5px 0 0;padding:0}
 #orderForm #customerWalletCheckout legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
-.checkout-coupon-selection{grid-column:1/-1;margin:-10px 85px 9px 30px;font-size:10px;line-height:16.5px;color:#827568}
-#orderForm #customerWalletCheckout .checkout-coupon-opt-out{position:absolute;top:-10px;right:0;display:block;margin:0;min-height:0;line-height:16.5px;color:#b13c2e;font-size:11px;font-weight:500;text-decoration:underline;cursor:pointer}
-#orderForm .checkout-coupon-opt-out input{position:absolute;opacity:0}
-#orderForm .checkout-coupon-opt-out:focus-within{outline:2px solid #bd5940;outline-offset:2px}
-#orderForm .checkout-coupon-opt-out span{font-size:0}
-#orderForm .checkout-coupon-opt-out span:after{content:'不使用优惠券';font-size:11px}
-#orderForm #customerWalletCheckout .customer-coupon-card{order:1;grid-column:1/-1;grid-template-columns:minmax(0,1fr) 70px;min-height:100px;margin:0 0 10px;border:1px solid #f4bbb3;border-radius:10px;box-shadow:none;container-type:normal;color:#573b30;--coupon-accent:#b52c18}
-#orderForm #customerWalletCheckout .customer-coupon-card.is-selected{border:1px solid #f4bbb3;background:#ffcfca;box-shadow:none}
-#orderForm #customerWalletCheckout .customer-coupon-body{display:grid;grid-template-columns:65px minmax(0,1fr);gap:8px;align-items:center;min-height:100px;margin:0;padding:9px 8px}
-#orderForm #customerWalletCheckout .customer-coupon-benefit{margin:0;padding:0;font-size:37px;letter-spacing:-1px;line-height:1.1;white-space:normal}
-#orderForm #customerWalletCheckout [data-shipping=true] .customer-coupon-benefit{font-size:20px;max-width:none}
-#orderForm #customerWalletCheckout .customer-coupon-minimum{font-size:12px;line-height:1.4;margin:0 0 5px;color:#4a2e22;font-weight:700}
-#orderForm #customerWalletCheckout .customer-coupon-title{display:block;margin:3px 0;font-size:10px;line-height:1.5}
-#orderForm #customerWalletCheckout .customer-coupon-title h4{display:inline;font-size:10px;color:#72584b}
-#orderForm #customerWalletCheckout .customer-coupon-source{font-size:10px;color:#72584b;font-weight:400}
-#orderForm #customerWalletCheckout .customer-coupon-details p,#orderForm #customerWalletCheckout .customer-coupon-details small{font-size:9px;line-height:1.5;margin:3px 0;color:#907767}
-#orderForm #customerWalletCheckout .customer-coupon-details .customer-coupon-minimum{font-size:12px;color:#4a2e22}
-#orderForm #customerWalletCheckout .customer-coupon-details .customer-coupon-reason{font-size:10px;color:#875143}
-#orderForm #customerWalletCheckout .customer-coupon-action{padding:10px 7px;border-left:1px dashed #e4a59a;background:transparent}
-#orderForm #customerWalletCheckout .customer-coupon-select{border:0;background:none;color:#b43320;font-size:11px;gap:6px;padding:0;min-height:44px}
-#orderForm #customerWalletCheckout .customer-coupon-select input{accent-color:#bd3522}
-#orderForm #customerWalletCheckout .customer-coupon-card.is-unavailable{border-color:#e0e1d9;background:#f4f3ed;--coupon-accent:#8c9288}
-#orderForm #customerWalletCheckout .customer-coupon-card.is-unavailable .customer-coupon-select{color:#858078}
+/* Ticket styles are shared with My Coupons; only checkout selection differs. */
+#orderForm #customerWalletCheckout .customer-wallet-ticket{order:1;grid-column:1/-1;container-type:normal;margin:0 0 10px}
+#orderForm #customerWalletCheckout .customer-wallet-ticket:not(.is-wallet-inactive){padding-block:0}
+#orderForm #customerWalletCheckout .customer-coupon-card.is-selected{border-color:#e92235;box-shadow:0 0 0 1px #e9223522}
+#orderForm #customerWalletCheckout .customer-coupon-body{min-height:0;padding:0;margin:0}
+#orderForm #customerWalletCheckout .customer-coupon-select{position:relative;flex-direction:row;min-height:34px;margin:0;padding:5px 8px;gap:4px;border:1px solid #e92235;border-radius:10px;background:#e92235;color:#fff;font-size:11px;white-space:nowrap}
+#orderForm #customerWalletCheckout .customer-coupon-select input{width:12px;height:12px;min-height:0;margin:0;accent-color:#b72b1c}
+#orderForm #customerWalletCheckout .customer-coupon-reason{margin:6px 0 0;font-size:10px;line-height:1.5;color:#875143}
+/* Nested checkout cards have less room than the account wallet at the same viewport. */
+@container checkout-coupons (max-width:320px){
+  #orderForm #customerWalletCheckout .customer-wallet-ticket{grid-template-columns:72px minmax(0,1fr);padding-inline:7px}
+  #orderForm #customerWalletCheckout .customer-coupon-benefit{font-size:32px}
+  #orderForm #customerWalletCheckout [data-shipping=true] .customer-coupon-benefit{font-size:18px}
+  #orderForm #customerWalletCheckout .customer-coupon-details{padding-left:8px}
+  #orderForm #customerWalletCheckout .customer-coupon-minimum{padding-right:0}
+  #orderForm #customerWalletCheckout .customer-coupon-summary{grid-template-columns:minmax(0,1fr)}
+  #orderForm #customerWalletCheckout .customer-coupon-action{justify-self:end;transform:none}
+  #orderForm #customerWalletCheckout .customer-coupon-action::before,#orderForm #customerWalletCheckout .customer-coupon-action::after{display:none}
+}
 /* Keep both disclosures in a stable row above the full-width coupon lists. */
 #orderForm #customerWalletCheckout .checkout-coupon-controls{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin:0 0 6px}
-#orderForm #customerWalletCheckout .customer-coupon-toggle,#orderForm #customerWalletCheckout .checkout-history-toggle{align-self:start;display:flex;align-items:flex-start;height:auto;min-height:28px;min-width:0;margin:0;padding:3px 0;border:0;background:none;color:#8a5140;font-size:11px;font-weight:500;text-align:left;text-decoration:underline;line-height:1.5;cursor:pointer}
+#orderForm #customerWalletCheckout .customer-coupon-toggle,#orderForm #customerWalletCheckout .checkout-history-toggle{align-self:start;display:flex;align-items:flex-start;height:auto;min-height:32px;min-width:0;margin:0;padding:6px 0;border:1.25px solid transparent;background:none;color:#8a5140;font-size:11px;font-weight:500;text-align:left;text-decoration:underline;line-height:1.5;cursor:pointer}
+#orderForm #customerWalletCheckout .customer-coupon-toggle,#orderForm #customerWalletCheckout .checkout-history-toggle{justify-self:start;max-width:100%;padding-inline:10px;border-color:#b13c2e;border-radius:7px;background:#fffaf4;color:#b13c2e;text-decoration:none}
+#orderForm #customerWalletCheckout .customer-coupon-toggle:hover,#orderForm #customerWalletCheckout .checkout-history-toggle:hover{background:#fbeee3}
 #orderForm #customerWalletCheckout .checkout-history-toggle{grid-column:2}
 #orderForm #customerWalletCheckout .checkout-history-toggle>span{display:list-item;list-style-position:inside;list-style-type:disclosure-closed}
 #orderForm #customerWalletCheckout .checkout-history-toggle[aria-expanded=true]>span{list-style-type:disclosure-open}
@@ -100,9 +102,6 @@
   .checkout-snack-art{right:-9px}
   #orderFormWrap>#customerCheckoutHint{padding-right:92px;font-size:11px}
   .checkout-section{padding-inline:10px}
-  #orderForm #customerWalletCheckout .customer-coupon-card{grid-template-columns:minmax(0,1fr) 55px}
-  #orderForm #customerWalletCheckout .customer-coupon-body{grid-template-columns:47px minmax(0,1fr);gap:6px;padding:8px 6px}
-  #orderForm #customerWalletCheckout .customer-coupon-benefit{font-size:31px}
   #orderForm .checkout-submit-bar{grid-template-columns:91px minmax(0,1fr);gap:8px;margin-inline:-12px;padding-inline:13px}
   #orderForm #submitOrder{font-size:14px;gap:10px}
 }
