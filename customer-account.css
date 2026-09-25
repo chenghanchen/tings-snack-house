@@ -48,7 +48,7 @@
 @keyframes customer-order-refresh-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){#customerRefreshOrders[aria-busy="true"] svg{animation:none}}
 /* Only the orders heading uses this grid; other account panels stay unchanged. */
-.customer-account-heading:has(#customerOrderRefresh:not([hidden])){display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px}
+.customer-account-heading:has(#customerOrderRefresh:not([hidden])){display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px}
 .customer-account-heading:has(#customerOrderRefresh:not([hidden])) .customer-account-title-row,
 .customer-account-heading #customerOrderRefresh:not([hidden]){display:contents}
 .customer-account-heading:has(#customerOrderRefresh:not([hidden])) h2{font-size:24px;white-space:nowrap}
@@ -75,14 +75,13 @@
 @media(max-width:388px){.customer-order-toolbar{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:780px){.customer-account-preview .site-header{gap:6px}.customer-account-button{margin:0;padding:8px 9px;min-height:40px}.customer-account-preview .site-header .order-lookup-button{margin-left:auto}.customer-account-preview .site-header .bag-button{white-space:nowrap}}
 @media(max-width:388px){.customer-account-preview .site-header{padding-left:12px;padding-right:12px;gap:4px}.customer-account-preview .site-header .brand{font-size:23px;letter-spacing:1px}.customer-account-preview .site-header .brand small{font-size:7px;letter-spacing:0}.customer-account-preview .site-header .bag-button{padding:8px}.customer-account-preview .site-header .order-lookup-button{padding:8px}.customer-account-button{padding:8px}#customerAccountDialog{padding:16px}}
-/* Match the tracking dialog's content width so the same cards wrap identically. */
-#customerAccountDialog:has(#customerSignedIn:not([hidden])){max-width:none}
-@media(min-width:781px){#customerAccountDialog:has(#customerSignedIn:not([hidden])){width:min(480px,92vw);padding:36px;border:0}}
-@media(max-width:780px){#customerAccountDialog:has(#customerSignedIn:not([hidden])){width:min(390px,94vw);padding:14px 16px 18px;border:0}#customerOrders{padding-right:2px}}
+/* Home and every signed-in panel share the same width, including mobile gutters. */
+#customerAccountDialog:has(#customerSignedIn:not([hidden])){width:min(520px,calc(100vw - 24px));max-width:none}
+@media(min-width:781px){#customerAccountDialog:has(#customerSignedIn:not([hidden])){padding:36px;border:0}}
+@media(max-width:780px){#customerAccountDialog:has(#customerSignedIn:not([hidden])){padding:14px 16px 18px;border:0}#customerOrders{padding-right:2px}}
 #customerOrders .lookup-order-card:focus-visible{outline:3px solid var(--red);outline-offset:2px}
 /* Compact the orders view without changing the home heading or card widths. */
 #customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerOrdersPanel:not([hidden])){padding-top:20px;padding-bottom:20px}
-#customerOrdersPanel>p.customer-muted:first-child{margin-top:-10px;margin-bottom:-10px}
 .customer-orders-no-match{width:fit-content;max-width:100%;margin:40px auto;text-align:center;overflow-wrap:anywhere}
 /* Address form density; keep the shared dialog's horizontal padding unchanged. */
 #customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerDetailsPanel:not([hidden])){padding-top:20px;padding-bottom:20px}
@@ -95,8 +94,8 @@
 #customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerCouponsPanel:not([hidden])){padding-top:20px;padding-bottom:20px}
 /* Rewards view only: match the compact feature panels without changing their width. */
 #customerAccountDialog:has(#customerSignedIn:not([hidden]) #customerRewardsPanel:not([hidden])){padding-top:20px;padding-bottom:20px}
-/* Account HOME only. Orders, details, wallet and login keep their existing geometry. */
-#customerAccountDialog.customer-home-view:has(#customerSignedIn){width:min(520px,calc(100vw - 24px));padding:26px 24px 0;background:linear-gradient(125deg,#fffefa,#fdfaf5);color:#4b291b;border:1px solid #eaded0}
+/* Account HOME decoration; width is owned by the shared signed-in rule above. */
+#customerAccountDialog.customer-home-view:has(#customerSignedIn){padding:26px 24px 0;background:linear-gradient(125deg,#fffefa,#fdfaf5);color:#4b291b;border:1px solid #eaded0}
 .customer-home-view>.customer-account-heading{position:relative;align-items:center;padding-left:68px;min-height:44px;margin:0}
 .customer-home-view .customer-account-title-row h2{font-size:28px;line-height:1.25;min-height:40px}
 .customer-home-view #customerAccountTitle:focus{outline:none} /* Programmatic heading focus, not an interactive control. */
@@ -146,4 +145,75 @@
   .customer-home-icon{width:34px;height:34px}
   .customer-home-icon svg{width:23px;height:23px}
   .customer-home-welcome>svg{width:116px;opacity:.6}
+}
+
+/* My orders: compact cream ticket cards. Guest lookup and owner orders are unchanged. */
+#customerAccountDialog:has(#customerOrdersPanel:not([hidden])){background:#fffcf7}
+#customerAccountDialog:has(#customerOrdersPanel:not([hidden])) #customerAccountTitle{color:#4b3025}
+#customerAccountDialog:has(#customerOrdersPanel:not([hidden])) #customerAccountEmail{font-size:15px}
+.customer-order-field-label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+#customerOrdersPanel .customer-order-toolbar{grid-template-columns:minmax(0,1fr) 104px;gap:10px;margin:10px 0 0}
+#customerOrdersPanel .customer-order-toolbar label{position:relative;display:block;margin:0}
+#customerOrdersPanel .customer-order-toolbar input,#customerOrdersPanel .customer-order-toolbar select{height:36px;min-height:36px;margin:-5px 0 0;padding:7px 10px;border-color:#e5d9cc;border-radius:8px;background:#fffefa;font-size:12px;font-weight:400}
+#customerOrdersPanel .customer-order-toolbar input{padding-left:30px}
+#customerOrdersPanel .customer-order-toolbar label:first-child::before{content:'';position:absolute;left:11px;top:7px;width:9px;height:9px;border:1.5px solid #765344;border-radius:50%;pointer-events:none}
+#customerOrdersPanel .customer-order-toolbar label:first-child::after{content:'';position:absolute;left:20px;top:17px;width:5px;height:1.5px;background:#765344;transform:rotate(45deg);pointer-events:none}
+#customerOrders .customer-order-tile{margin:10px 0 0;padding:12px 14px 10px;background:#fffefa;border:1px solid #ecdfd0;border-radius:12px;box-shadow:0 3px 10px #78523208;color:#292925;overflow-wrap:anywhere}
+.customer-order-tile header{gap:8px;align-items:flex-start}
+.customer-order-entry .customer-order-tile header>div{flex:1 1 0;gap:3px}
+.customer-order-tile .customer-order-number-row{gap:6px;flex-wrap:wrap}
+.customer-order-tile header b{font-size:15px;letter-spacing:.3px;line-height:1.3}
+.customer-order-tile header small{font-size:10px;color:#8d9092;line-height:1.4}
+.customer-order-tile .customer-copy-order{display:inline-flex;align-items:center;justify-content:center;gap:3px;min-width:64px;min-height:24px;padding:3px 4px;border:1px solid #e2dbd0;border-radius:10px;background:#fffefa;color:#85837f;font-size:13px;line-height:1}
+.customer-order-tile .customer-copy-order::before{content:'▣';font-size:10px}
+.customer-order-tile .lookup-status{padding:5px 11px;border-radius:20px;background:#edf4ff;color:#477ddb;font-size:12px;line-height:1.3;white-space:nowrap}
+.customer-order-tile[data-status="已确认"] .lookup-status{background:#fff2dd;color:#cc862c}
+.customer-order-tile:is([data-status="配送中"],[data-status="等待取单"],[data-status="已完成"]) .lookup-status{background:#e7f6e7;color:#32934e}
+.customer-order-tile:is([data-status="已取消"],[data-status="取消申请中"]) .lookup-status{background:#fae8e3;color:#b74c3e}
+.customer-order-tile .lookup-progress.lookup-progress-v2{margin:7px 0 6px;grid-template-columns:repeat(var(--lookup-steps,3),minmax(0,1fr))}
+.customer-order-tile .lookup-progress::before{top:8px;left:calc(50% / var(--lookup-steps,3));right:calc(50% / var(--lookup-steps,3));height:2px;background:#e1ded7}
+.customer-order-tile .lookup-step{gap:3px;color:#8f9391;min-width:0}
+.customer-order-tile .lookup-step span{width:16px;height:16px;font-size:9px;border:1.5px solid #d4d3cc;background:#fffefa;box-shadow:none;color:transparent}
+.customer-order-tile .lookup-step b{font-size:10px;font-weight:500;line-height:1.25}
+.customer-order-tile .lookup-step:is(.done,.current,.cancelled,.rejected){color:#d7493d}
+.customer-order-tile .lookup-step:is(.done,.current,.cancelled,.rejected) span{border-color:#db493d;background:#db493d;color:#fff;box-shadow:none}
+.customer-order-tile .lookup-step.done:not(:last-child)::after{content:'';position:absolute;left:calc(50% + 8px);top:8px;width:calc(100% - 16px);height:2px;background:#e35b4c;z-index:0}
+.customer-order-tile .lookup-step.current:not(:last-child)::after{content:'';position:absolute;left:calc(50% + 8px);top:8px;width:calc(50% - 8px);height:2px;background:#e35b4c;z-index:0}
+.customer-order-tile .lookup-address{display:flex;gap:8px;margin:5px 0;padding:4px 8px;border-radius:6px;background:#faf6ee;font-size:13px;line-height:1.3}
+.customer-order-tile .lookup-address-content{gap:6px}
+.customer-order-tile .lookup-address-content>span{font-size:13px}
+.customer-order-tile .lookup-fulfillment-pill{padding:0;border:0;border-radius:0;font-size:13px;font-weight:500;color:#35322c}
+.customer-order-tile .lookup-fulfillment-pill::after{content:' ·';color:#8a8074}
+.customer-order-tile .lookup-address i{font-size:18px;line-height:14px;color:#6e5141}
+.customer-order-fulfillment-icon{width:18px;height:16px;flex:none;background:#d94737;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 20'%3E%3Cpath d='M1 2h13v13H1zm14 4h5l3 5v4h-8z'/%3E%3Ccircle cx='5' cy='16' r='3'/%3E%3Ccircle cx='19' cy='16' r='3'/%3E%3C/svg%3E") center/contain no-repeat}
+.customer-order-tile.is-pickup .customer-order-fulfillment-icon{mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 8h14l2 14H3zm3 0V6a4 4 0 0 1 8 0v2h-2V6a2 2 0 0 0-4 0v2z'/%3E%3C/svg%3E")}
+.customer-order-tile .lookup-items-preview{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:10px;padding:5px 8px;border:0;border-radius:7px;background:#faf6ee}
+.customer-order-tile .lookup-thumbs{gap:5px;margin:0;min-width:0}
+.customer-order-tile .lookup-item-thumb{width:calc((100% - 10px)/3);max-width:52px;height:auto;aspect-ratio:1;flex:0 0 calc((100% - 10px)/3);border-radius:6px;background:#f6ead4;font-size:26px}
+.customer-order-tile .lookup-items-preview ul{padding-left:12px;font-size:10px;line-height:1.3}
+.customer-order-tile .lookup-items-preview.has-single-item{grid-template-columns:42px minmax(0,1fr)}
+.customer-order-tile .has-single-item .lookup-item-thumb{width:42px;max-width:42px;flex-basis:42px}
+.customer-order-tile .has-single-item ul{list-style:none;padding:0;font-size:12px}
+.customer-order-tile .lookup-items-preview>div:nth-of-type(2)>small{margin:2px 0 0;padding:0;color:#7d634c;font-size:10px}
+.customer-order-tile .lookup-total{justify-content:space-around;gap:10px;margin:6px 0 0;padding:0;border:0;line-height:1.3}
+.customer-order-tile .lookup-item-count{display:block;height:auto;margin:0;font-size:12px;font-weight:600}
+.customer-order-tile .lookup-total>span{display:none}
+.customer-order-tile .lookup-total>b{padding-left:18px;border-left:1px solid #e9dfd2;font-size:21px;line-height:1;color:#f02016}
+.customer-order-tile .lookup-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:8px}
+.customer-order-tile .lookup-actions>button{min-width:0;min-height:32px;padding:5px 6px;border:1px solid #de5848;border-radius:6px;color:#cb4a3c;background:#fffefa;font-size:11px;font-weight:600;line-height:1.4}
+.customer-order-tile .lookup-actions>.customer-order-rebuy{display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(105deg,#e85b49,#d84d40);color:#fff;border-color:#dc5143}
+/* Give the open cancellation form breathing room; paired actions stay aligned otherwise. */
+.customer-order-tile:has(>.lookup-cancel-form:not([hidden])) .customer-order-rebuy{margin-top:12px}
+.customer-order-rebuy::before{content:'';width:16px;height:16px;background:currentColor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 3h3l3 13h11l3-10H6M9 20h1m7 0h1' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}
+.customer-order-tile.is-expanded .lookup-items-preview,.customer-order-tile.is-expanded .lookup-total{display:none}
+.customer-order-tile .lookup-detail-item .lookup-item-thumb{width:42px;height:42px;max-width:none}
+@media(max-width:380px){
+  #customerOrdersPanel .customer-order-toolbar{grid-template-columns:minmax(0,1fr) 88px;gap:8px}
+  #customerOrders .customer-order-tile{padding:10px}
+  .customer-order-tile header b{letter-spacing:0}
+  .customer-order-tile .lookup-status{padding:5px 8px}
+  .customer-order-tile .lookup-actions{gap:8px}
+}
+@media(max-width:360px){
+  .customer-account-heading:has(#customerOrderRefresh:not([hidden])) h2{font-size:20px}
 }
