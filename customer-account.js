@@ -78,13 +78,13 @@
         <button type="button" id="customerSignOut">退出登录</button>
         <div class="customer-home-footer" aria-hidden="true"><span>美味常在<br>每一天 ♥</span><svg viewBox="0 0 520 66" preserveAspectRatio="none" focusable="false"><path d="M0 23C70-16 113 60 202 39S364 70 520 9V66H0Z" fill="#f8eddd"/><path d="M0 43c110 29 174-28 280 1s160 2 240-17v39H0Z" fill="#fbf2e6"/></svg></div>
       </section>
-      <section id="customerOrdersPanel" data-account-panel="orders" hidden><p class="customer-muted">这里只显示登录后提交的订单。旧游客订单仍使用网站的“查订单”。</p>
+      <section id="customerOrdersPanel" data-account-panel="orders" hidden>
         <div class="customer-order-toolbar">
-          <label>搜索本页订单<input id="customerOrderSearch" type="search" placeholder="订单号、商品或规格" maxlength="100"></label>
-          <label>本页状态<select id="customerOrderFilter"><option value="all">全部</option><option value="active">进行中</option><option value="cancelling">取消处理中</option><option value="completed">已完成</option><option value="cancelled">已取消</option></select></label>
+          <label><span class="customer-order-field-label">搜索本页订单</span><input id="customerOrderSearch" type="search" placeholder="搜索订单号、商品或规格" maxlength="100"></label>
+          <label><span class="customer-order-field-label">本页状态</span><select id="customerOrderFilter"><option value="all">全部状态</option><option value="active">进行中</option><option value="cancelling">取消处理中</option><option value="completed">已完成</option><option value="cancelled">已取消</option></select></label>
         </div>
         <div id="customerOrders" aria-live="polite"></div>
-        <div class="customer-pagination"><button type="button" id="customerOrdersPrev">上一页</button>
+        <div class="customer-pagination" hidden><button type="button" id="customerOrdersPrev">上一页</button>
           <span id="customerOrdersPage"></span><button type="button" id="customerOrdersNext">下一页</button></div>
       </section>
       <section id="customerDetailsPanel" data-account-panel="details" hidden>
@@ -224,6 +224,7 @@
       if (session) authBlocked = false;
       $('#customerOrderSearch').value = ''; $('#customerOrderFilter').value = 'all';
       $('#customerOrdersPage').textContent = '';
+      $('#customerOrdersPanel .customer-pagination').hidden = true;
       $('#customerOrders').replaceChildren();
       $('#customerOrders').setAttribute('aria-busy','false');
       setOrderRefreshBusy(false);
@@ -472,6 +473,11 @@
   function renderOrder(order) {
     const entry = element('div', undefined, 'customer-order-entry');
     const card = window.TingsOrderCards.create(order);
+    card.classList.add('customer-order-tile');
+    card.dataset.status = order.cancellation_requested ? '取消申请中' : order.status;
+    card.querySelector('.lookup-order-label')?.remove();
+    const date = card.querySelector('header > div > small');
+    if (date) date.textContent = date.textContent.replace(/^下单时间：/, '');
     const items = Array.isArray(order.items) ? order.items.filter(item => item && typeof item === 'object') : [];
     const form = card.querySelector('[data-cancel-form]');
     if (form) {
@@ -493,20 +499,62 @@
     }
     const copy = element('button', '复制', 'customer-copy-order'); copy.type = 'button';
     copy.setAttribute('aria-label', '复制订单号');
+    copy.setAttribute('aria-live', 'polite');
+    const copyFailure = `无法自动复制，请长按或选中订单号：${order.order_number}`;
     copy.onclick = async () => {
       const stamp = epoch;
-      try { await navigator.clipboard.writeText(String(order.order_number)); if (stamp === epoch) message('订单号已复制。'); }
-      catch { if (stamp === epoch) message(`无法自动复制，请长按或选中订单号：${order.order_number}`); }
+      try {
+        await navigator.clipboard.writeText(String(order.order_number));
+        if (stamp === epoch && copy.isConnected) {
+          copy.textContent = '已复制';
+          copy.setAttribute('aria-label', '已复制订单号');
+          if ($('#customerAccountMessage').textContent === copyFailure) message('');
+        }
+      } catch {
+        if (stamp === epoch && copy.isConnected) {
+          copy.textContent = '复制';
+          copy.setAttribute('aria-label', '复制订单号');
+          message(copyFailure);
+        }
+      }
     };
     const number = card.querySelector('header > div > b');
     const numberRow = element('div', undefined, 'customer-order-number-row');
     number.replaceWith(numberRow); numberRow.append(number, copy);
     const buy = element('button', '再次购买', 'lookup-cancel-button'); buy.type = 'button';
+    buy.classList.add('customer-order-rebuy');
     const preview = element('section', undefined, 'customer-reorder-preview'); preview.hidden = true;
     buy.onclick = () => void prepareReorder(order, preview, buy);
     buy.disabled = !items.length;
     let actions = card.querySelector('.lookup-actions');
     if (!actions) { actions = element('div', undefined, 'lookup-actions'); card.append(actions); }
+    if (!actions.querySelector('[data-show-cancel]')) {
+      const details = element('button', '查看详情', 'lookup-detail-button'); details.type = 'button';
+      details.setAttribute('aria-expanded', 'false');
+      details.onclick = () => { card.click(); };
+      actions.append(details);
+      const syncDetails = () => {
+        const expanded = card.getAttribute('aria-expanded') === 'true';
+        details.textContent = expanded ? '收起详情' : '查看详情';
+        details.setAttribute('aria-expanded', String(expanded));
+      };
+      card.addEventListener('click', syncDetails);
+    }
+    const summary = card.querySelector('.lookup-items-preview');
+    if (items.length === 1) summary.classList.add('has-single-item');
+    if (items.length > 3) {
+      const remaining = items.slice(3).reduce((sum,item) => sum + Number(item.qty || 0), 0);
+      summary.lastElementChild.append(element('small', `还有 ${remaining} 件商品 ›`, 'customer-order-more'));
+    }
+    const addressIcon = card.querySelector('.lookup-address > span:first-child');
+    addressIcon.textContent = '';
+    addressIcon.className = 'customer-order-fulfillment-icon';
+    addressIcon.setAttribute('aria-hidden','true');
+    if (!order.cancellation_requested && !order.cancellation_rejected_at && order.status !== '已取消') {
+      const steps = [...card.querySelectorAll('.lookup-step')];
+      steps[0].querySelector('b').textContent = '待确认';
+      steps[1].querySelector('b').textContent = '正在准备';
+    }
     actions.prepend(buy); entry.append(card,preview);
     return entry;
   }
@@ -528,7 +576,7 @@
       for (const item of plan.additions) list.append(element('li',`${item.product.name}${item.label ? ` · ${item.label}` : ''} × ${item.qty} · 当前标价 ${money(item.price)}/件`));
       region.append(list);
       for (const issue of plan.issues) region.append(element('p',issue,'customer-reorder-issue'));
-      region.append(element('p','保留原购物篮。按当前价格与优惠结算，不沿用旧订单价格；最终金额和库存以下单核算为准。','customer-muted'));
+      region.append(element('p','按当前价格与优惠结算，最终金额和库存以下单核算为准。','customer-muted'));
       const confirm = element('button','确认加入购物篮','customer-primary'); confirm.type = 'button'; confirm.disabled = !plan.additions.length;
       const dismiss = element('button','暂不加入'); dismiss.type = 'button'; dismiss.onclick = () => { region.hidden = true; };
       confirm.onclick = async () => {
@@ -578,6 +626,7 @@
     setOrderRefreshBusy(true);
     $('#customerOrderSearch').disabled = true; $('#customerOrderFilter').disabled = true;
     $('#customerOrdersPrev').disabled = true; $('#customerOrdersNext').disabled = true;
+    $('#customerOrdersPanel .customer-pagination').hidden = offset === 0;
     try {
       const {data,error} = await accountRpc('get_my_customer_orders', {p_offset: offset});
       if (error || !Array.isArray(data)) throw error || new Error('Invalid orders');
@@ -586,6 +635,8 @@
       $('#customerOrdersPage').textContent = `第 ${offset / 20 + 1} 页`;
       $('#customerOrdersPrev').disabled = offset === 0;
       $('#customerOrdersNext').disabled = data.length < 20;
+      // Remove the redundant single-page footer without stranding older orders.
+      $('#customerOrdersPanel .customer-pagination').hidden = offset === 0 && data.length < 20;
     } catch (error) { if (stamp === epoch && request === orderRequest) { list.textContent = accountError(error,'订单暂时无法加载，请检查网络后点击“刷新订单”重试。'); $('#customerOrdersPrev').disabled = offset === 0; } }
     finally { if (stamp === epoch && request === orderRequest) { list.setAttribute('aria-busy','false'); setOrderRefreshBusy(false); $('#customerOrderSearch').disabled = !ordersLoaded; $('#customerOrderFilter').disabled = !ordersLoaded; } }
   }

@@ -547,6 +547,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     assert.equal(await page.textContent('#customerHomeDetailsStatus'),'待完善','An empty profile must not say saved');
     assert.doesNotMatch(await page.locator('.customer-home-menu').textContent(),/1 个进行中|2 张可用|\$5\.00/,'Illustration numbers are not account data');
     const assertAccountBack = async (view,width) => {
+      await assertAccountWidth(view,width);
       const style=await page.locator('#customerAccountBack').evaluate(el=>{
         const s=getComputedStyle(el),r=el.getBoundingClientRect(),title=document.querySelector('#customerAccountTitle').getBoundingClientRect();
         return {width:r.width,height:r.height,fontSize:s.fontSize,padding:[s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft],
@@ -554,6 +555,10 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
       });
       assert.deepEqual(style,{width:70,height:40,fontSize:'15px',padding:['0px','0px','0px','0px'],clear:true,clickable:true},`${view} back at ${width}px`);
     };
+    async function assertAccountWidth(view,width) {
+      const actual=await page.locator('#customerAccountDialog').evaluate(el=>el.getBoundingClientRect().width);
+      assert.equal(actual,Math.min(520,width-24),`${view} uses the shared account width at ${width}px`);
+    }
     for (const width of responsiveWidths([320,375,390,780,781,782,1100,1710])) {
       await page.setViewportSize({width,height:844});
       await assertAccountBack('home',width);
@@ -1081,7 +1086,9 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     assert.equal(await page.locator('#customerOrderUpdated').count(),0);
     assert.equal(await page.locator('#customerOrders .lookup-order-card img').count(),0);
     assert.equal(await page.evaluate(()=>window.xss),undefined);
+    assert.equal(await page.locator('#customerOrders .customer-order-rebuy').first().evaluate(el=>getComputedStyle(el).marginTop),'0px');
     await page.click('#customerOrders [data-show-cancel]');
+    assert.equal(await page.locator('#customerOrders .customer-order-rebuy').first().evaluate(el=>getComputedStyle(el).marginTop),'12px');
     assert.equal(await page.locator('#customerOrders [name=cancelPhone]').count(),0);
     await page.fill('#customerOrders [name=cancelReason]','测试取消');
     assert.equal(await page.textContent('#customerOrders .lookup-cancel-count'),'4 / 100');
@@ -1119,6 +1126,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     assert.equal(await page.locator('#customerSaveDetails').isDisabled(),true);
     for (const width of responsiveWidths([320,390,780,781,782,1100,1723])) {
       await page.setViewportSize({width,height:844});
+      await assertAccountWidth('details',width);
       assert.ok(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1));
       const detailsBack=await page.locator('#customerAccountBack').evaluate(el=>{
         const s=getComputedStyle(el),r=el.getBoundingClientRect(),title=document.querySelector('#customerAccountTitle').getBoundingClientRect();
@@ -1304,7 +1312,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
         return {label:back.textContent,afterTitle:r.left>=title.right,atRight:Math.abs(r.right-heading.right)<1,
           sameRow:Math.abs(r.top+r.height/2-title.top-title.height/2)<1,
           toolsInHeading:tools.closest('.customer-account-heading')!==null,
-          toolsClear:refresh.left>=title.right && refresh.right<=r.left-4 && refresh.bottom<=heading.bottom+1,
+          toolsClear:refresh.left>=title.right && Math.abs(r.left-refresh.right-8)<1 && refresh.bottom<=heading.bottom+1,
           desktopInline:innerWidth<=780 || Math.abs(refresh.top+refresh.height/2-title.top-title.height/2)<1,
           emailMargin:getComputedStyle(document.querySelector('#customerAccountEmail')).marginTop};
       });
@@ -1318,29 +1326,51 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
       assert.equal(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth<=el.clientWidth),true,`dialog overflow at ${width}px`);
       if(process.env.TINGS_ACCOUNT_SCREENSHOT && [390,1710].includes(width))await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-refresh-${width}.png`)});
       const compactOrders=await page.evaluate(()=>{
-        const root=document.querySelector('#customerAccountDialog'),email=document.querySelector('#customerAccountEmail'),note=document.querySelector('#customerOrdersPanel>p.customer-muted');
-        const rootStyle=getComputedStyle(root),noteStyle=getComputedStyle(note);
+        const root=document.querySelector('#customerAccountDialog'),email=document.querySelector('#customerAccountEmail'),toolbar=document.querySelector('.customer-order-toolbar');
+        const rootStyle=getComputedStyle(root);
         const close=root.querySelector('#customerAccountBack').getBoundingClientRect();
-        return {padding:[rootStyle.paddingTop,rootStyle.paddingBottom],margin:[noteStyle.marginTop,noteStyle.marginBottom],color:getComputedStyle(email).color,
-          noteBelowEmail:note.getBoundingClientRect().top>=email.getBoundingClientRect().bottom,
+        return {padding:[rootStyle.paddingTop,rootStyle.paddingBottom],noIntro:!document.querySelector('#customerOrdersPanel>p.customer-muted'),color:getComputedStyle(email).color,
+          toolbarBelowEmail:toolbar.getBoundingClientRect().top>=email.getBoundingClientRect().bottom,
           closeInside:close.top>=root.getBoundingClientRect().top+6};
       });
-      assert.deepEqual(compactOrders,{padding:['20px','20px'],margin:['-10px','-10px'],color:'rgb(0, 0, 0)',noteBelowEmail:true,closeInside:true},`compact orders at ${width}px`);
+      assert.deepEqual(compactOrders,{padding:['20px','20px'],noIntro:true,color:'rgb(0, 0, 0)',toolbarBelowEmail:true,closeInside:true},`compact orders at ${width}px`);
       const layout=await page.evaluate(()=>{
         const card=document.querySelector('#customerOrders .lookup-order-card');
         const copy=card.querySelector('.customer-copy-order'),number=copy.previousElementSibling;
         const [buy,cancel]=card.querySelector('.lookup-actions').children;
         const rect=node=>node.getBoundingClientRect();
         const a=rect(buy),b=rect(cancel),c=rect(copy),n=rect(number);
-        const properties=['fontSize','fontWeight','color','backgroundColor','border','borderRadius','padding','minHeight'];
-        return {sameStyle:properties.every(key=>getComputedStyle(buy)[key]===getComputedStyle(cancel)[key]),
-          sameRow:Math.abs(a.y-b.y)<1&&a.right<b.left,copyAfter:c.x>=n.right&&Math.abs((c.y+c.height/2)-(n.y+n.height/2))<1,
+        return {primaryFilled:getComputedStyle(buy).color==='rgb(255, 255, 255)'&&getComputedStyle(buy).backgroundImage.includes('gradient'),secondaryOutlined:getComputedStyle(cancel).borderTopStyle==='solid'&&getComputedStyle(cancel).backgroundColor==='rgb(255, 254, 250)',
+          sameRow:Math.abs(a.y-b.y)<1&&a.right<b.left,copyAfter:(c.x>=n.right&&Math.abs((c.y+c.height/2)-(n.y+n.height/2))<1)||c.top>=n.bottom,
           compact:c.height<39,overflow:card.scrollWidth>card.clientWidth+1,buyText:buy.textContent,cancelText:cancel.textContent};
       });
-      assert.deepEqual(layout,{sameStyle:true,sameRow:true,copyAfter:true,compact:true,overflow:false,buyText:'再次购买',cancelText:'申请取消订单'},`account buttons at ${width}px`);
+      assert.deepEqual(layout,{primaryFilled:true,secondaryOutlined:true,sameRow:true,copyAfter:true,compact:true,overflow:false,buyText:'再次购买',cancelText:'申请取消订单'},`account buttons at ${width}px`);
+      assert.deepEqual(await page.evaluate(()=>[
+        '.customer-order-number-row b','.customer-copy-order','#customerAccountEmail','.customer-order-tile .lookup-status'
+      ].map(selector=>getComputedStyle(document.querySelector(selector)).fontSize)),['15px','13px','15px','12px'],`order annotation fonts at ${width}px`);
+      assert.deepEqual(await page.evaluate(()=>{
+        const card=document.querySelector('#customerOrders .customer-order-tile');
+        return {total:getComputedStyle(card.querySelector('.lookup-total')).justifyContent,copyRadius:getComputedStyle(card.querySelector('.customer-copy-order')).borderRadius,
+          address:[...card.querySelectorAll('.lookup-address,.lookup-address-content>span,.lookup-fulfillment-pill')].map(el=>getComputedStyle(el).fontSize),
+          singlePageHidden:document.querySelector('#customerOrdersPanel .customer-pagination').hidden};
+      }),{total:'space-around',copyRadius:'10px',address:['13px','13px','13px'],singlePageHidden:true},`order footer annotations at ${width}px`);
+      assert.deepEqual(await page.evaluate(()=>{
+        const controls=['customerOrderSearch','customerOrderFilter'].map(id=>document.getElementById(id));
+        return {margins:controls.map(el=>getComputedStyle(el).marginTop),aligned:Math.abs(controls[0].getBoundingClientRect().top-controls[1].getBoundingClientRect().top)<1};
+      }),{margins:['-5px','-5px'],aligned:true},`order toolbar annotations at ${width}px`);
     }
     await page.getByRole('button',{name:'复制订单号',exact:true}).click();
     assert.equal(await page.evaluate(()=>window.__copiedOrder),'TSH-260912-EE019');
+    assert.equal(await page.getByRole('button',{name:'已复制订单号',exact:true}).textContent(),'已复制');
+    assert.doesNotMatch(await page.textContent('#customerAccountMessage'),/订单号已复制/);
+    await page.evaluate(()=>{navigator.clipboard.writeText=async()=>{throw new Error('denied')};});
+    await page.getByRole('button',{name:'已复制订单号',exact:true}).click();
+    assert.equal(await page.getByRole('button',{name:'复制订单号',exact:true}).textContent(),'复制');
+    assert.match(await page.textContent('#customerAccountMessage'),/无法自动复制/);
+    await page.evaluate(()=>{navigator.clipboard.writeText=async text=>{window.__copiedOrder=text};});
+    await page.getByRole('button',{name:'复制订单号',exact:true}).click();
+    assert.equal(await page.textContent('#customerAccountMessage'),'');
+    assert.equal(await page.getByRole('button',{name:'已复制订单号',exact:true}).textContent(),'已复制');
     assert.equal(await page.locator('#customerOrders .lookup-details').isVisible(),false);
     await page.setViewportSize({width:390,height:1180});
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-pending.png')});
@@ -1353,8 +1383,12 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     });
     await page.click('#customerRefreshOrders');
     await page.waitForFunction(()=>document.querySelector('#customerOrders').textContent.includes('TSH-REBUY'));
-    assert.equal(await page.locator('#customerOrders .lookup-actions > button').count(),1);
-    assert.equal(await page.locator('#customerOrders .lookup-actions > button').textContent(),'再次购买');
+    assert.deepEqual(await page.locator('#customerOrders .lookup-actions > button').allTextContents(),['再次购买','查看详情']);
+    await page.getByRole('button',{name:'查看详情',exact:true}).click();
+    assert.equal(await page.locator('#customerOrders .lookup-details').isVisible(),true);
+    assert.equal(await page.getByRole('button',{name:'收起详情',exact:true}).getAttribute('aria-expanded'),'true');
+    await page.getByRole('button',{name:'收起详情',exact:true}).click();
+    assert.equal(await page.locator('#customerOrders .lookup-details').isVisible(),false);
     await page.fill('#customerOrderSearch','找不到');assert.equal(await page.locator('#customerOrders .lookup-order-card').count(),0);
     assert.equal(await page.textContent('#customerOrders'),'没有符合条件的订单。');
     for (const width of responsiveWidths([320,390,780,1100,1710])) {
@@ -1377,6 +1411,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     const beforeSubmissions=await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='submit-order').length);
     await page.getByRole('button',{name:'再次购买',exact:true}).click();
     await page.waitForSelector('.customer-reorder-preview .customer-primary');
+    assert.equal(await page.locator('.customer-reorder-preview .customer-muted').last().textContent(),'按当前价格与优惠结算，最终金额和库存以下单核算为准。');
     assert.match(await page.textContent('.customer-reorder-preview'),/已下架/);
     await page.evaluate(()=>{__accountTest.price=7});
     await page.getByRole('button',{name:'确认加入购物篮',exact:true}).click();
@@ -1461,25 +1496,25 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     await page.click('[data-account-tab=details]');
     await page.click('#customerAccountBack');await page.click('[data-account-tab=orders]');
     await page.waitForSelector('#customerOrders .lookup-order-card');
-    await page.click('#customerOrders .lookup-order-card header');
+    await page.click('#customerOrders .lookup-order-card header small');
     assert.equal(await page.locator('#customerOrders .lookup-details').isVisible(),true);
     await page.locator('#customerOrders .lookup-order-card').focus();await page.keyboard.press('Enter');
     assert.equal(await page.locator('#customerOrders .lookup-details').isVisible(),false);
     // A real held mouse click must not toggle, while keyboard access still works afterwards.
-    await page.click('#customerOrders .lookup-order-label',{delay:650});
+    await page.click('#customerOrders .customer-order-number-row b',{delay:650});
     assert.equal(await page.locator('#customerOrders .lookup-details').isVisible(),false);
     await page.locator('#customerOrders .lookup-order-card').focus();await page.keyboard.press('Enter');
     assert.equal(await page.locator('#customerOrders .lookup-details').isVisible(),true);
-    await page.click('#customerOrders .lookup-order-label',{delay:650});
+    await page.click('#customerOrders .customer-order-number-row b',{delay:650});
     assert.equal(await page.locator('#customerOrders .lookup-details').isVisible(),true);
     await page.evaluate(()=>getSelection().removeAllRanges());
-    await page.click('#customerOrders .lookup-order-label');
+    await page.click('#customerOrders .customer-order-number-row b');
     assert.equal(await page.locator('#customerOrders .lookup-details').isVisible(),false);
     const gestureFailures=await page.evaluate(async()=>{
       const failures=[],guestHost=document.querySelector('#lookupResult');
       guestHost.innerHTML=lookupOrderCard(__accountTest.orders[0]);
       for (const [surface,card] of [['account',document.querySelector('#customerOrders .lookup-order-card')],['lookup',guestHost.querySelector('.lookup-order-card')]]) {
-        const target=card.querySelector('.lookup-order-label'),details=card.querySelector('.lookup-details');
+        const target=card.querySelector(surface==='account'?'.customer-order-number-row b':'.lookup-order-label'),details=card.querySelector('.lookup-details');
         const pointer=(type,extra={})=>target.dispatchEvent(new PointerEvent(type,{bubbles:true,pointerId:42,pointerType:'touch',isPrimary:true,button:0,clientX:20,clientY:20,...extra}));
         const click=()=>target.dispatchEvent(new MouseEvent('click',{bubbles:true,detail:1}));
         const expect=(expanded,step)=>{if(details.hidden===expanded)failures.push(`${surface}: ${step}`)};
@@ -1514,6 +1549,10 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
         const lookupForm=document.querySelector('#orderLookupFormWrap');
         const issues=[];
         lookupForm.hidden=true;lookupHost.hidden=false;lookupDialog.classList.add('has-lookup-results');lookupDialog.show();
+        // The account shell now matches account home, not guest lookup. Compare shared cards
+        // at equal content widths so typography, geometry and interaction checks stay exact.
+        const referenceWidth=lookupHost.style.width;
+        lookupHost.style.width=`${accountHost.getBoundingClientRect().width}px`;
         const props=['fontFamily','fontSize','fontWeight','lineHeight','color','backgroundColor','display','gap','padding','margin','border','borderRadius','boxShadow','gridTemplateColumns'];
         for(const fulfillment of ['pickup','delivery'])for(const status of ['待确认','已确认','配送中','已完成','已取消']){
           const order={...__accountTest.orders[0],fulfillment,status,address:'123 Test Street',order_number:'TSH-260911-AB123',
@@ -1546,6 +1585,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
           }
           card.remove();
         }
+        lookupHost.style.width=referenceWidth;
         lookupDialog.close();lookupDialog.classList.remove('has-lookup-results');lookupHost.replaceChildren();lookupHost.hidden=true;lookupForm.hidden=false;
         if(issues.length)issues.unshift({containers:[document.querySelector('#customerAccountDialog'),accountHost,lookupDialog,lookupHost].map(el=>({id:el.id,width:getComputedStyle(el).width,maxWidth:getComputedStyle(el).maxWidth,padding:getComputedStyle(el).padding,client:el.clientWidth,offset:el.offsetWidth,box:getComputedStyle(el).boxSizing}))});
         return issues;

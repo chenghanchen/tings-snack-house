@@ -60,7 +60,7 @@ module.exports = async (page, errors) => {
     assert.equal(layout.clear,true,`header overlap at ${width}: ${JSON.stringify(layout)}`);
     assert.equal(layout.inline,true,`header row at ${width}`);
     assert.equal(layout.overflow,false,`dialog overflow at ${width}`);
-    assert.equal(layout.titleSize,'24px');
+    assert.equal(layout.titleSize,width<=360?'20px':'24px');
     assert.deepEqual(layout.padding,['20px','20px']);
     assert.deepEqual(layout.style,['rgb(215, 91, 75)','rgb(215, 91, 75)','8px','15px',36,'5px','5px']);
     if(process.env.TINGS_ACCOUNT_SCREENSHOT && [390,1710].includes(width))await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png',`-refresh-${width}.png`)});
@@ -72,6 +72,21 @@ module.exports = async (page, errors) => {
   assert.equal(await page.locator('#customerOrders .lookup-order-card').count(),0);
   await page.selectOption('#customerOrderFilter','all');
   assert.equal(await page.locator('#customerOrders .lookup-order-card').count(),1);
+  assert.equal(await page.locator('#customerOrdersPanel .customer-pagination').isVisible(),false,'No redundant single-page footer');
+  await page.evaluate(()=>{
+    __accountTest.savedPaginationOrders=__accountTest.orders;
+    __accountTest.orders=Array.from({length:20},(_,i)=>({id:`page-${i}`,order_number:`TSH-PAGE-${i}`,status:'待确认',fulfillment:'pickup',created_at:'2026-09-18T12:00:00Z',items:[],total_amount:0}));
+  });
+  await button.click();await idle();
+  assert.equal(await page.locator('#customerOrdersPanel .customer-pagination').isVisible(),true,'Older orders remain reachable when a page is full');
+  assert.equal(await page.locator('#customerOrdersNext').isEnabled(),true);
+  await page.click('#customerOrdersNext');await idle();
+  assert.equal(await page.locator('#customerOrdersPrev').isEnabled(),true,'Empty final page still has a way back');
+  await page.click('#customerOrdersPrev');await idle();
+  assert.equal(await page.locator('#customerOrders .lookup-order-card').count(),20);
+  await page.evaluate(()=>{__accountTest.orders=__accountTest.savedPaginationOrders;delete __accountTest.savedPaginationOrders;});
+  await button.click();await idle();
+  assert.equal(await page.locator('#customerOrdersPanel .customer-pagination').isVisible(),false);
   await page.click('#customerAccountBack');
   assert.equal(await page.locator('#customerHomePanel').isVisible(),true);
   // Stale requests cannot leave a spinner running across account changes.
