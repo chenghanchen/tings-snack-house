@@ -5,6 +5,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   const money=value=>`$${Number(value).toFixed(2).replace(/\.00$/,'')}`;
   const amount=c=>c.discount_kind==='free_shipping'?'免配送费':c.discount_kind==='percent'?`${Number(((100-Number(c.amount))/10).toFixed(2))}折`:money(c.amount);
   const date=value=>value ? new Date(value).toLocaleDateString('en-US') : '无固定期限';
+  const isExpired=c=>c.status==='expired'||!!(c.ends_at&&new Date(c.ends_at)<new Date());
   const couponsPanel=dialog.querySelector('#customerCouponsPanel'),rewardsPanel=dialog.querySelector('#customerRewardsPanel');
   let request=0, wallet=null, selectedCode='',previewResult=null,availableExpanded=false;
   let shareGuide=null;
@@ -33,6 +34,12 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   const checkout=el('section',null,'customer-wallet-checkout'); checkout.id='customerWalletCheckout'; checkout.hidden=true;
   document.querySelector('#promotionChoice').before(checkout);
   const couponInput=document.querySelector('#couponCodeInput');
+  const manualInput=document.querySelector('#manualCouponCode'),applyManualButton=document.querySelector('#applyCouponCode'),manualPlaceholder=manualInput.placeholder;
+  function syncManualEntry(locked){
+    manualInput.disabled=locked;applyManualButton.disabled=locked;
+    manualInput.placeholder=locked?'已使用优惠券':manualPlaceholder;
+    if(locked)manualInput.value='';
+  }
   couponInput.addEventListener('input',()=>{
     selectedCode=couponInput.value.trim().toUpperCase();
     previewResult=null;syncCheckout();
@@ -44,6 +51,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     couponsPanel.replaceChildren();rewardsPanel.replaceChildren();
     if(selectedCode&&couponInput.value.trim().toUpperCase()===selectedCode){couponInput.value='';couponInput.dispatchEvent(new Event('input',{bubbles:true}));}
     selectedCode='';
+    syncManualEntry(false);
     document.querySelector('#promotionChoice').hidden=false;
   }
   function button(text,fn){const node=el('button',text);node.type='button';node.onclick=fn;return node;}
@@ -62,7 +70,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     if(previewResult?.code===c.code&&previewResult.valid===false)return previewResult.reason||'本单暂不符合使用条件';
     return '';
   }
-  function choose(c){availableExpanded=false;selectedCode=c?.code||'';document.querySelector('#manualCouponCode').value='';couponInput.value=selectedCode;couponInput.dispatchEvent(new Event('input',{bubbles:true}));}
+  function choose(c,keepExpanded=false){availableExpanded=keepExpanded;selectedCode=c?.code||'';manualInput.value='';couponInput.value=selectedCode;couponInput.dispatchEvent(new Event('input',{bubbles:true}));}
   async function claim(c,action,message){
     if(!identity()||claiming.has(c.id))return;
     const stamp=identity();claiming.add(c.id);action.disabled=true;action.textContent='领取中…';
@@ -79,7 +87,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   }
   function card(c,showSource=false,inCheckout=false,inWallet=false){
     const node=el('article',null,'customer-coupon-card');
-    if(inWallet)node.classList.add('customer-wallet-ticket');
+    if(inWallet){node.classList.add('customer-wallet-ticket');node.classList.toggle('is-wallet-inactive',!!unavailable(c));}
     node.dataset.code=c.code;
     node.dataset.status=c.status;
     node.dataset.shipping=String(c.discount_kind==='free_shipping');
@@ -111,23 +119,24 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
       const summary=el('div',null,'customer-coupon-summary'),copy=el('div');
       copy.append(title,details.querySelector('.customer-coupon-validity'));summary.append(copy,aside);minimum.after(summary);
       // Codes remain internal checkout identifiers, never rendered as coupon copy.
-      if(reason.textContent){
+      if(unavailable(c)){
         const more=el('details',null,'customer-coupon-more');more.append(el('summary','使用说明'));
-        for(const item of [...details.children])if(item!==minimum&&item!==summary)more.append(item);
+        for(const item of [...details.children])if(item!==minimum&&item!==summary&&!(inCheckout&&item===reason))more.append(item);
         // Standard expired tickets need only their status; retain unusual reasons and usage history.
         if((c.uses||[]).length||!['优惠券已过期','此券已使用'].includes(reason.textContent))details.append(more);
       }else{
         const flourish=el('span','让味蕾心动，\n把美味带回家！♥','customer-coupon-flourish');flourish.setAttribute('aria-hidden','true');body.querySelector('.customer-coupon-benefit').append(flourish);
       }
       const remaining=new Date(c.ends_at).getTime()-Date.now();
-      if(!reason.textContent&&remaining>0&&remaining<=3*86400000){node.dataset.expiring='true';aside.append(el('span','即将过期','customer-coupon-state'));}
-      else if(!reason.textContent&&(c.claimed||justClaimed.has(c.id)))aside.append(el('span','已领取','customer-coupon-state'));
+      if(!inCheckout&&!reason.textContent&&remaining>0&&remaining<=3*86400000){node.dataset.expiring='true';aside.append(el('span','即将过期','customer-coupon-state'));}
+      else if(!inCheckout&&!reason.textContent&&(c.claimed||justClaimed.has(c.id)))aside.append(el('span','已领取','customer-coupon-state'));
     }
     if(inCheckout){
-      const label=el('label',null,'customer-coupon-select'),radio=el('input'),text=el('span','使用');
-      radio.type='radio';radio.name='wallet_coupon_choice';radio.value=c.code;radio.setAttribute('aria-label',`使用${c.name}，${amount(c)}`);
-      label.append(radio,text);aside.append(label);radio.onchange=()=>{if(radio.checked)choose(c)};
-      checkoutCards.set(c.code,{c,node,radio,text,reason});
+      const label=el('label',null,'customer-coupon-select'),radio=el('input'),text=el('span','使用'),state=el('span','','customer-coupon-state');
+      // Native checkboxes support click/Space to deselect; choose() still enforces one coupon.
+      radio.type='checkbox';radio.name='wallet_coupon_choice';radio.value=c.code;radio.setAttribute('aria-label',`使用${c.name}，${amount(c)}`);
+      label.append(radio,text);aside.append(label,state);radio.onchange=()=>choose(radio.checked?c:null,!radio.checked);
+      checkoutCards.set(c.code,{c,node,radio,text,reason,label,state});
     }else if(inWallet&&reason.textContent){
       const state=c.status==='used'?'已使用':c.status==='expired'||(c.ends_at&&new Date(c.ends_at)<new Date())?'已过期':'暂不可用';
       aside.append(el('span',state,'customer-coupon-state'));
@@ -153,23 +162,15 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   function renderCheckout(){
     document.querySelector('#promotionChoice').before(checkout);
     checkout.replaceChildren();checkoutCards.clear();document.querySelector('#promotionChoice').hidden=false;
-    checkout.hidden=!identity()||!wallet; if(checkout.hidden)return;
-    const rows=wallet.coupons.filter(c=>c.status!=='claimable');
+    checkout.hidden=!identity()||!wallet; if(checkout.hidden){syncManualEntry(false);return;}
+    const rows=wallet.coupons.filter(c=>c.status!=='claimable'&&!isExpired(c));
     checkout.dataset.availableCollapsed=String(!availableExpanded&&!rows.some(c=>c.code===couponInput.value.trim().toUpperCase()));
     checkout.dataset.hasSelected=String(rows.some(c=>c.code===couponInput.value.trim().toUpperCase()));
-    if(!rows.length){checkout.hidden=true;return;}
+    if(!rows.length){checkout.hidden=true;syncManualEntry(false);return;}
     checkoutCards.clear();
     const fieldset=el('fieldset'),legend=el('legend');
     legend.append(el('span','优惠券'),el('small','每单限用一张；推荐奖励与优惠券不能叠加。','customer-wallet-rules'));
     fieldset.append(legend);
-    const selectionSummary=el('p','','checkout-coupon-selection');selectionSummary.setAttribute('aria-live','polite');fieldset.append(selectionSummary);
-    for(const c of [{code:'',name:'不使用账户优惠券'}]){
-      const label=el('label',null,'checkout-coupon-opt-out'),radio=el('input');radio.type='radio';radio.name='wallet_coupon_choice';radio.value=c.code;radio.checked=c.code===couponInput.value.trim().toUpperCase();
-      const text=c.code?`${amount(c)} · ${c.name} · 满 $${Number(c.min_spend).toFixed(2)} 可用`:c.name;
-      label.append(radio,el('span',text));fieldset.append(label);
-      const optOut=()=>{if(!radio.checked)return;availableExpanded=false;if(couponInput.value)choose(null);else syncCheckout();};
-      radio.onchange=optOut;radio.onclick=optOut;
-    }
     const availableToggle=button('',()=>{availableExpanded=!availableExpanded;syncCheckout();});
     availableToggle.append(el('span',''));
     availableToggle.className='customer-coupon-toggle';
@@ -179,15 +180,16 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     historyToggle.setAttribute('aria-controls',history.id);historyToggle.setAttribute('aria-expanded','false');historyToggle.append(el('span','查看不可用优惠券及原因'));
     history.setAttribute('aria-labelledby',historyToggle.id);
     const controls=el('div',null,'checkout-coupon-controls');controls.append(availableToggle,historyToggle);fieldset.append(controls,history);
-    for(const c of rows){const node=card(c,true,true);if(unavailable(c,true))history.append(node);else fieldset.insertBefore(node,history);}
+    for(const c of rows){const node=card(c,true,true,true);if(unavailable(c,true))history.append(node);else fieldset.insertBefore(node,history);}
     checkout.append(fieldset);syncCheckout();
   }
   function syncCheckout(){
     const hasSelected=!!identity()&&!!wallet&&!checkout.hidden&&checkoutCards.has(couponInput.value.trim().toUpperCase());
+    syncManualEntry(hasSelected);
     document.querySelector('#promotionChoice').hidden=false;
     const fieldset=checkout.querySelector('fieldset'),history=fieldset?.querySelector('.customer-coupon-history');
     // Rebuild when eligibility or folding changes to avoid stale container-query layout on restored cards.
-    if(history&&(checkout.dataset.hasSelected!==String(hasSelected)||checkout.dataset.availableCollapsed!==String(!hasSelected&&!availableExpanded)||[...checkoutCards.values()].some(({c,node})=>node.parentElement!==(unavailable(c,true)?history:fieldset)))){
+    if(history&&(checkout.dataset.hasSelected!==String(hasSelected)||checkout.dataset.availableCollapsed!==String(!hasSelected&&!availableExpanded)||[...checkoutCards.values()].some(({c,node})=>isExpired(c)||node.parentElement!==(unavailable(c,true)?history:fieldset)))){
       const wasOpen=!history.hidden,focused=document.activeElement,focusedCode=focused?.name==='wallet_coupon_choice'?focused.value:null;
       renderCheckout();
       const nextHistory=checkout.querySelector('.customer-coupon-history'),nextHistoryToggle=checkout.querySelector('.checkout-history-toggle');
@@ -201,18 +203,19 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     const deliveryText=window.TingsCouponContext?.().deliveryText;
     if(deliveryText)for(const node of document.querySelectorAll('.customer-coupon-delivery-info'))node.textContent=deliveryText;
     for(const radio of checkout.querySelectorAll('input'))radio.checked=radio.value===couponInput.value.trim().toUpperCase();
-    for(const {c,node,radio,text,reason} of checkoutCards.values()){
+    for(const {c,node,radio,text,reason,label,state} of checkoutCards.values()){
       const why=unavailable(c,true);
       radio.checked=radio.value===couponInput.value.trim().toUpperCase();
       node.hidden=!why&&!radio.checked&&!availableExpanded;
-      radio.disabled=!!why;reason.textContent=why;reason.hidden=!why;
-      node.classList.toggle('is-selected',radio.checked);node.classList.toggle('is-unavailable',!!why);text.textContent=why?'不可用':radio.checked?'✓ 已选':'使用';
+      // A selected coupon must remain cancellable even if cart edits make it ineligible.
+      radio.disabled=!!why&&!radio.checked;reason.textContent=why;reason.hidden=!why;
+      label.hidden=!!why&&!radio.checked;state.hidden=!why||radio.checked;state.textContent=c.status==='used'?'已使用':'暂不可用';
+      radio.setAttribute('aria-label',`${radio.checked?'取消使用':'使用'}${c.name}，${amount(c)}`);
+      node.classList.toggle('is-selected',radio.checked);node.classList.toggle('is-unavailable',!!why);text.textContent=radio.checked?'✓ 已选':'使用';
       if(why)unavailableCount++;else availableCount++;
     }
     const availableToggle=checkout.querySelector('.customer-coupon-toggle');
     if(availableToggle){availableToggle.hidden=!availableCount;availableToggle.querySelector('span').textContent=hasSelected?(availableExpanded?'收起优惠券':'更换优惠券'):`${availableExpanded?'收起':'展开'}可用优惠券（${availableCount}）`;availableToggle.setAttribute('aria-expanded',String(availableExpanded));}
-    const selectionSummary=checkout.querySelector('.checkout-coupon-selection');
-    if(selectionSummary)selectionSummary.textContent=hasSelected?'已选择 1 张优惠券':`可用优惠券 · ${availableCount} 张`;
     const historyToggle=checkout.querySelector('.checkout-history-toggle');
     if(history&&historyToggle){historyToggle.hidden=!unavailableCount;historyToggle.querySelector('span').textContent=`查看不可用优惠券（${unavailableCount}）`;if(!unavailableCount)history.hidden=true;historyToggle.setAttribute('aria-expanded',String(!history.hidden));}
   }
@@ -313,8 +316,8 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     const available=wallet.coupons.filter(c=>c.status==='available');
     const newcomer=available.find(c=>c.kind==='new');
     window.dispatchEvent(new CustomEvent('tings:wallet-summary',{detail:newcomer?{amount:newcomer.amount,min_spend:newcomer.min_spend,discount_kind:newcomer.discount_kind}:null}));
-    // Wallet display only: expired records remain available to checkout/history logic.
-    const visibleCoupons=wallet.coupons.filter(c=>c.status!=='expired'&&!(c.ends_at&&new Date(c.ends_at)<new Date()));
+    // Display filtering only: expired records and server-side validation remain intact.
+    const visibleCoupons=wallet.coupons.filter(c=>!isExpired(c));
     const usable=visibleCoupons.filter(c=>c.status==='available'&&!unavailable(c));
     const heading=(tag,title,count)=>{const node=el(tag,null,'customer-coupon-heading');node.append(el('span',title),el('span',` · ${count}张`,'customer-coupon-count'));return node;};
     couponsPanel.replaceChildren(heading('h3','可用优惠券',usable.length),...usable.map(c=>card(c,true,false,true)));

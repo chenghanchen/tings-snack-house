@@ -1238,6 +1238,7 @@ $("#couponCodeInput").addEventListener("input", () => {
 // Keep the optional entry field separate from the selected wallet coupon's internal code.
 // Both paths continue through the existing preview and validation handler.
 const applyManualCoupon = () => {
+  if ($("#manualCouponCode").disabled) return;
   $("#couponCodeInput").value = $("#manualCouponCode").value;
   $("#couponCodeInput").dispatchEvent(new Event("input", {bubbles:true}));
 };
