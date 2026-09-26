@@ -121,6 +121,7 @@ dialog.referral-wechat-guide button:focus-visible{outline:3px solid #f5d59b;outl
 :is(#customerCouponsPanel,#customerWalletCheckout) .customer-coupon-count{color:#c43d29;font-size:13px;white-space:nowrap}
 :is(#customerCouponsPanel,#customerWalletCheckout) .customer-wallet-ticket{grid-template-columns:minmax(90px,25%) minmax(0,1fr);align-items:center;gap:0;min-height:112px;margin:0 0 12px;padding:12px 14px 12px 8px;border-color:#ffc3b5;border-radius:11px;background:#ffede8;box-shadow:0 3px 10px #d8442510;color:#4b291b;--coupon-accent:#bc321e}
 #customerCouponsPanel>.customer-wallet-ticket{padding-block:0;margin-bottom:0}
+#customerCouponsPanel>.customer-wallet-ticket+.customer-wallet-ticket{margin-top:5px}
 :is(#customerCouponsPanel,#customerWalletCheckout) .customer-wallet-ticket::before,:is(#customerCouponsPanel,#customerWalletCheckout) .customer-wallet-ticket::after{content:"";position:absolute;top:calc(50% - 9px);width:9px;height:18px;background:#fffcf6;border:1px solid #f2c6b8;pointer-events:none}
 :is(#customerCouponsPanel,#customerWalletCheckout) .customer-wallet-ticket::before{left:0;border-left:0;border-radius:0 12px 12px 0}
 :is(#customerCouponsPanel,#customerWalletCheckout) .customer-wallet-ticket::after{right:0;border-right:0;border-radius:12px 0 0 12px}
