@@ -90,14 +90,24 @@
       <section id="customerDetailsPanel" data-account-panel="details" hidden>
         <p id="customerDetailsStatus" role="status" class="customer-muted"></p>
         <form id="customerDetailsForm">
-          <label>姓名<input name="full_name" autocomplete="name" maxlength="80"></label>
-          <label>电话号码<input name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" pattern="[0-9]{10}" maxlength="10" placeholder="10 位数字"></label>
-          <label>地址（街道与门牌号）<textarea name="address" autocomplete="address-line1" maxlength="500" rows="2"></textarea></label>
-          <label>Unit（房间／单元号，选填）<input name="unit" autocomplete="address-line2" maxlength="40" placeholder="例如 2B"></label>
-          <label>City（城市）<input name="city" autocomplete="address-level2" maxlength="80"></label>
-          <div class="customer-address-region"><label>State（州）<input name="state" autocomplete="address-level1" maxlength="2" pattern="[A-Za-z]{2}" placeholder="例如 IL" title="请输入两位英文字母州缩写"></label>
-          <label>ZIP（邮编）<input name="zip" autocomplete="postal-code" maxlength="10" pattern="[0-9]{5}(-[0-9]{4})?" placeholder="60601 或 60601-1234"></label></div>
-          <label>登录邮箱（不可更改）<input id="customerIdentityEmail" type="email" autocomplete="email" readonly aria-readonly="true"></label>
+          <section class="customer-details-card" aria-labelledby="customerContactTitle">
+            <h3 id="customerContactTitle"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="6" r="5"/><path d="M3 23v-4a9 9 0 0 1 18 0v4Z"/></svg>联系人信息</h3>
+            <label>姓名<input name="full_name" autocomplete="name" maxlength="80"></label>
+            <label>手机号码<input name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" pattern="[0-9]{10}" maxlength="10" placeholder="10 位数字"></label>
+          </section>
+          <section class="customer-details-card" aria-labelledby="customerDeliveryTitle">
+            <h3 id="customerDeliveryTitle"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m1 10 11-9 11 9-2 3-2-2v12h-5v-8h-4v8H5V11l-2 2Z"/></svg>配送地址</h3>
+            <label>街道地址<textarea name="address" autocomplete="address-line1" maxlength="500" rows="1"></textarea></label>
+            <label>Unit（房间／单元号，选填）<input name="unit" autocomplete="address-line2" maxlength="40"></label>
+            <label>City（城市）<input name="city" autocomplete="address-level2" maxlength="80"></label>
+            <div class="customer-address-region"><label>State（州）<select name="state" autocomplete="address-level1"><option value="">选择州</option>${'AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY AS GU MP PR VI AA AE AP'.split(' ').map(code=>`<option value="${code}">${code}</option>`).join('')}</select></label>
+            <label>ZIP（邮编）<input name="zip" autocomplete="postal-code" maxlength="10" pattern="[0-9]{5}(-[0-9]{4})?" placeholder="60616"></label></div>
+          </section>
+          <section class="customer-details-card" aria-labelledby="customerIdentityTitle">
+            <h3 id="customerIdentityTitle"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9V6a6 6 0 0 1 12 0v3h2v14H4V9Zm3 0h6V6a3 3 0 0 0-6 0Zm2 6v4h2v-4a2 2 0 1 0-2 0"/></svg>账户信息</h3>
+            <div class="customer-details-identity"><label>登录邮箱（不可更改）<input id="customerIdentityEmail" type="email" autocomplete="email" readonly aria-readonly="true"></label><span class="customer-details-bound"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9V6a6 6 0 0 1 12 0v3h2v14H4V9Zm3 0h6V6a3 3 0 0 0-6 0Z"/></svg>已绑定</span></div>
+          </section>
+          <p class="customer-details-note"><span aria-hidden="true">ⓘ</span>此信息将用于订单配送，请确保填写正确。</p>
           <button type="submit" id="customerSaveDetails" class="customer-primary" disabled>保存资料</button></form>
       </section>
       <section id="customerCouponsPanel" data-account-panel="coupons" class="customer-feature-note" hidden>
@@ -111,6 +121,16 @@
   const $ = (s) => dialog.querySelector(s);
   const emailForm = $('#customerEmailForm'), codeForm = $('#customerCodeForm');
   const detailsForm = $('#customerDetailsForm');
+  const homeOrderCount = $('[data-account-tab="orders"] .customer-home-badge');
+  const homeCouponCount = $('[data-account-tab="coupons"] .customer-home-badge');
+  const setHomeCount = (badge, value, unit) => {
+    badge.textContent = Number.isInteger(value) ? `${value} ${unit}` : value || '待加载';
+    badge.setAttribute('aria-busy', String(value === '加载中'));
+  };
+  homeOrderCount.id = 'customerHomeOrderCount'; homeCouponCount.id = 'customerHomeCouponCount';
+  for (const badge of [homeOrderCount, homeCouponCount]) { badge.setAttribute('aria-live','polite'); setHomeCount(badge,null); }
+  let homeOrderRequest = 0;
+  const pendingOrderPages = new Map();
   let session = null, epoch = 0, authKnown = false, authBlocked = false, authExpired = false;
   let details = null, pendingEmail = '', cooldownUntil = 0, sending = false;
   let offset = 0, orderRequest = 0, detailRequest = 0, orderRows = [];
@@ -166,9 +186,18 @@
     submit.textContent = detailsSaving ? '正在保存…' : detailsSaved && !dirty ? '已保存' : '保存资料';
   }
   detailsForm.addEventListener('input', () => { detailEdits++; detailsSaved = false; updateDetailsStatus(); });
+  function fillDetailsForm() {
+    const state = detailsForm.elements.state, value = details?.state || '';
+    // Retain legacy saved abbreviations instead of silently blanking them on a select.
+    for (const option of state.querySelectorAll('[data-saved-state]')) option.remove();
+    if (value && ![...state.options].some(option => option.value === value)) {
+      const option = element('option', value); option.value = value; option.dataset.savedState = 'true'; state.append(option);
+    }
+    for (const name of detailFields) detailsForm.elements[name].value = details?.[name] || '';
+  }
   function discardDetails() {
     detailsSaved = false;
-    for (const name of detailFields) detailsForm.elements[name].value = details?.[name] || '';
+    fillDetailsForm();
     detailEdits++; updateDetailsStatus();
   }
   function mayDiscard() {
@@ -216,9 +245,10 @@
     const changed = (session?.user.id || null) !== (next?.user.id || null);
     session = next;
     if (changed) {
-      epoch++; orderRequest++; detailRequest++;
+      epoch++; orderRequest++; detailRequest++; homeOrderRequest++;
+      pendingOrderPages.clear(); setHomeCount(homeOrderCount,null);
       wallet?.reset();
-      details = null; offset = 0; clearAutofill(); detailsForm.reset();
+      details = null; offset = 0; clearAutofill(); detailsForm.reset(); fillDetailsForm();
       detailEdits++; detailsBusy = false; detailsSaving = false; detailsSaved = false; reorderBusy = false; orderRows = []; ordersLoaded = false;
       authExpired = false; $('#customerReauthenticate').hidden = true;
       if (session) authBlocked = false;
@@ -265,6 +295,8 @@
       const destination = pendingAccountView; pendingAccountView = null;
       showAccountView(destination); $('#customerAccountTitle').focus();
       loadAccountView(destination);
+    } else if (changed && session && dialog.open) {
+      loadAccountView('home');
     }
   }
   let oauthReturnFailed = false;
@@ -338,7 +370,7 @@
     if (oauthReturnFailed) message('Google 登录失败，请稍后重试。');
   });
   dialog.addEventListener('cancel', event => { if (!mayDiscard()) event.preventDefault(); });
-  dialog.addEventListener('close', () => { pendingAccountView = null; codeForm.elements.code.value = ''; accountOpener.focus(); });
+  dialog.addEventListener('close', () => { homeOrderRequest++; pendingAccountView = null; codeForm.elements.code.value = ''; accountOpener.focus(); });
   function showAccountView(view) {
     accountView = view;
     dialog.classList.toggle('customer-home-view', !!session && view === 'home');
@@ -349,6 +381,7 @@
     dialog.scrollTop = 0;
   }
   function loadAccountView(view) {
+    if (view === 'home') { void loadHomeOrderCount(); void wallet?.load(); }
     if (view === 'orders') void loadOrders();
     if (view === 'details') void loadDetails();
     if (view === 'coupons' || view === 'rewards') void wallet?.load();
@@ -363,6 +396,7 @@
     if (!session || accountView === 'home') { if (mayDiscard()) dialog.close(); return; }
     if (accountView === 'details' && !mayDiscard()) return;
     const previous = accountView; showAccountView('home'); message('');
+    loadAccountView('home');
     dialog.querySelector(`[data-account-tab="${previous}"]`)?.focus();
   };
   function cooldown() {
@@ -447,8 +481,7 @@
       // Keep edits made during the read, but refill a draft discarded on Back.
       const preserveDraft = edits !== detailEdits && detailsDirty();
       details = data || {};
-      if (!preserveDraft)
-        for (const name of detailFields) detailsForm.elements[name].value = details[name] || '';
+      if (!preserveDraft) fillDetailsForm();
       fillCheckout();
     } catch (error) { if (stamp === epoch && request === detailRequest) message(accountError(error,'收货资料暂时无法加载，请检查网络后返回账户，再打开“收货资料”重试。')); }
     finally { if (stamp === epoch && request === detailRequest) { detailsBusy = false; updateDetailsStatus(); } }
@@ -497,25 +530,41 @@
         finally { cancel.disabled = false; cancel.textContent = '提交取消申请'; }
       };
     }
-    const copy = element('button', '复制', 'customer-copy-order'); copy.type = 'button';
-    copy.setAttribute('aria-label', '复制订单号');
+    const copy = element('button', undefined, 'customer-copy-order'); copy.type = 'button';
+    const copyIcon = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    copyIcon.setAttribute('viewBox','0 0 24 24'); copyIcon.setAttribute('aria-hidden','true'); copyIcon.setAttribute('focusable','false');
+    const copyPath = document.createElementNS('http://www.w3.org/2000/svg','path');
+    copyIcon.append(copyPath);
+    const copyLabel = element('span'); copy.append(copyIcon,copyLabel);
+    let copyTimer, copyPending = false;
+    const setCopied = copied => {
+      copy.classList.toggle('is-copied',copied);
+      copyLabel.textContent = copied ? '已复制' : '复制';
+      copy.setAttribute('aria-label',copied ? '已复制订单号' : '复制订单号');
+      copyPath.setAttribute('d',copied ? 'm5 12 4 4L19 6' : 'M8 8V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-3M5 8h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z');
+    };
+    setCopied(false);
     copy.setAttribute('aria-live', 'polite');
     const copyFailure = `无法自动复制，请长按或选中订单号：${order.order_number}`;
     copy.onclick = async () => {
+      if (copyPending) return;
+      clearTimeout(copyTimer); setCopied(false);
+      copyPending = true; copy.disabled = true; copy.setAttribute('aria-busy','true');
       const stamp = epoch;
       try {
         await navigator.clipboard.writeText(String(order.order_number));
         if (stamp === epoch && copy.isConnected) {
-          copy.textContent = '已复制';
-          copy.setAttribute('aria-label', '已复制订单号');
+          setCopied(true);
+          copyTimer = setTimeout(() => setCopied(false),2000);
           if ($('#customerAccountMessage').textContent === copyFailure) message('');
         }
       } catch {
         if (stamp === epoch && copy.isConnected) {
-          copy.textContent = '复制';
-          copy.setAttribute('aria-label', '复制订单号');
+          setCopied(false);
           message(copyFailure);
         }
+      } finally {
+        copyPending = false; copy.disabled = false; copy.setAttribute('aria-busy','false');
       }
     };
     const number = card.querySelector('header > div > b');
@@ -619,6 +668,41 @@
     refresh.disabled = busy;
     refresh.setAttribute('aria-busy', String(busy));
   }
+  // Share only in-flight reads, never cache another session's or an old page's data.
+  function readOrderPage(pageOffset) {
+    const key = `${epoch}:${pageOffset}`;
+    if (!pendingOrderPages.has(key)) {
+      const pending = accountRpc('get_my_customer_orders', {p_offset:pageOffset});
+      pendingOrderPages.set(key,pending);
+      const clear = () => { if (pendingOrderPages.get(key) === pending) pendingOrderPages.delete(key); };
+      pending.then(clear,clear);
+    }
+    return pendingOrderPages.get(key);
+  }
+  async function loadHomeOrderCount() {
+    if (!session) return;
+    const stamp = epoch, ticket = ++homeOrderRequest;
+    setHomeCount(homeOrderCount,'加载中');
+    const seen = new Set(); let count = 0;
+    try {
+      // The existing owner-scoped RPC returns 20 records per page, not a total.
+      for (let pageOffset = 0; pageOffset <= 100000; pageOffset += 20) {
+        const {data,error} = await readOrderPage(pageOffset);
+        if (stamp !== epoch || ticket !== homeOrderRequest) return;
+        if (error || !Array.isArray(data)) throw error || new Error('Invalid orders');
+        for (const order of data) {
+          if (!order.id || typeof order.status !== 'string') throw new Error('Invalid order');
+          if (!seen.has(order.id) && !['已完成','已取消'].includes(order.status)) count++;
+          seen.add(order.id);
+        }
+        if (data.length < 20) { setHomeCount(homeOrderCount,count,'个进行中'); return; }
+      }
+      throw new Error('Order count exceeds supported pagination');
+    } catch (error) {
+      if (stamp !== epoch || ticket !== homeOrderRequest) return;
+      accountError(error,''); setHomeCount(homeOrderCount,'暂不可用');
+    }
+  }
   async function loadOrders() {
     if (!session) return;
     const stamp = epoch, request = ++orderRequest;
@@ -628,7 +712,7 @@
     $('#customerOrdersPrev').disabled = true; $('#customerOrdersNext').disabled = true;
     $('#customerOrdersPanel .customer-pagination').hidden = offset === 0;
     try {
-      const {data,error} = await accountRpc('get_my_customer_orders', {p_offset: offset});
+      const {data,error} = await readOrderPage(offset);
       if (error || !Array.isArray(data)) throw error || new Error('Invalid orders');
       if (stamp !== epoch || request !== orderRequest) return;
       orderRows = data; ordersLoaded = true; renderOrders();
@@ -644,7 +728,8 @@
   $('#customerOrdersPrev').onclick = () => { offset = Math.max(0, offset - 20); void loadOrders(); };
   $('#customerOrdersNext').onclick = () => { offset += 20; void loadOrders(); };
 
-  wallet=window.createTingsWallet({rpc:accountRpc,identity:()=>session&&!authExpired?`${epoch}:${session.user.id}`:null,onError:accountError,dialog});
+  wallet=window.createTingsWallet({rpc:accountRpc,identity:()=>session&&!authExpired?`${epoch}:${session.user.id}`:null,onError:accountError,dialog,
+    onCount:value=>setHomeCount(homeCouponCount,value,'张可用')});
   window.addEventListener('tings:checkout-open', () => {
     checkoutContext = ready.then(() => {
       checkoutOwner = session?.user.id || null;
@@ -658,6 +743,8 @@
   });
   window.addEventListener('tings:order-submitted', () => {
     wallet.reset();
+    homeOrderRequest++; setHomeCount(homeOrderCount,null);
+    if (session && dialog.open && accountView === 'home') loadAccountView('home');
     filled.clear(); offset = 0; if (session && dialog.open) void loadOrders();
   });
   window.TingsAccount = {

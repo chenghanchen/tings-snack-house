@@ -89,10 +89,11 @@ function mockSdk() {
           return {data:state.profile[uid]};
         }
         if(name==='get_my_customer_orders'){
-          if(state.ordersError)return {error:{message:'network'}};
-          const data=args.p_offset ? [] : state.orders || [{id:uid+'-order',order_number:'TSH-'+uid,created_at:'2026-09-09T12:00:00Z',
+          if(state.ordersError || state.ordersErrorAt===args.p_offset)return {error:{message:'network'}};
+          const rows=state.orders || [{id:uid+'-order',order_number:'TSH-'+uid,created_at:'2026-09-09T12:00:00Z',
             status:'待确认',items:[{name:'<img src=x onerror=window.xss=1>',qty:1}],fulfillment:'delivery',
             address:'Test address',subtotal:5,total_amount:5,cancellation_requested:customers[uid]?.cancelled}];
+          const data=rows.slice(args.p_offset,args.p_offset+20);
           if(state.delayed)await new Promise(resolve=>{state.resolveOrders=resolve});
           return {data};
         }
@@ -101,6 +102,69 @@ function mockSdk() {
       },
     };
   }};
+}
+async function checkHomeCounts(page, width) {
+  await page.evaluate(async () => {
+    __accountTest.orders=Array.from({length:45},(_,i)=>({id:`count-${i}`,order_number:`TSH-${i}`,status:['已完成','已取消','已确认'][i%3],cancellation_requested:i===44,items:[]}));
+    __accountTest.wallet={coupons:[
+      {id:'one',code:'ONE',status:'available',ends_at:'2099-12-31',min_spend:500},
+      {id:'two',code:'TWO',status:'available',ends_at:null},
+      {id:'old',code:'OLD',status:'available',ends_at:'2000-01-01'},
+      {id:'claim',code:'CLAIM',status:'claimable'},
+      {id:'used',code:'USED',status:'used'},
+      {id:'blocked',code:'BLOCKED',status:'unavailable'}
+    ].map(c=>({kind:'regular',discount_kind:'fixed',amount:5,min_spend:30,...c})),referral_codes:[],history:[]};
+    __accountTest.change({access_token:'fixture',user:{id:'count-a',email:'count-a@example.test'}});
+    await TingsAccount.open();
+  });
+  const waitCounts = (orders,coupons) => page.waitForFunction(([a,b])=>document.getElementById('customerHomeOrderCount').textContent===a && document.getElementById('customerHomeCouponCount').textContent===b,[orders,coupons]);
+  await waitCounts('15 个进行中','2 张可用');
+  assert.deepEqual(await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='get_my_customer_orders').map(c=>c.args.p_offset)),[0,20,40],'Count spans all pages, including a pending cancellation; no terminal orders');
+  for (const size of require('./browser/policy.cjs').matrixFor(width,[320,390,780,781,1723])) {
+    await page.setViewportSize({width:size,height:1180});
+    assert.equal(await page.locator('#customerAccountDialog').evaluate(el=>el.scrollWidth>el.clientWidth),false,`Home badges fit ${size}px`);
+    for (const selector of ['#customerHomeOrderCount','#customerHomeCouponCount']) assert.equal(await page.locator(selector).evaluate(el=>{
+      const badge=el.getBoundingClientRect(),copy=el.previousElementSibling.getBoundingClientRect(),arrow=el.nextElementSibling.getBoundingClientRect();
+      return copy.right<=badge.left && badge.right<=arrow.left;
+    }),true,`No badge overlap at ${size}px`);
+  }
+  await page.setViewportSize({width,height:1180});
+  await page.screenshot({path:`.build/home-counts-${width}.png`});
+  await page.click('[data-account-tab=coupons]');
+  await page.waitForFunction(()=>document.querySelector('#customerCouponsPanel').textContent.includes('可领取优惠券'));
+  assert.match(await page.locator('#customerCouponsPanel h3').first().textContent(),/2张/);
+  await page.locator('#customerCouponsPanel button').filter({hasText:'领取'}).first().click();
+  await waitCounts('15 个进行中','3 张可用');
+  // A later-page failure must not present the first page's partial count as a total.
+  await page.evaluate(()=>{__accountTest.ordersErrorAt=20;__accountTest.walletError=true});
+  await page.click('#customerAccountBack');
+  await waitCounts('暂不可用','暂不可用');
+  await page.evaluate(()=>{delete __accountTest.ordersErrorAt;__accountTest.walletError=false;__accountTest.orders=[];__accountTest.wallet.coupons=[]});
+  await page.click('#customerAccountBack');await page.evaluate(()=>TingsAccount.open());
+  await waitCounts('0 个进行中','0 张可用');
+  // Loading is distinct from zero, and old responses must not cross identities.
+  await page.click('#customerAccountBack');
+  await page.evaluate(()=>{__accountTest.delayed=true;__accountTest.delayWallet=true;TingsAccount.open()});
+  await page.waitForFunction(()=>__accountTest.resolveOrders && __accountTest.resolveWallet);
+  await waitCounts('加载中','加载中');
+  await page.evaluate(()=>{
+    __accountTest.oldOrders=__accountTest.resolveOrders;__accountTest.oldWallet=__accountTest.resolveWallet;
+    __accountTest.delayed=false;__accountTest.delayWallet=false;
+    __accountTest.orders=[{id:'new-owner-order',status:'待确认',items:[]}];
+    __accountTest.change({access_token:'fixture-b',user:{id:'count-b',email:'count-b@example.test'}});
+  });
+  await waitCounts('1 个进行中','0 张可用');
+  await page.evaluate(()=>{__accountTest.oldOrders();__accountTest.oldWallet()});
+  await waitCounts('1 个进行中','0 张可用');
+  await page.evaluate(()=>{
+    __accountTest.orders=[];
+    window.dispatchEvent(new CustomEvent('tings:order-submitted'));
+  });
+  await waitCounts('0 个进行中','0 张可用');
+  page.once('dialog', dialog=>dialog.accept());
+  await page.click('#customerSignOut');
+  await page.waitForFunction(()=>document.getElementById('customerHomeOrderCount').textContent==='待加载' && document.getElementById('customerHomeCouponCount').textContent==='待加载');
+  console.log('PASS account home counts: all order pages, terminal states, coupon eligibility/claim, zero/loading/error, account isolation, order submission and responsive badges.');
 }
 module.exports = async function checkAccount(browser, {mode='account', width=390}={}) {
   const responsiveWidths=list=>require('./browser/policy.cjs').matrixFor(width,list);
@@ -174,6 +238,11 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
       await require('./check-order-refresh.cjs')(page, errors);
       return;
     }
+    await checkHomeCounts(page,width);
+    assert.deepEqual(errors,[],'Home counts must not cause browser errors');
+    if (mode === 'home-counts') return;
+    await page.goto('http://localhost/');
+    await page.waitForSelector('#productGrid .product');
     await require('./check-customer-google.cjs')(browser, mockSdk, width);
     assert.equal(await page.locator('.activity-card').count(),4);
     assert.equal(await page.textContent('#openCustomerAccount'),'登录账户');
@@ -545,7 +614,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     assert.equal(await page.locator('.customer-home-icon svg').count(),4);
     assert.equal(await page.locator('.customer-preview-note').count(),0,'Internal-test footer removed');
     assert.equal(await page.textContent('#customerHomeDetailsStatus'),'待完善','An empty profile must not say saved');
-    assert.doesNotMatch(await page.locator('.customer-home-menu').textContent(),/1 个进行中|2 张可用|\$5\.00/,'Illustration numbers are not account data');
+    await page.waitForFunction(()=>document.getElementById('customerHomeOrderCount').textContent==='1 个进行中' && document.getElementById('customerHomeCouponCount').textContent==='0 张可用');
     const assertAccountBack = async (view,width) => {
       await assertAccountWidth(view,width);
       const style=await page.locator('#customerAccountBack').evaluate(el=>{
@@ -652,6 +721,9 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
         return {padding:[s.paddingTop,s.paddingBottom],clear:t.right<=b.left-4,overflow:root.scrollWidth>root.clientWidth+1};
       });
       assert.deepEqual(layout,{padding:['20px','20px'],clear:true,overflow:false},`coupon heading at ${width}px`);
+      assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-wallet-ticket').evaluateAll(cards=>cards.map((card,index)=>({
+        margin:getComputedStyle(card).marginTop,gap:index?card.getBoundingClientRect().top-cards[index-1].getBoundingClientRect().bottom:0
+      }))),[{margin:'0px',gap:0},{margin:'5px',gap:5},{margin:'5px',gap:5}],`Adjacent wallet cards have a 5px gap at ${width}px`);
       assert.deepEqual(await page.locator('#customerCouponsPanel>.customer-coupon-card').first().evaluate(card=>{
         const s=getComputedStyle(card),f=getComputedStyle(card.querySelector('.customer-coupon-flourish'));
         return [s.paddingTop,s.paddingBottom,s.marginBottom,f.fontSize,f.fontWeight,getComputedStyle(card.querySelector('.customer-coupon-minimum b')).fontSize,getComputedStyle(document.querySelector('#customerAccountEmail')).fontSize];
@@ -701,8 +773,12 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     await page.evaluate(()=>{__accountTest.delayClaim=false;__accountTest.resolveClaim()});
     await page.waitForFunction(()=>document.querySelector('[data-code="CLAIM-CAP"] .customer-coupon-use').textContent==='去使用');
     assert.equal(await capCard.locator('.customer-coupon-use').evaluate(el=>el.classList.contains('is-claimed')),true);
+    assert.equal(await capCard.locator('.customer-coupon-state').count(),0,'Claim succeeds without an extra claimed badge');
+    assert.doesNotMatch(await capCard.textContent(),/已领取/);
+    assert.equal(await capCard.locator('.customer-coupon-use').getAttribute('title'),null,'No redundant claimed tooltip');
     await reopenCoupons();await capCard.waitFor();
     assert.equal(await capCard.locator('.customer-coupon-use').textContent(),'去使用');
+    assert.equal(await capCard.locator('.customer-coupon-state').count(),0,'Reloaded claimed coupons keep the use action without a badge');
     assert.deepEqual(await capCard.evaluate(el=>{const s=getComputedStyle(el.querySelector('.customer-coupon-use'));return [getComputedStyle(el).backgroundColor,s.backgroundColor,s.color]}),['rgb(255, 237, 232)','rgb(233, 34, 53)','rgb(255, 255, 255)']);
     assert.equal(await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='claim_customer_coupon').length),2);
     assert.match(await page.locator('#customerCouponsPanel [data-code="CLAIM-SHIP"]').textContent(),/店铺当前配送区域/);
@@ -1056,7 +1132,8 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
       finish();
     });
     await page.waitForFunction(()=>document.querySelector('#customerAccountEmail').textContent.includes('bob@example.test'));
-    assert.equal(await page.textContent('#customerRewardsPanel'),'');
+    await page.waitForFunction(()=>document.querySelector('#customerRewardsPanel').textContent.includes('TSHREF-B7M4X9'));
+    assert.doesNotMatch(await page.textContent('#customerRewardsPanel'),/TSHREF-K7M4X9/,'Automatic home refresh must contain only the new account, never the stale wallet');
     await page.evaluate(()=>__accountTest.change({access_token:'customer-token-alice@example.test',user:{id:'alice@example.test',email:'alice@example.test'}}));
     await page.waitForFunction(()=>document.querySelector('#customerAccountEmail').textContent.includes('alice@example.test'));
     await page.click('[data-account-tab=orders]');
@@ -1114,7 +1191,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     await page.fill('#customerDetailsForm [name=address]','Saved address');
     await page.fill('#customerDetailsForm [name=unit]','2B');
     await page.fill('#customerDetailsForm [name=city]','Chicago');
-    await page.fill('#customerDetailsForm [name=state]','il');
+    await page.selectOption('#customerDetailsForm [name=state]','IL');
     await page.fill('#customerDetailsForm [name=zip]','60601-1234');
     assert.equal(await page.locator('#customerSaveDetails').isEnabled(),true);
     assert.equal(await page.inputValue('#customerIdentityEmail'),'alice@example.test');
@@ -1146,7 +1223,16 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
           noOverlap:rows.every((row,i)=>!i||row.top>=rows[i-1].bottom+1),
           stateZipAligned:Math.abs(label('state').getBoundingClientRect().top-label('zip').getBoundingClientRect().top)<1};
       });
-      assert.deepEqual(spacing,{phone:['-15px','-15px'],unit:['-15px','-15px'],region:['-32px','-20px'],regionHeight:85,noOverlap:true,stateZipAligned:true},`address spacing at ${width}px`);
+      assert.deepEqual(spacing,{phone:['0px','0px'],unit:['0px','0px'],region:['0px','0px'],regionHeight:57,noOverlap:true,stateZipAligned:true},`address spacing at ${width}px`);
+      assert.deepEqual(await page.locator('#customerDetailsForm .customer-details-card h3').allTextContents(),['联系人信息','配送地址','账户信息']);
+      assert.equal(await page.locator('#customerDetailsForm select[name=state]').inputValue(),'IL');
+      assert.equal(await page.locator('.customer-details-bound').textContent(),'已绑定');
+      assert.deepEqual(await page.locator('#customerIdentityEmail').evaluate(el=>{const s=getComputedStyle(el);return [s.backgroundColor,s.borderTopWidth,s.height];}),['rgba(0, 0, 0, 0)','0px','22px'],'Bound email is a readonly display, not an editable-looking box');
+      assert.equal(await page.locator('.customer-details-note').textContent(),'ⓘ此信息将用于订单配送，请确保填写正确。');
+      assert.ok(await page.locator('.customer-details-card').evaluateAll(cards=>cards.every(card=>card.scrollWidth<=card.clientWidth+1)),`details cards fit at ${width}px`);
+      assert.ok(await page.locator('#customerSaveDetails').evaluate(button=>{
+        const s=getComputedStyle(button);return s.color==='rgb(255, 255, 255)'&&s.backgroundImage.includes('gradient')&&button.getBoundingClientRect().width===button.closest('form').getBoundingClientRect().width;
+      }),'Full-width warm red save action');
       const density=await page.locator('#customerDetailsForm').evaluate(form=>{
         const style=getComputedStyle(form),dialogStyle=getComputedStyle(form.closest('dialog'));
         const status=getComputedStyle(document.querySelector('#customerDetailsStatus')),address=form.querySelector('[name=address]');
@@ -1154,7 +1240,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
           padding:[dialogStyle.paddingTop,dialogStyle.paddingBottom],inputMargins:[...form.querySelectorAll('input')].map(el=>getComputedStyle(el).marginTop),
           addressHeight:address.getBoundingClientRect().height,resize:getComputedStyle(address).resize};
       });
-      assert.deepEqual(density,{formMargins:['0px','0px'],statusMargins:['0px','0px'],padding:['20px','20px'],inputMargins:Array(7).fill('0px'),addressHeight:44,resize:'vertical'},`address density at ${width}px`);
+      assert.deepEqual(density,{formMargins:['12px','0px'],statusMargins:['0px','0px'],padding:['20px','20px'],inputMargins:Array(6).fill('0px'),addressHeight:36,resize:'vertical'},`address density at ${width}px`);
     }
     await page.setViewportSize({width:390,height:1000});
     await page.locator('#customerAccountDialog').evaluate(el=>{el.scrollTop=0});
@@ -1359,18 +1445,48 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
         return {margins:controls.map(el=>getComputedStyle(el).marginTop),aligned:Math.abs(controls[0].getBoundingClientRect().top-controls[1].getBoundingClientRect().top)<1};
       }),{margins:['-5px','-5px'],aligned:true},`order toolbar annotations at ${width}px`);
     }
+    await page.setViewportSize({width,height:1180});
+    const orderCopy = page.locator('#customerOrders .customer-copy-order');
+    assert.equal(await orderCopy.locator('svg[aria-hidden="true"] path').count(),1,'Copy uses a decorative SVG, not a font glyph');
+    const idleCopyWidth = await orderCopy.evaluate(el=>el.getBoundingClientRect().width);
+    await page.locator('#customerOrders .lookup-order-card').screenshot({path:`.build/order-copy-${width}-idle.png`});
     await page.getByRole('button',{name:'复制订单号',exact:true}).click();
     assert.equal(await page.evaluate(()=>window.__copiedOrder),'TSH-260912-EE019');
     assert.equal(await page.getByRole('button',{name:'已复制订单号',exact:true}).textContent(),'已复制');
+    assert.equal(await orderCopy.evaluate(el=>el.getBoundingClientRect().width),idleCopyWidth,'Success label does not shift the order number');
+    await page.mouse.move(0,0);
+    assert.equal(await orderCopy.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(70, 105, 88)');
+    assert.equal(await orderCopy.locator('svg path').getAttribute('d'),'m5 12 4 4L19 6');
+    await page.locator('#customerOrders .lookup-order-card').screenshot({path:`.build/order-copy-${width}-success.png`});
     assert.doesNotMatch(await page.textContent('#customerAccountMessage'),/订单号已复制/);
+    await page.waitForFunction(()=>document.querySelector('.customer-copy-order').textContent==='复制');
+    assert.equal(await orderCopy.getAttribute('aria-label'),'复制订单号');
+    assert.equal(await orderCopy.evaluate(el=>el.classList.contains('is-copied')),false,'Copied feedback automatically clears');
+    assert.notEqual(await orderCopy.locator('svg path').getAttribute('d'),'m5 12 4 4L19 6','Copy icon is restored');
     await page.evaluate(()=>{navigator.clipboard.writeText=async()=>{throw new Error('denied')};});
-    await page.getByRole('button',{name:'已复制订单号',exact:true}).click();
+    await page.getByRole('button',{name:'复制订单号',exact:true}).click();
     assert.equal(await page.getByRole('button',{name:'复制订单号',exact:true}).textContent(),'复制');
     assert.match(await page.textContent('#customerAccountMessage'),/无法自动复制/);
     await page.evaluate(()=>{navigator.clipboard.writeText=async text=>{window.__copiedOrder=text};});
     await page.getByRole('button',{name:'复制订单号',exact:true}).click();
     assert.equal(await page.textContent('#customerAccountMessage'),'');
     assert.equal(await page.getByRole('button',{name:'已复制订单号',exact:true}).textContent(),'已复制');
+    // Pending clipboard writes cannot display success or race rapid repeated clicks.
+    await page.evaluate(()=>{
+      window.__copyWrites=0;
+      navigator.clipboard.writeText=()=>{window.__copyWrites++;return new Promise(resolve=>{window.__resolveCopy=resolve});};
+    });
+    await orderCopy.click();
+    assert.equal(await orderCopy.textContent(),'复制');
+    assert.equal(await orderCopy.getAttribute('aria-busy'),'true');
+    assert.equal(await orderCopy.isDisabled(),true);
+    await orderCopy.evaluate(el=>{for(let i=0;i<10;i++)el.click()});
+    assert.equal(await page.evaluate(()=>window.__copyWrites),1);
+    await page.evaluate(()=>window.__resolveCopy());
+    await page.waitForFunction(()=>document.querySelector('.customer-copy-order').classList.contains('is-copied'));
+    assert.equal(await orderCopy.isDisabled(),false);
+    await page.waitForFunction(()=>document.querySelector('.customer-copy-order').textContent==='复制');
+    await page.evaluate(()=>{navigator.clipboard.writeText=async text=>{window.__copiedOrder=text};});
     assert.equal(await page.locator('#customerOrders .lookup-details').isVisible(),false);
     await page.setViewportSize({width:390,height:1180});
     if(process.env.TINGS_ACCOUNT_SCREENSHOT)await page.screenshot({path:process.env.TINGS_ACCOUNT_SCREENSHOT.replace('.png','-pending.png')});

@@ -1,6 +1,6 @@
 /* Identity and network access are supplied by the isolated customer account module. */
 'use strict';
-window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
+window.createTingsWallet = ({rpc, identity, onError, dialog, onCount = () => {}}) => {
   const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!=null)node.textContent=text;if(className)node.className=className;return node;};
   const money=value=>`$${Number(value).toFixed(2).replace(/\.00$/,'')}`;
   const amount=c=>c.discount_kind==='free_shipping'?'免配送费':c.discount_kind==='percent'?`${Number(((100-Number(c.amount))/10).toFixed(2))}折`:money(c.amount);
@@ -45,6 +45,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     previewResult=null;syncCheckout();
   });
   function reset(){
+    onCount(null);
     closeShareGuide();
     request++;wallet=null;previewResult=null;availableExpanded=false;claiming.clear();justClaimed.clear();checkoutCards.clear();checkout.hidden=true;checkout.replaceChildren();
     window.dispatchEvent(new CustomEvent('tings:wallet-summary',{detail:null}));
@@ -129,7 +130,6 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
       }
       const remaining=new Date(c.ends_at).getTime()-Date.now();
       if(!inCheckout&&!reason.textContent&&remaining>0&&remaining<=3*86400000){node.dataset.expiring='true';aside.append(el('span','即将过期','customer-coupon-state'));}
-      else if(!inCheckout&&!reason.textContent&&(c.claimed||justClaimed.has(c.id)))aside.append(el('span','已领取','customer-coupon-state'));
     }
     if(inCheckout){
       const label=el('label',null,'customer-coupon-select'),radio=el('input'),text=el('span','使用'),state=el('span','','customer-coupon-state');
@@ -147,7 +147,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
       });
       action.className='customer-coupon-use';action.disabled=!!reason.textContent;
       if(c.status==='claimable')action.classList.add('is-claimable');else if(c.claimed||justClaimed.has(c.id))action.classList.add('is-claimed');
-      if(reason.textContent)action.textContent='不可用';if(c.claimed||justClaimed.has(c.id))action.title='已领取，点击去使用';
+      if(reason.textContent)action.textContent='不可用';
       aside.append(action);
     }
     return node;
@@ -319,6 +319,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     // Display filtering only: expired records and server-side validation remain intact.
     const visibleCoupons=wallet.coupons.filter(c=>!isExpired(c));
     const usable=visibleCoupons.filter(c=>c.status==='available'&&!unavailable(c));
+    onCount(usable.length);
     const heading=(tag,title,count)=>{const node=el(tag,null,'customer-coupon-heading');node.append(el('span',title),el('span',` · ${count}张`,'customer-coupon-count'));return node;};
     couponsPanel.replaceChildren(heading('h3','可用优惠券',usable.length),...usable.map(c=>card(c,true,false,true)));
     if(!usable.length)couponsPanel.append(el('p','暂无可用优惠券。','customer-muted'));
@@ -333,6 +334,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
   async function load(){
     if(!identity()){reset();return;}
     const stamp=identity(),ticket=++request;
+    onCount('加载中');
     for(const panel of [couponsPanel,rewardsPanel]){panel.replaceChildren(el('p','正在加载优惠券和奖励…'));panel.setAttribute('aria-busy','true');}
     checkout.hidden=true;document.querySelector('#promotionChoice').hidden=false;
     try{
@@ -343,6 +345,7 @@ window.createTingsWallet = ({rpc, identity, onError, dialog}) => {
     }catch(error){
       if(stamp!==identity()||ticket!==request)return;
       wallet=null;
+      onCount('暂不可用');
       window.dispatchEvent(new CustomEvent('tings:wallet-summary',{detail:null}));
       const message=error?.code==='PGRST202'?'优惠券服务尚未完成数据库升级，请联系店主。':onError(error,'优惠券暂时无法加载，请重试。');
       for(const panel of [couponsPanel,rewardsPanel])panel.replaceChildren(el('p',message),button('重试',()=>load()));
