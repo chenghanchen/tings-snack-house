@@ -673,7 +673,7 @@ function resetOrderDialog() {
   $("#successReferralReward").hidden = true;
   $("#successReferralInfoDialog").hidden = true;
   $("#viewSubmittedOrder").textContent = "查看订单";
-  $("#copySubmittedOrderLabel").textContent = "复制订单号";
+  resetSuccessCopyFeedback();
   $("#contactShop").setAttribute("aria-expanded", "false");
 }
 let preserveOrderSuccessOnClose = false;
@@ -720,6 +720,43 @@ function setSuccessReferralCode(id, code) {
   button.textContent = code || "";
   button.dataset.copyValue = code || "";
 }
+let successCopyGeneration = 0;
+const successCopyTimers = new Map();
+function resetSuccessCopyFeedback() {
+  successCopyGeneration++;
+  for (const timer of successCopyTimers.values()) clearTimeout(timer);
+  successCopyTimers.clear();
+  $("#copySubmittedOrderLabel").textContent = "";
+  $("#copySuccessReferral [data-copy-label]").textContent = "复制";
+  $("#copySubmittedOrder").disabled = false;
+  $("#copySuccessReferral").disabled = false;
+}
+async function copySuccessValue(button, label, value, idleText = "") {
+  if (!value || button.disabled) return;
+  const generation = successCopyGeneration;
+  clearTimeout(successCopyTimers.get(button));
+  button.disabled = true;
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(value);
+    copied = true;
+  } catch {
+    const input = document.createElement("textarea");
+    input.value = value;
+    input.style.cssText = "position:fixed;opacity:0;pointer-events:none";
+    $("#orderDialog").append(input);
+    try { input.select(); copied = document.execCommand("copy"); } catch {}
+    finally { input.remove(); }
+  }
+  if (generation !== successCopyGeneration) return;
+  button.disabled = false;
+  button.focus({ preventScroll: true });
+  label.textContent = copied ? "✓ 已复制" : "复制失败";
+  successCopyTimers.set(button, setTimeout(() => {
+    if (generation === successCopyGeneration) label.textContent = idleText;
+    successCopyTimers.delete(button);
+  }, 1800));
+}
 function showSuccessReferralReward(order) {
   const reward=order.referral_reward||{},section=$("#successReferralReward");
   const code=reward.account_only ? reward.referral_code||"" : "";
@@ -729,6 +766,7 @@ function showSuccessReferralReward(order) {
   $("#successReferrerRewardCoupon").hidden=true;
   $("#successReferralInfoDialog").hidden=true;
   setSuccessReferralCode("#submittedReferralCode",code);
+  $("#copySuccessReferral").dataset.copyValue=code;
   setSuccessReferralCode("#submittedYourRewardCoupon","");
   setSuccessReferralCode("#submittedReferrerRewardCoupon","");
   section.dataset.codeInfo="推荐新客优惠满 $30 减 $5，每位新客终身一次，更换推荐码不重复享受，游客也可使用。未完成取消可重试，完成后取消或退款不恢复资格。订单完成后，推荐人获得一张满 $30 减 $5 的账户奖励券，有效期 90 天。";
@@ -744,7 +782,7 @@ function showOrderSuccess(order, form) {
     contactLines = [];
   $("#submittedOrderNumber").textContent = order.order_number || "";
   $("#submittedOrderTotal").textContent = dollars(order.total_amount || 0);
-  $("#submittedFulfillmentLabel").textContent = pickup ? "自取" : "配送";
+  $("#submittedFulfillmentLabel").textContent = pickup ? "自取地址" : "配送地址";
   $("#submittedFulfillmentNote").textContent = pickup
     ? settings.pickup_address || "天河城二楼，Archer Ave"
     : form.get("address") || "配送地址待确认";
@@ -752,13 +790,13 @@ function showOrderSuccess(order, form) {
   fulfillmentIcon.dataset.kind = pickup ? "pickup" : "delivery";
   fulfillmentIcon.innerHTML = pickup
     ? '<svg viewBox="0 0 24 24"><path d="M4 10h16v10H4zM3 10l2-6h14l2 6M8 10v10M16 10v10M3 10h18"/><path d="M7 7h10"/></svg>'
-    : '<svg viewBox="0 0 24 24"><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>';
+    : '<svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>';
   $("#submittedItemCount").textContent = String(
     cart.reduce((count, item) => count + Number(item.qty || 0), 0),
   );
   const thumbs = $("#submittedItemThumbs");
   thumbs.replaceChildren();
-  cart.slice(0, 3).forEach((item) => {
+  cart.slice(0, 4).forEach((item) => {
     const thumb = document.createElement("span");
     thumb.className = "success-item-thumb";
     if (item.image) {
@@ -769,6 +807,13 @@ function showOrderSuccess(order, form) {
     } else thumb.textContent = item.product.icon || "🍬";
     thumbs.append(thumb);
   });
+  if (cart.length > 4) {
+    const more = document.createElement("span");
+    more.className = "success-item-thumb success-item-more";
+    more.textContent = `+${cart.length - 4}`;
+    more.setAttribute("aria-label", `另有 ${cart.length - 4} 款商品`);
+    thumbs.append(more);
+  }
   if (profile.phone) contactLines.push(`电话：${profile.phone}`);
   if (profile.email) contactLines.push(`邮箱：${profile.email}`);
   $("#successContactDetails").textContent = contactLines.length
@@ -776,14 +821,13 @@ function showOrderSuccess(order, form) {
     : "店铺暂未设置联系电话或邮箱。";
   $("#successContactDetails").hidden = true;
   $("#contactShop").setAttribute("aria-expanded", "false");
-  $("#viewSubmittedOrder").textContent = window.TingsAccount?.isSignedIn?.()
-    ? "我的订单"
-    : "查看订单";
-  $("#copySubmittedOrderLabel").textContent = "复制订单号";
+  $("#viewSubmittedOrder").textContent = "查看订单";
+  resetSuccessCopyFeedback();
   showSuccessReferralReward(order);
   $("#successMessage").dataset.orderNumber = order.order_number || "";
   $("#orderFormWrap").hidden = true;
   $("#successMessage").hidden = false;
+  $("#orderDialog").scrollTop = 0;
 }
 function closeOrderDialog() {
   if (orderSubmissionPending) return;
@@ -884,20 +928,9 @@ $("#successReferralReward").onclick = async (event) => {
     return;
   }
   if (!copyButton?.dataset.copyValue) return;
-  const value = copyButton.dataset.copyValue,
-    original = copyButton.textContent;
-  try {
-    await navigator.clipboard.writeText(value);
-  } catch {
-    const input = document.createElement("textarea");
-    input.value = value;
-    document.body.append(input);
-    input.select();
-    document.execCommand("copy");
-    input.remove();
-  }
-  copyButton.textContent = "✓ 已复制";
-  setTimeout(() => (copyButton.textContent = original), 1400);
+  const label = copyButton.querySelector("[data-copy-label]") || copyButton;
+  await copySuccessValue(copyButton, label, copyButton.dataset.copyValue,
+    label === copyButton ? copyButton.dataset.copyValue : "复制");
 };
 $("#successReferralInfoDialog").onclick = (event) => {
   if (
@@ -908,18 +941,7 @@ $("#successReferralInfoDialog").onclick = (event) => {
 };
 $("#copySubmittedOrder").onclick = async (event) => {
   const orderNumber = $("#successMessage").dataset.orderNumber;
-  if (!orderNumber) return;
-  try {
-    await navigator.clipboard.writeText(orderNumber);
-  } catch {
-    const input = document.createElement("textarea");
-    input.value = orderNumber;
-    document.body.append(input);
-    input.select();
-    document.execCommand("copy");
-    input.remove();
-  }
-  $("#copySubmittedOrderLabel").textContent = "已复制订单号";
+  await copySuccessValue(event.currentTarget, $("#copySubmittedOrderLabel"), orderNumber);
 };
 $("#viewSubmittedOrder").onclick = async () => {
   if (window.TingsAccount?.isSignedIn?.()) {
