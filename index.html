@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="customer-account.css?v=ec128b9163f18cb2fd7788663169f60db533e2c947aa2ad2e97f33ee0d026f9b" />
     <link rel="stylesheet" href="customer-wallet.css?v=79a90270de2e72d791b6e695969715732df9b9c9a2b8f12a6c31bee6141d7456" />
     <link rel="stylesheet" href="checkout-layout.css?v=0bf7c2aa1792a9766ddcaf33ec0c09bdc8eb06944b6fc907fc46f92e015bc234" />
+    <link rel="stylesheet" href="order-success.css?v=f2e92ffec1a51388ce1fdc71f5970cf3c62ffc66d74c3a36154ef22421590a44" />
     <link rel="stylesheet" href="brand-header.css?v=20260915a" />
     <link rel="stylesheet" href="header-entry-buttons.css?v=20260915a" />
     <link rel="stylesheet" href="activity-announcement.css?v=20260915a" />
@@ -30,7 +31,7 @@
     <script defer src="customer-order-tools.js?v=20260911a"></script>
     <script defer src="customer-wallet.js?v=e53819760d2387c4db8d19773832f023e38d2fc570dd6ea04f345b02569681cc"></script>
     <script defer src="customer-account.js?v=4c8470225a25a5a3d21df6eaff002e8296fc3d4bdd9726a8e6dcea9d6c9de4f2"></script>
-    <script defer src="app.js?v=7f813643c0a1e2c26d513ab42de2f1ebd0011e2ed58843ce70f99dca67ec818f"></script>
+    <script defer src="app.js?v=194b30b22c4fd29ba0178e6127f31d5d4b872876becdfb452bcb9463cf09d741"></script>
     <script defer src="mobile-header.js?v=902f8028e24f807bc808063aa320158619aa2ace602e40a8577427a9cd1b976a"></script>
     <script defer src="activity-announcement.js?v=20260915a"></script>
     <script defer src="activity-promotions.js?v=20260914a"></script>
@@ -490,28 +491,17 @@
       </div>
       <div class="success order-success" id="successMessage" hidden>
         <div class="success-hero">
-          <span class="success-check" aria-hidden="true">✓</span>
+          <span class="success-hero-note" aria-hidden="true">美味，<br>从这一单开始！<svg viewBox="0 0 80 30"><path d="M3 27Q31 3 72 5L54 23M72 5 46 4"/></svg></span>
+          <img class="success-cat-art" src="success-cat-v1.webp" alt="" width="512" height="512" />
+          <span class="success-check" aria-hidden="true"><svg viewBox="0 0 60 60"><path d="m16 30 10 11 20-22"/></svg></span>
           <h2>下单成功！</h2>
-          <p>我们已收到你的订单，店铺确认后会开始备货</p>
+          <p>订单已收到，感谢你的支持！</p>
+          <p class="success-preparing-note">店铺确认后开始备货 <span aria-hidden="true">♥</span></p>
         </div>
-        <section class="success-referral-reward" id="successReferralReward" hidden aria-live="polite">
-          <div class="success-referral-line">
-            <span>🎁 您的推荐码：</span><button class="success-referral-code" id="submittedReferralCode" type="button" data-copy-referral aria-label="复制推荐码"></button><button class="success-referral-info" type="button" data-referral-info="code">推荐码说明</button>
-          </div>
-          <div class="success-referral-line success-referral-earned" id="successReferralEarned" hidden>
-            <span>订单完成后，仅向推荐人账户发放推荐奖励券。</span><button class="success-referral-info" type="button" data-referral-info="coupon">奖励券说明</button>
-          </div>
-          <div class="success-referral-line" id="successYourRewardCoupon" hidden>
-            <span>你的奖励券：</span><button class="success-referral-code" id="submittedYourRewardCoupon" type="button" data-copy-referral aria-label="复制你的奖励券"></button>
-          </div>
-          <div class="success-referral-line" id="successReferrerRewardCoupon" hidden>
-            <span>推荐人奖励券：</span><button class="success-referral-code" id="submittedReferrerRewardCoupon" type="button" data-copy-referral aria-label="复制推荐人奖励券"></button>
-          </div>
-        </section>
         <dl class="success-order-summary">
           <div>
             <dt><span class="success-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4h10v16H7z"/><path d="M9 2h6v4H9zM9 11l2 2 4-4M9 17h6"/></svg></span>订单号</dt>
-            <dd id="submittedOrderNumber"></dd>
+            <dd class="success-number-value"><b id="submittedOrderNumber"></b><button id="copySubmittedOrder" type="button" aria-label="复制订单号"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="12" height="15" rx="3"/><rect x="4" y="7" width="12" height="15" rx="3"/></svg><span id="copySubmittedOrderLabel" role="status" aria-live="polite"></span></button></dd>
           </div>
           <div>
             <dt><span class="success-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16v11H4z"/><path d="M4 10h16M8 15h3"/></svg></span>订单总额</dt>
@@ -522,18 +512,30 @@
             <dd id="submittedFulfillmentNote"></dd>
           </div>
           <div class="success-items-row">
-            <dt><span class="success-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6zM8 8V6a4 4 0 0 1 8 0v2"/></svg></span>共 <b id="submittedItemCount">0</b> 件商品</dt>
-            <dd><span class="success-item-thumbs" id="submittedItemThumbs"></span><i aria-hidden="true">›</i></dd>
+            <dt><span class="success-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6zM8 8V6a4 4 0 0 1 8 0v2"/></svg></span>商品</dt>
+            <dd><span class="success-item-count">共 <b id="submittedItemCount">0</b> 件商品</span><span class="success-item-thumbs" id="submittedItemThumbs"></span></dd>
           </div>
         </dl>
         <div class="success-actions">
           <button class="primary-button" id="viewSubmittedOrder" type="button">查看订单</button>
-          <button class="success-secondary" id="done" type="button">继续逛逛</button>
+          <button class="success-secondary" id="done" type="button">继续购物</button>
         </div>
+        <section class="success-referral-reward" id="successReferralReward" hidden>
+          <img class="success-gift-art" src="success-gift-v1.webp" alt="" width="512" height="512" />
+          <div class="success-referral-content">
+            <h3>分享美味，和好友一起领福利</h3>
+            <p>好友首单满 $30 减 $5，订单完成后你可获得 $5 奖励券！</p>
+            <div class="success-referral-line"><div class="success-referral-copy"><span id="submittedReferralCode"></span><button id="copySuccessReferral" type="button" data-copy-referral aria-label="复制推荐码"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="12" height="15" rx="3"/><rect x="4" y="7" width="12" height="15" rx="3"/></svg><span data-copy-label aria-live="polite">复制</span></button></div><button class="success-referral-info" type="button" data-referral-info="code">查看规则 <span aria-hidden="true">›</span></button></div>
+          </div>
+          <div class="success-referral-line success-referral-earned" id="successReferralEarned" hidden><span>订单完成后，仅向推荐人账户发放推荐奖励券。</span><button class="success-referral-info" type="button" data-referral-info="coupon">奖励券说明</button></div>
+          <div class="success-referral-line" id="successYourRewardCoupon" hidden><span>你的奖励券：</span><button class="success-referral-code" id="submittedYourRewardCoupon" type="button" data-copy-referral aria-label="复制你的奖励券"></button></div>
+          <div class="success-referral-line" id="successReferrerRewardCoupon" hidden><span>推荐人奖励券：</span><button class="success-referral-code" id="submittedReferrerRewardCoupon" type="button" data-copy-referral aria-label="复制推荐人奖励券"></button></div>
+        </section>
         <div class="success-utility">
-          <button id="copySubmittedOrder" type="button"><svg class="success-utility-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="7" width="11" height="13" rx="1"/><path d="M5 16V4h10"/><path d="M12 12h3M12 16h3"/></svg><span id="copySubmittedOrderLabel">复制订单号</span></button>
-          <button id="contactShop" type="button"><svg class="success-utility-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H9l-4 4z"/><path d="M9 10h.01M12 10h.01M15 10h.01"/></svg>联系店铺</button>
+          <button id="contactShop" type="button" aria-controls="successContactDetails" aria-expanded="false"><svg class="success-utility-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H9l-4 4z"/><path d="M9 10h.01M12 10h.01M15 10h.01"/></svg>联系客服</button>
+          <p>有任何问题，我们随时为你服务</p>
         </div>
+        <div class="success-footer-art" aria-hidden="true"><svg viewBox="0 0 180 80"><path d="M13 61Q3 31 25 17Q34 30 50 29Q58 51 40 66Q25 76 13 61ZM72 64l31-32q13 0 18 13L90 76Q74 81 72 64Z"/><circle cx="23" cy="44" r="3"/><circle cx="35" cy="56" r="3"/><path d="M119 20q8-20 27-15q-6 17-27 15M144 65q2-25 25-27q-4 19-25 27"/></svg><span>好零食<br>让生活更甜一点！♡</span></div>
         <div class="success-contact">
           <p id="successContactDetails" hidden></p>
         </div>

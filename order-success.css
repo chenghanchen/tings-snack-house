@@ -1,0 +1,104 @@
+/* Reference success page. Scoped to confirmation; checkout/account widths stay unchanged. */
+#orderDialog:has(#successMessage:not([hidden])){width:min(560px,calc(100vw - 16px));max-width:none;max-height:calc(100dvh - 16px);padding:28px 20px 0;border:0;border-radius:20px;background:#fffefa;color:#163e29;overflow:auto;overscroll-behavior:contain}
+#orderDialog:has(#successMessage:not([hidden]))>#closeDialog{top:4px;right:4px;width:50px;height:50px;margin:0;font-size:32px;color:#747872;z-index:3}
+#successMessage{position:relative;isolation:isolate;padding:0;text-align:center;font-family:Arial, sans-serif}
+#successMessage [hidden]{display:none!important}
+#successMessage button{cursor:pointer}
+#successMessage button:focus-visible{outline:3px solid #49894a;outline-offset:3px}
+#successMessage>.success-hero{position:relative;display:grid;justify-items:center;width:100%;margin:0;padding:5px 0 18px;min-height:216px}
+#successMessage .success-hero:before{content:"";position:absolute;z-index:-1;left:-100px;bottom:-20px;width:220px;height:140px;background:#faf6eb;border-radius:50%;transform:rotate(35deg)}
+#successMessage .success-check{position:relative;width:80px;height:80px;margin:0 0 10px;border:2px solid #74ba61;background:linear-gradient(145deg,#6cbe55,#32923f);color:white;box-shadow:inset 0 1px 5px #fff3}
+#successMessage .success-check svg{width:60px;height:60px;fill:none;stroke:currentColor;stroke-width:8;stroke-linecap:round;stroke-linejoin:round}
+#successMessage .success-check:before,#successMessage .success-check:after{content:"";position:absolute;top:13px;width:11px;height:29px;border-radius:9px;background:#a4cf8b;transform:rotate(-38deg);left:-40px;box-shadow:-27px 25px 0 -2px #ffd15d}
+#successMessage .success-check:after{left:auto;right:-42px;background:#ffd15d;transform:rotate(38deg);box-shadow:30px 20px 0 -1px #a4cf8b}
+#successMessage h2{position:relative;margin:0;font-size:44px;font-weight:800;letter-spacing:1px;line-height:1.25;color:#12472e}
+#successMessage .success-hero>p{position:relative;max-width:82%;margin:8px 0 0;color:#566069;font-size:15px;line-height:1.65}
+#successMessage .success-hero>p.success-preparing-note{margin:5px 0 0;color:#769855;font-size:16px;letter-spacing:1px}
+.success-preparing-note span{color:#f47e6d;font-size:22px}
+.success-cat-art{position:absolute;right:0;bottom:-9px;width:127px;height:127px;object-fit:contain;z-index:-1;pointer-events:none}
+.success-hero-note{position:absolute;left:16px;top:101px;max-width:120px;text-align:left;font-size:14px;line-height:1.5;letter-spacing:1px;white-space:nowrap;color:#799963;transform:rotate(-13deg);pointer-events:none}
+.success-hero-note svg{display:block;width:70px;height:25px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+#successMessage .success-order-summary{position:relative;margin:0;padding:3px 15px;border:0;border-radius:19px;background:#fff;box-shadow:0 6px 18px #384b1710;overflow:visible}
+#successMessage .success-order-summary>div:nth-child(n){display:grid;grid-template-columns:134px minmax(0,1fr);gap:12px;align-items:center;height:auto;min-height:65px;margin:0;padding:10px 0;border-bottom:1px solid #eeeade}
+#successMessage .success-order-summary>div:last-child{border:0}
+#successMessage .success-order-summary dt{gap:14px;font-size:16px;font-weight:400;white-space:nowrap;color:#334155}
+#successMessage .success-order-summary dt>.success-icon{width:44px;height:44px;flex-shrink:0;background:#eff7e9;color:#14552e}
+#successMessage .success-icon svg{width:24px;height:24px;stroke-width:1.9}
+#successMessage .success-order-summary dd{min-width:0;font-size:16px;line-height:1.5;color:#182f40;text-align:left;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+#successMessage #submittedOrderNumber{font-size:17px;line-height:1.4;font-weight:700;letter-spacing:0}
+#successMessage .success-number-value{display:flex;align-items:center;justify-content:space-between;gap:6px}
+#successMessage #submittedOrderTotal{color:#124b2f;font-size:30px;font-weight:700;text-align:right}
+#successMessage #submittedFulfillmentNote{font-size:16px;line-height:1.5}
+#copySubmittedOrder{position:relative;display:grid;place-items:center;flex:none;width:40px;height:40px;padding:8px;border:1px solid #d7e9cd;border-radius:50%;background:#f5faf1;color:#15542e}
+#copySubmittedOrder svg,#copySuccessReferral svg{width:21px;height:23px;fill:none;stroke:currentColor;stroke-width:1.8}
+#copySubmittedOrder svg rect:last-child,#copySuccessReferral svg rect:last-child{fill:#f5faf1}
+#copySubmittedOrderLabel:not(:empty){position:absolute;right:0;bottom:calc(100% + 7px);min-width:80px;padding:6px 9px;border-radius:8px;background:#478f48;color:white;font:600 13px/1.4 Arial, sans-serif;white-space:nowrap;box-shadow:0 2px 7px #22412220}
+#copySubmittedOrderLabel:not(:empty):after{content:"";position:absolute;right:13px;top:100%;border:5px solid transparent;border-top-color:#478f48}
+#successMessage .success-items-row dd{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
+.success-item-count{font-size:15px;white-space:nowrap}
+.success-item-count b{font-weight:400}
+#successMessage .success-item-thumbs{display:flex;flex-wrap:nowrap;max-width:100%;gap:5px;overflow:hidden}
+#successMessage .success-item-thumb{width:39px;height:46px;border-radius:7px;background:#f4f0e5;font-size:23px}
+#successMessage .success-item-thumb img{object-fit:contain}
+#successMessage .success-item-more{background:#edf6e7;color:#17552f;font-size:16px;font-weight:700}
+#successMessage>.success-actions{display:grid;width:100%;gap:12px;margin:17px 0 0}
+#successMessage .success-actions .primary-button{width:100%;min-height:56px;margin:0;justify-content:center;border:0;border-radius:13px;background:linear-gradient(110deg,#f56456,#ed5148);box-shadow:none;color:white;font-size:23px;font-weight:700}
+#successMessage #viewSubmittedOrder:after{content:"›";margin-left:13px;font-size:31px;font-weight:400;line-height:1}
+#successMessage .success-secondary{width:100%;min-height:53px;border:1.5px solid #1c653b;border-radius:12px;background:transparent;color:#15512f;font-size:21px;font-weight:700}
+#successMessage .success-referral-reward{position:relative;display:grid;grid-template-columns:92px minmax(0,1fr);align-items:center;gap:6px;margin:20px 0 0;padding:18px 12px;border:1px solid #d4e8ca;border-radius:14px;background:linear-gradient(120deg,#f3f9ed,#f5faf1);text-align:left}
+.success-gift-art{width:105px;height:132px;object-fit:contain;margin-left:-7px;pointer-events:none}
+.success-referral-content{min-width:0}
+#successMessage .success-referral-content h3{margin:0;font-size:19px;line-height:1.5;color:#194f2d}
+#successMessage .success-referral-content>p{margin:5px 0 12px;color:#6c7468;font-size:13px;line-height:1.7}
+#successMessage .success-referral-line{display:flex;align-items:center;gap:7px;min-width:0}
+.success-referral-copy{display:flex;align-items:center;justify-content:space-between;gap:5px;min-width:0;flex:1;padding:6px;border:1px dashed #c4deba;border-radius:10px;background:#ffffffb3}
+#successMessage #submittedReferralCode{min-width:0;color:#193348;font-size:16px;font-weight:700;line-height:1.4;overflow-wrap:anywhere;text-align:left}
+#copySuccessReferral{display:flex;align-items:center;justify-content:center;gap:5px;min-height:38px;padding:6px 8px;border:1px solid #b1d3a3;border-radius:8px;background:#edf6e5;color:#16532e;font-size:14px;white-space:nowrap}
+#successMessage #successReferralReward .success-referral-info{flex:none;min-height:38px;margin:0;padding:6px 0;border:0;border-radius:0;background:none;font-size:13px;font-weight:600;color:#17532e;white-space:nowrap}
+#successMessage #successReferralPending{margin:14px 2px 0;text-align:left;font-size:13px;line-height:1.7;color:#63705c}
+#successMessage>.success-utility{display:grid;grid-template-columns:1fr;gap:0;margin:20px 0 0}
+#successMessage #contactShop{display:inline-flex;align-items:center;justify-content:center;gap:7px;justify-self:center;width:auto;min-height:44px;padding:5px 12px;border:0;background:transparent;color:#17562e;font-size:17px;font-weight:500}
+#successMessage #contactShop svg{width:24px;height:24px}
+#successMessage .success-utility>p{margin:0;color:#8c9188;font-size:13px;line-height:1.7}
+#successMessage .success-contact{display:block;margin:0}
+#successMessage #successContactDetails{margin:8px 0;padding:10px;background:#f0f6e9;color:#315e3a;font-size:14px;white-space:pre-line;overflow-wrap:anywhere}
+#successMessage>.success-footer-art{position:relative;display:flex;justify-content:space-between;align-items:flex-end;width:calc(100% + 40px);height:68px;margin:12px -20px 0;padding:0 16px 10px;overflow:hidden;border-radius:0;background:radial-gradient(ellipse at 0 115%,#e9f3dc 0 50%,transparent 51%),radial-gradient(ellipse at 110% 110%,#eef6e5 0 47%,transparent 48%);color:#8eae73;font-size:14px;line-height:1.4}
+.success-footer-art svg{width:125px;height:58px;fill:none;stroke:#b3d193;stroke-width:2}
+.success-footer-art>span{display:block;transform:rotate(-10deg);text-align:left;letter-spacing:1px}
+/* Narrow screens: keep the same hierarchy, allow content to grow instead of truncating. */
+@media(max-width:600px){
+  #orderDialog:has(#successMessage:not([hidden])){padding:25px 12px 0;border-radius:16px}
+  #successMessage>.success-hero{min-height:205px;padding-bottom:16px}
+  #successMessage h2{font-size:37px}
+  #successMessage .success-check{width:68px;height:68px}
+  #successMessage .success-check svg{width:51px;height:51px}
+  #successMessage .success-hero>p{max-width:80%;font-size:12px}
+  #successMessage .success-hero>p.success-preparing-note{font-size:13px}
+  .success-cat-art{width:85px;height:85px;right:0;bottom:1px}
+  .success-hero-note{left:8px;top:109px;font-size:10px;max-width:72px;letter-spacing:0;white-space:nowrap}
+  .success-hero-note svg{width:50px;height:22px}
+  #successMessage .success-order-summary{padding:3px 10px;border-radius:15px}
+  #successMessage .success-order-summary>div:nth-child(n){grid-template-columns:100px minmax(0,1fr);gap:7px;min-height:60px;padding:10px 0}
+  #successMessage .success-order-summary dt{gap:8px;font-size:14px}
+  #successMessage .success-order-summary dt>.success-icon{width:34px;height:34px}
+  #successMessage .success-icon svg{width:21px;height:21px}
+  #successMessage #submittedOrderNumber{font-size:13px}
+  #successMessage #submittedOrderTotal{font-size:26px}
+  #successMessage #submittedFulfillmentNote{font-size:13px}
+  #copySubmittedOrder{width:36px;height:36px;padding:7px}
+  .success-item-count{font-size:13px}
+  #successMessage .success-item-thumb{width:31px;height:37px;font-size:18px}
+  #successMessage .success-item-thumbs{gap:3px}
+  #successMessage .success-actions .primary-button{min-height:50px;font-size:21px}
+  #successMessage .success-secondary{min-height:47px;font-size:19px}
+  #successMessage .success-referral-reward{grid-template-columns:58px minmax(0,1fr);gap:5px;margin-top:17px;padding:13px 9px}
+  .success-gift-art{width:65px;height:98px;margin-left:-7px}
+  #successMessage .success-referral-content h3{font-size:16px}
+  #successMessage .success-referral-content>p{font-size:12px}
+  #successMessage #submittedReferralCode{font-size:14px}
+  #successMessage .success-referral-line{flex-wrap:wrap}
+  .success-referral-copy{flex-basis:100%}
+  #successMessage #successReferralReward .success-referral-info{min-height:30px;padding:2px 0}
+  #successMessage>.success-footer-art{width:calc(100% + 24px);margin-inline:-12px}
+}
+@media(prefers-reduced-motion:reduce){#successMessage *{scroll-behavior:auto;transition:none}}

@@ -538,14 +538,15 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     await page.waitForFunction(()=>__accountTest.calls.some(c=>c.name==='submit-order'));
     assert.equal((await page.evaluate(()=>__accountTest.calls.find(c=>c.name==='submit-order'))).headers.Authorization,guestHeader.Authorization);
     await page.evaluate(()=>{settings.content.storeSettings.delivery.minDelivery=0});
-    assert.equal(await page.textContent('#submittedFulfillmentLabel'),'自取');
+    assert.equal(await page.textContent('#submittedFulfillmentLabel'),'自取地址');
     assert.equal(await page.textContent('#submittedFulfillmentNote'),'天河城二楼，Archer Ave');
     assert.equal(await page.getAttribute('#submittedFulfillmentIcon','data-kind'),'pickup');
     assert.equal(await page.locator('.success-address-row').count(),0);
     assert.equal(await page.textContent('#viewSubmittedOrder'),'查看订单');
     await page.click('#copySubmittedOrder');
-    await page.waitForFunction(()=>document.querySelector('#copySubmittedOrderLabel').textContent==='已复制订单号');
-    assert.equal(await page.textContent('#copySubmittedOrderLabel'),'已复制订单号');
+    await page.waitForFunction(()=>document.querySelector('#copySubmittedOrderLabel').textContent==='✓ 已复制');
+    assert.equal(await page.textContent('#copySubmittedOrderLabel'),'✓ 已复制');
+    await page.waitForFunction(()=>document.querySelector('#copySubmittedOrderLabel').textContent==='');
     await page.click('#done');await page.click('#productGrid .add');
 
     await page.click('[data-promotion-account="coupons"]');
@@ -1273,12 +1274,12 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     const submission=await page.evaluate(()=>__accountTest.calls.filter(c=>c.name==='submit-order').at(-1));
     assert.equal(submission.headers.Authorization,'Bearer customer-token-alice@example.test');
     assert.equal('p_user_id' in submission.body,false);
-    assert.equal(await page.textContent('#submittedFulfillmentLabel'),'配送');
+    assert.equal(await page.textContent('#submittedFulfillmentLabel'),'配送地址');
     assert.equal(await page.textContent('#submittedFulfillmentNote'),'Temporary delivery address');
     assert.equal(await page.getAttribute('#submittedFulfillmentIcon','data-kind'),'delivery');
     assert.equal(await page.locator('.success-progress-note').count(),0);
-    assert.equal(await page.textContent('#viewSubmittedOrder'),'我的订单');
-    assert.equal(await page.textContent('#copySubmittedOrderLabel'),'复制订单号');
+    assert.equal(await page.textContent('#viewSubmittedOrder'),'查看订单');
+    assert.equal(await page.textContent('#copySubmittedOrderLabel'),'');
     await page.setViewportSize({width:1710,height:1180});
     const successLayout=await page.evaluate(()=>{
       const style=selector=>getComputedStyle(document.querySelector(selector));
@@ -1291,8 +1292,8 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
         addressWidth:Math.round(address.width),orderNumberSize:style('#submittedOrderNumber').fontSize,
         overflow:dialogNode.scrollWidth>dialogNode.clientWidth+1};
     });
-    assert.deepEqual(successLayout,{dialogPadding:['20px','20px'],heroPadding:['0px','0px'],referralSize:'17px',codeSize:'16px',
-      radius:'15px',close:[50,50],labelWidth:80,addressWidth:330,orderNumberSize:'15px',overflow:false});
+    assert.deepEqual(successLayout,{dialogPadding:['28px','0px'],heroPadding:['5px','18px'],referralSize:'17px',codeSize:'16px',
+      radius:'20px',close:[50,50],labelWidth:134,addressWidth:344,orderNumberSize:'17px',overflow:false});
     for(const width of responsiveWidths([320,390,780])){
       await page.setViewportSize({width,height:844});
       const mobileSuccessLayout=await page.evaluate(()=>{
@@ -1305,7 +1306,7 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
           rowFits:row.scrollWidth<=row.clientWidth+1,addressInside:addressBox.right<=row.getBoundingClientRect().right+1,
           dialogFits:dialog.scrollWidth<=dialog.clientWidth+1};
       });
-      assert.deepEqual(mobileSuccessLayout,{radius:'15px',close:[50,50],labelWidth:80,orderNumberSize:'15px',addressWrap:'normal',
+      assert.deepEqual(mobileSuccessLayout,{radius:width<=600?'16px':'20px',close:[50,50],labelWidth:width<=600?100:134,orderNumberSize:width<=600?'13px':'17px',addressWrap:'normal',
         addressFits:true,rowFits:true,addressInside:true,dialogFits:true},`mobile success ${width}px`);
     }
     await page.setViewportSize({width:1710,height:1180});
@@ -1314,8 +1315,9 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
     assert.equal(await page.locator('#successContactDetails').evaluate(el=>getComputedStyle(el).whiteSpace),'pre-line');
     assert.equal(await page.locator('#successContactDetails').evaluate(el=>getComputedStyle(el).borderRadius),'10px');
     await page.click('#copySubmittedOrder');
-    await page.waitForFunction(()=>document.querySelector('#copySubmittedOrderLabel').textContent==='已复制订单号');
-    assert.equal(await page.textContent('#copySubmittedOrderLabel'),'已复制订单号');
+    await page.waitForFunction(()=>document.querySelector('#copySubmittedOrderLabel').textContent==='✓ 已复制');
+    assert.equal(await page.textContent('#copySubmittedOrderLabel'),'✓ 已复制');
+    await page.waitForFunction(()=>document.querySelector('#copySubmittedOrderLabel').textContent==='');
     await page.click('#viewSubmittedOrder');
     await page.waitForSelector('#customerOrdersPanel:not([hidden])');
     assert.equal(await page.textContent('#customerAccountTitle'),'我的订单');
