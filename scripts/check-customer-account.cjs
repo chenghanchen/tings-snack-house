@@ -1292,8 +1292,8 @@ module.exports = async function checkAccount(browser, {mode='account', width=390
         addressWidth:Math.round(address.width),orderNumberSize:style('#submittedOrderNumber').fontSize,
         overflow:dialogNode.scrollWidth>dialogNode.clientWidth+1};
     });
-    assert.deepEqual(successLayout,{dialogPadding:['28px','0px'],heroPadding:['5px','18px'],referralSize:'17px',codeSize:'16px',
-      radius:'20px',close:[50,50],labelWidth:134,addressWidth:344,orderNumberSize:'17px',overflow:false});
+    assert.deepEqual(successLayout,{dialogPadding:['20px','0px'],heroPadding:['0px','0px'],referralSize:'17px',codeSize:'16px',
+      radius:'20px',close:[50,50],labelWidth:134,addressWidth:304,orderNumberSize:'17px',overflow:false});
     for(const width of responsiveWidths([320,390,780])){
       await page.setViewportSize({width,height:844});
       const mobileSuccessLayout=await page.evaluate(()=>{

@@ -23,6 +23,14 @@ module.exports=async function successDialog(browser){
       assert.equal(await page.textContent('#submittedItemCount'),'13');
       assert.equal(await page.locator('.success-item-thumb').count(),5);
       assert.equal(await page.textContent('.success-item-more'),'+2','Overflow counts unshown product lines, not total quantity');
+      const spacing=await page.evaluate(()=>{
+        const style=s=>getComputedStyle(document.querySelector(s));
+        const dialog=style('#orderDialog'),hero=style('.success-hero'),note=style('.success-preparing-note'),button=style('#viewSubmittedOrder'),referral=style('#successReferralReward'),utility=style('.success-utility');
+        const textRange=document.createRange();textRange.selectNodeContents(document.querySelector('.success-utility>p'));
+        const a=textRange.getBoundingClientRect(),b=document.querySelector('.success-footer-art svg').getBoundingClientRect();
+        return {width:dialog.width,top:dialog.paddingTop,hero:[hero.paddingTop,hero.paddingBottom],note:note.marginTop,gap:[button.rowGap,button.columnGap],referral:[referral.paddingTop,referral.paddingBottom,referral.marginTop],utility:[utility.marginTop,utility.marginBottom],decorationClear:a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top};
+      });
+      assert.deepEqual(spacing,{width:`${Math.min(520,width-16)}px`,top:'20px',hero:['0px','0px'],note:'0px',gap:['0px','0px'],referral:['5px','5px','10px'],utility:['0px','-40px'],decorationClear:true},`${width} compact confirmation spacing`);
       for(const long of [false,true])for(const label of ['配送','自取']){
         await page.evaluate(({long,label})=>{document.querySelector('#submittedFulfillmentLabel').textContent=label;document.querySelector('#submittedFulfillmentNote').textContent=long?'12345 Very Long Street Name, Apartment 12345, Chicago Illinois 60616 '+ 'X'.repeat(120):'2627 S Union Ave, Unit 1, Chicago IL 60616'},{long,label});
         const m=await page.evaluate(()=>{
