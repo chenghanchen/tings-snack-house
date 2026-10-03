@@ -3,10 +3,10 @@ const {WIDTHS}=require('./policy.cjs');
 const {adapter,root}=require('./harness.cjs');
 module.exports=async function successDialog(browser){
   let cases=0;
-  for(const width of WIDTHS){
+  for(const width of [...new Set([...WIDTHS,446,600,601])].sort((a,b)=>a-b)){
     const fixture=adapter(browser,{htmlTransform:html=>html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'')});
     try{
-      const page=await fixture.newPage({viewport:{width,height:1180}});
+      const page=await fixture.newPage({viewport:{width,height:width===446?753:1180}});
       await page.goto('http://localhost/');
       const app=fs.readFileSync(path.join(root,'app.js'),'utf8'),start=app.indexOf('function closeOrderDialog()'),end=app.indexOf('$("#orderDialog").addEventListener("close"',start);
       assert.ok(start>=0&&end>start);
@@ -31,6 +31,15 @@ module.exports=async function successDialog(browser){
         return {width:dialog.width,top:dialog.paddingTop,hero:[hero.paddingTop,hero.paddingBottom],note:note.marginTop,gap:[button.rowGap,button.columnGap],referral:[referral.paddingTop,referral.paddingBottom,referral.marginTop],utility:[utility.marginTop,utility.marginBottom],decorationClear:a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top};
       });
       assert.deepEqual(spacing,{width:`${Math.min(520,width-16)}px`,top:'20px',hero:['0px','0px'],note:'0px',gap:['0px','0px'],referral:['5px','5px','10px'],utility:['0px','-40px'],decorationClear:true},`${width} compact confirmation spacing`);
+      const mobileSpacing=await page.evaluate(()=>{
+        const s=selector=>getComputedStyle(document.querySelector(selector));
+        return {hero:s('.success-hero').marginTop,title:s('.success-hero h2').marginLeft,subtitle:s('.success-hero>p:first-of-type').marginLeft,note:s('.success-preparing-note').marginLeft,actions:s('.success-actions').marginTop,support:s('.success-utility>p').marginTop,footer:s('.success-footer-art').marginTop,rules:s('#successReferralReward .success-referral-info').marginTop};
+      });
+      assert.deepEqual(mobileSpacing,width<=600?{hero:'-10px',title:'30px',subtitle:'20px',note:'15px',actions:'10px',support:'-5px',footer:'15px',rules:'-5px'}:{hero:'0px',title:'0px',subtitle:'0px',note:'0px',actions:'17px',support:'0px',footer:'12px',rules:'0px'},`${width} mobile annotations stay scoped`);
+      if(width<=600){
+        assert.equal(await page.locator('.success-order-summary>div:has(#submittedOrderTotal)').evaluate(el=>el.getBoundingClientRect().height),60,'Mobile total row is 60px');
+        assert.equal(await page.locator('#viewSubmittedOrder').evaluate(el=>el.getBoundingClientRect().height),50,'Mobile order action is 50px');
+      }
       for(const long of [false,true])for(const label of ['配送','自取']){
         await page.evaluate(({long,label})=>{document.querySelector('#submittedFulfillmentLabel').textContent=label;document.querySelector('#submittedFulfillmentNote').textContent=long?'12345 Very Long Street Name, Apartment 12345, Chicago Illinois 60616 '+ 'X'.repeat(120):'2627 S Union Ave, Unit 1, Chicago IL 60616'},{long,label});
         const m=await page.evaluate(()=>{
@@ -51,6 +60,18 @@ module.exports=async function successDialog(browser){
       assert.equal(await page.locator('#submittedReferralCode').evaluate(el=>getComputedStyle(el).fontSize),width<=600?'14px':'16px');
       await page.evaluate(()=>{document.querySelector('#submittedFulfillmentNote').textContent='2627 S Union Ave, Unit 1, Chicago IL 60616';document.querySelector('#submittedFulfillmentLabel').textContent='配送地址'});
       if(process.env.SUCCESS_CAPTURE_DIR){fs.mkdirSync(process.env.SUCCESS_CAPTURE_DIR,{recursive:true});await page.locator('#orderDialog').screenshot({path:path.join(process.env.SUCCESS_CAPTURE_DIR,`success-${width}.png`)});}
+      await page.click('#contactShop');
+      assert.equal(await page.locator('#contactShop').getAttribute('aria-expanded'),'true');
+      assert.equal(await page.locator('#successContactDetails').isVisible(),true);
+      assert.equal(await page.evaluate(()=>{
+        const details=document.querySelector('#successContactDetails'),d=details.getBoundingClientRect(),button=document.querySelector('#contactShop').getBoundingClientRect(),note=document.querySelector('.success-utility>p').getBoundingClientRect(),footer=document.querySelector('.success-footer-art').getBoundingClientRect();
+        return !!details.closest('.success-utility')&&d.top>=button.bottom&&d.bottom<=note.top&&d.bottom<=footer.top&&details.scrollWidth<=details.clientWidth+1;
+      }),true,'Expanded contact details are below the button and above the note/footer');
+      if(process.env.SUCCESS_CAPTURE_DIR)await page.locator('#orderDialog').screenshot({path:path.join(process.env.SUCCESS_CAPTURE_DIR,`success-contact-${width}.png`)});
+      await page.click('#contactShop');
+      assert.equal(await page.locator('#successContactDetails').isHidden(),true);
+      assert.equal(await page.locator('#contactShop').getAttribute('aria-expanded'),'false');
+      cases+=5;
       if(width===390){
         await page.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{if(window.__copyFail)throw Error('denied');window.__copied=value}}});document.execCommand=()=>false;});
         await page.click('#copySubmittedOrder');
